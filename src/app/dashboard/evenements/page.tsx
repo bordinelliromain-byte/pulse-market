@@ -52,7 +52,9 @@ function AvailabilityBar({ available, total }: { available: number; total: numbe
   )
 }
 
-function EventCoverImage({ title, location, exclusive, isNew }: { title: string; location?: string; exclusive?: boolean; isNew?: boolean }) {
+function EventCoverImage({ title, location, exclusive, isNew, imageUrl }: {
+  title: string; location?: string; exclusive?: boolean; isNew?: boolean; imageUrl?: string
+}) {
   const gradients = [
     'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)',
     'linear-gradient(135deg, #0EA5E9 0%, #4F46E5 100%)',
@@ -64,34 +66,34 @@ function EventCoverImage({ title, location, exclusive, isNew }: { title: string;
   const gradient = gradients[title.length % gradients.length]
 
   return (
-    <div style={{ position: 'relative', height: 160, background: gradient, overflow: 'hidden' }}>
-      {/* Overlay pattern */}
-      <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.08) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.06) 0%, transparent 40%)' }} />
-
-      {/* Location overlay */}
-      {location && (
-        <div style={{ position: 'absolute', bottom: 12, left: 12, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '5px 10px' }}>
-          <MapPin size={11} style={{ color: 'white', opacity: 0.8 }} />
-          <span style={{ fontSize: 11, color: 'white', fontWeight: 500 }}>{location}</span>
+    <div style={{ position: 'relative', height: 160, overflow: 'hidden' }}>
+      {imageUrl ? (
+        <img src={imageUrl} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s' }} />
+      ) : (
+        <div style={{ height: '100%', background: gradient }}>
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.08) 0%, transparent 50%)' }} />
         </div>
       )}
-
-      {/* Badges */}
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.3) 0%, transparent 60%)' }} />
+      {location && (
+        <div style={{ position: 'absolute', bottom: 10, left: 10, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)', borderRadius: 8, padding: '4px 9px' }}>
+          <MapPin size={10} style={{ color: 'white', opacity: 0.8 }} />
+          <span style={{ fontSize: 10, color: 'white', fontWeight: 500 }}>{location}</span>
+        </div>
+      )}
       <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6 }}>
         {exclusive && (
-          <span style={{ background: '#FBBF24', color: '#92400E', fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 100, display: 'flex', alignItems: 'center', gap: 3, letterSpacing: '0.04em' }}>
-            <Star size={8} /> EXCLUSIF PRO
+          <span style={{ background: '#FBBF24', color: '#92400E', fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 100 }}>
+            EXCLUSIF PRO
           </span>
         )}
         {isNew && (
-          <span style={{ background: 'rgba(79,70,229,0.9)', color: 'white', fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 100, letterSpacing: '0.04em' }}>
+          <span style={{ background: 'rgba(79,70,229,0.9)', color: 'white', fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 100 }}>
             NOUVEAU
           </span>
         )}
       </div>
-
-      {/* Verified badge */}
-      <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(22,163,74,0.9)', backdropFilter: 'blur(8px)', borderRadius: 100, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(22,163,74,0.9)', borderRadius: 100, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
         <Shield size={9} style={{ color: 'white' }} />
         <span style={{ fontSize: 9, color: 'white', fontWeight: 700 }}>VÉRIFIÉ</span>
       </div>
@@ -312,10 +314,11 @@ export default function Evenements() {
                     >
                       {/* Cover image */}
                       <EventCoverImage
-                        title={event.title}
-                        location={event.location_name}
-                        exclusive={event.is_exclusive}
-                        isNew={isNew}
+                      title={event.title}
+                      location={event.location_name}
+                      exclusive={event.is_exclusive}
+                      isNew={isNew}
+                      imageUrl={event.image_url}
                       />
 
                       {/* Content */}
@@ -376,7 +379,7 @@ export default function Evenements() {
                               onMouseEnter={e => { e.currentTarget.style.background = '#4338CA'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(79,70,229,0.4)' }}
                               onMouseLeave={e => { e.currentTarget.style.background = '#4F46E5'; e.currentTarget.style.boxShadow = 'none' }}
                             >
-                              Voir l'annonce <ArrowUpRight size={13} />
+                              Postuler <ArrowUpRight size={13} />
                             </button>
                           )}
                         </div>
