@@ -1,291 +1,588 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { motion, useInView } from 'framer-motion'
+import {
+  ArrowRight,
+  FileCheck,
+  Building2,
+  Store,
+  ShieldCheck,
+  Zap,
+  MapPin,
+  Bell,
+  CheckCircle,
+  ChevronRight,
+  BarChart3,
+  Clock,
+  Lock,
+} from 'lucide-react'
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
+}
+
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08 } },
+}
+
+function AnimatedSection({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef(null)
+  const inView = useInView(ref, { once: true, margin: '-80px' })
+  return (
+    <motion.div
+      ref={ref}
+      variants={stagger}
+      initial="hidden"
+      animate={inView ? 'visible' : 'hidden'}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+function Calculator() {
+  const [width, setWidth] = useState(3)
+  const [length, setLength] = useState(4)
+  const [electric, setElectric] = useState<'none' | 'mono' | 'tri'>('none')
+
+  const BASE_RATE = 4.5 // €/m²/jour
+  const ELECTRIC_RATES = { none: 0, mono: 18, tri: 42 }
+  const area = width * length
+  const locationCost = area * BASE_RATE
+  const electricCost = ELECTRIC_RATES[electric]
+  const aotFee = area * 1.2
+  const total = locationCost + electricCost + aotFee
+
+  return (
+    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12 }} className="p-6">
+      <p className="text-xs font-semibold uppercase tracking-widest mb-5" style={{ color: '#64748B' }}>
+        Simulateur de coût d'emplacement
+      </p>
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="text-xs text-slate-500 mb-1 block">Largeur stand (m)</label>
+          <input
+            type="range" min={1} max={10} value={width}
+            onChange={e => setWidth(+e.target.value)}
+            className="w-full accent-indigo-600"
+          />
+          <span className="text-sm font-semibold text-slate-900">{width} m</span>
+        </div>
+        <div>
+          <label className="text-xs text-slate-500 mb-1 block">Longueur stand (m)</label>
+          <input
+            type="range" min={1} max={12} value={length}
+            onChange={e => setLength(+e.target.value)}
+            className="w-full accent-indigo-600"
+          />
+          <span className="text-sm font-semibold text-slate-900">{length} m</span>
+        </div>
+      </div>
+      <div className="mb-5">
+        <label className="text-xs text-slate-500 mb-2 block">Branchement électrique</label>
+        <div className="flex gap-2">
+          {[
+            { val: 'none', label: 'Aucun' },
+            { val: 'mono', label: 'Monophasé' },
+            { val: 'tri', label: 'Triphasé' },
+          ].map(opt => (
+            <button
+              key={opt.val}
+              onClick={() => setElectric(opt.val as any)}
+              style={{
+                border: electric === opt.val ? '1.5px solid #4F46E5' : '1px solid #E2E8F0',
+                background: electric === opt.val ? '#EEF2FF' : 'white',
+                color: electric === opt.val ? '#4F46E5' : '#64748B',
+                borderRadius: 8,
+              }}
+              className="flex-1 py-2 text-xs font-medium transition-all"
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 10 }} className="p-4 space-y-2">
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-500">Surface ({area} m² × {BASE_RATE}€/m²)</span>
+          <span className="font-medium text-slate-900">{locationCost.toFixed(2)} €</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-500">Redevance AOT (1.20€/m²)</span>
+          <span className="font-medium text-slate-900">{aotFee.toFixed(2)} €</span>
+        </div>
+        {electricCost > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">Branchement électrique</span>
+            <span className="font-medium text-slate-900">{electricCost.toFixed(2)} €</span>
+          </div>
+        )}
+        <div style={{ borderTop: '1px solid #E2E8F0' }} className="pt-2 flex justify-between">
+          <span className="text-sm font-semibold text-slate-900">Total estimé / jour</span>
+          <span className="text-lg font-bold" style={{ color: '#4F46E5' }}>{total.toFixed(2)} €</span>
+        </div>
+      </div>
+      <p className="text-xs text-slate-400 mt-3">* Simulation indicative. Le tarif final est fixé par l'organisateur et inclus dans l'AOT signée.</p>
+    </div>
+  )
+}
 
 export default function Landing() {
   const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20)
+    const handleScroll = () => setScrolled(window.scrollY > 30)
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans">
+    <div style={{ background: '#F8FAFC', color: '#0F172A', fontFamily: 'system-ui, sans-serif' }} className="min-h-screen">
 
-      {/* NAVBAR */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white shadow-sm' : 'bg-transparent'}`}>
+      {/* NAV */}
+      <motion.header
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
+          background: scrolled ? 'rgba(255,255,255,0.92)' : 'transparent',
+          backdropFilter: scrolled ? 'blur(12px)' : 'none',
+          borderBottom: scrolled ? '1px solid #E2E8F0' : 'none',
+          transition: 'all 0.2s ease',
+        }}
+      >
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#1E3A5F] rounded-lg flex items-center justify-center">
-              <span className="text-white text-sm font-bold">P</span>
+            <div style={{ width: 28, height: 28, background: '#0F172A', borderRadius: 7 }} className="flex items-center justify-center">
+              <span style={{ color: 'white', fontSize: 12, fontWeight: 700 }}>PM</span>
             </div>
-            <span className="font-bold text-[#1E3A5F] text-xl">PlaceMarket</span>
+            <span style={{ fontWeight: 600, fontSize: 15 }}>PlaceMarket</span>
           </div>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push('/auth')}
-              className="text-[#1E3A5F] font-medium hover:underline"
-            >
+          <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: '#64748B' }}>
+            <a href="#workflow" className="hover:text-slate-900 transition-colors">Fonctionnement</a>
+            <a href="#admin" className="hover:text-slate-900 transition-colors">Administration</a>
+            <a href="#exposant" className="hover:text-slate-900 transition-colors">Exposants</a>
+            <a href="#tarifs" className="hover:text-slate-900 transition-colors">Tarifs</a>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.push('/auth?tab=signin')} style={{ fontSize: 13, color: '#64748B', fontWeight: 500 }} className="hover:text-slate-900 transition-colors">
               Connexion
             </button>
             <button
-              onClick={() => router.push('/auth')}
-              className="bg-[#1E3A5F] text-white px-5 py-2.5 rounded-lg font-medium hover:bg-[#162d4a] transition-colors"
+              onClick={() => router.push('/auth?tab=signup')}
+              style={{ background: '#4F46E5', color: 'white', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500 }}
+              className="hover:opacity-90 transition-opacity flex items-center gap-1.5"
             >
-              Créer un compte
+              Démarrer <ArrowRight size={13} />
             </button>
           </div>
         </div>
-      </nav>
+      </motion.header>
 
       {/* HERO */}
-      <section className="pt-32 pb-20 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 bg-blue-50 text-[#1E3A5F] px-4 py-2 rounded-full text-sm font-medium mb-8">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              Disponible en Provence-Alpes-Côte d'Azur
-            </div>
-            <h1 className="text-5xl md:text-6xl font-bold text-[#1E3A5F] leading-tight mb-6">
-              La plateforme qui connecte <span className="text-green-600">exposants</span> et <span className="text-green-600">organisateurs</span>
-            </h1>
-            <p className="text-xl text-gray-500 mb-10 leading-relaxed">
-              Fini les appels téléphoniques, les emails perdus et les dossiers papier. PlaceMarket digitalise la gestion des marchés, foires et festivals en France.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
+      <section className="pt-36 pb-24 px-6" style={{ borderBottom: '1px solid #E2E8F0' }}>
+        <div className="max-w-5xl mx-auto">
+          <AnimatedSection>
+            <motion.div variants={fadeUp} className="mb-6">
+              <span style={{ background: '#EEF2FF', color: '#4F46E5', padding: '4px 12px', borderRadius: 100, fontSize: 12, fontWeight: 600 }}>
+                Conformité RGPD — Données hébergées en France
+              </span>
+            </motion.div>
+            <motion.h1 variants={fadeUp} style={{ fontSize: 'clamp(36px, 5vw, 60px)', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.03em', maxWidth: 700 }} className="mb-6">
+              La numérisation des marchés du terroir français
+            </motion.h1>
+            <motion.p variants={fadeUp} style={{ fontSize: 18, color: '#64748B', maxWidth: 560, lineHeight: 1.7 }} className="mb-10">
+              PlaceMarket automatise la gestion des Autorisations d'Occupation Temporaire (AOT), la certification des dossiers exposants via OCR, et l'interfaçage avec l'API SIRENE de l'INSEE.
+            </motion.p>
+            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => router.push('/auth')}
-                className="bg-[#1E3A5F] text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[#162d4a] transition-colors"
+                style={{ background: '#4F46E5', color: 'white', padding: '12px 24px', borderRadius: 10, fontWeight: 600, fontSize: 14 }}
+                className="hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
               >
-                Je suis exposant →
+                <Store size={16} /> Espace Exposant
               </button>
               <button
                 onClick={() => router.push('/auth')}
-                className="bg-white text-[#1E3A5F] border-2 border-[#1E3A5F] px-8 py-4 rounded-xl font-semibold text-lg hover:bg-blue-50 transition-colors"
+                style={{ background: 'white', color: '#0F172A', padding: '12px 24px', borderRadius: 10, fontWeight: 600, fontSize: 14, border: '1px solid #E2E8F0' }}
+                className="hover:border-slate-400 transition-colors flex items-center justify-center gap-2"
               >
-                Je suis organisateur →
+                <Building2 size={16} /> Espace Administration
               </button>
-            </div>
-          </div>
+            </motion.div>
+          </AnimatedSection>
+
+          {/* STATS */}
+          <AnimatedSection className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16">
+            {[
+              { n: '36 000', l: 'communes avec marchés en France' },
+              { n: '600 k', l: 'commerçants non-sédentaires' },
+              { n: '10 s', l: 'pour vérifier un SIREN via INSEE' },
+              { n: '0 €', l: "pour démarrer en tant qu'organisateur" },
+            ].map((s, i) => (
+              <motion.div key={i} variants={fadeUp} style={{ borderLeft: '2px solid #E2E8F0', paddingLeft: 16 }}>
+                <p style={{ fontSize: 28, fontWeight: 700, color: '#0F172A' }}>{s.n}</p>
+                <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 4 }}>{s.l}</p>
+              </motion.div>
+            ))}
+          </AnimatedSection>
         </div>
       </section>
 
-      {/* STATS */}
-      <section className="py-12 px-6 bg-[#1E3A5F]">
-        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
-          {[
-            { number: '2 min', label: "Pour s'inscrire" },
-            { number: '1 clic', label: 'Pour postuler' },
-            { number: '10 sec', label: 'Pour vérifier un dossier' },
-            { number: '0€', label: 'Pour commencer' },
-          ].map((stat, i) => (
-            <div key={i} className="text-center">
-              <p className="text-4xl font-bold text-white mb-1">{stat.number}</p>
-              <p className="text-blue-200 text-sm">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* POUR QUI */}
-      <section className="py-20 px-6">
+      {/* WORKFLOW TECHNIQUE */}
+      <section id="workflow" className="py-20 px-6" style={{ borderBottom: '1px solid #E2E8F0', background: 'white' }}>
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-[#1E3A5F] text-center mb-16">
-            Une solution pour chaque acteur
-          </h2>
-          <div className="grid md:grid-cols-2 gap-8">
+          <AnimatedSection>
+            <motion.p variants={fadeUp} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#94A3B8', textTransform: 'uppercase' }} className="mb-3">
+              Architecture du processus
+            </motion.p>
+            <motion.h2 variants={fadeUp} style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-0.02em' }} className="mb-4">
+              Du dossier papier à la validation numérique
+            </motion.h2>
+            <motion.p variants={fadeUp} style={{ color: '#64748B', maxWidth: 520, marginBottom: 48, lineHeight: 1.7 }}>
+              Chaque candidature suit un workflow certifié : vérification OCR des documents légaux, interfaçage API SIRENE, puis génération automatique des arrêtés municipaux.
+            </motion.p>
+          </AnimatedSection>
 
-            {/* Exposants */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-              <div className="text-4xl mb-4">🛒</div>
-              <h3 className="text-2xl font-bold text-[#1E3A5F] mb-4">Pour les exposants</h3>
-              <p className="text-gray-500 mb-6">Food-trucks, artisans, commerçants non-sédentaires</p>
-              <ul className="space-y-3">
-                {[
-                  'Trouvez des événements sur une carte interactive',
-                  'Postulez en 1 clic avec votre dossier complet',
-                  'Badge "Dossier Vérifié" pour rassurer les mairies',
-                  'Alertes instantanées pour les nouveaux événements',
-                  'Gérez toutes vos candidatures au même endroit',
-                ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-gray-700">
-                    <span className="text-green-500 font-bold mt-0.5">✓</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => router.push('/auth')}
-                className="mt-8 w-full bg-[#1E3A5F] text-white py-3 rounded-xl font-medium hover:bg-[#162d4a] transition-colors"
-              >
-                Créer mon compte exposant
-              </button>
-            </div>
-
-            {/* Organisateurs */}
-            <div className="bg-[#1E3A5F] rounded-2xl p-8 shadow-sm">
-              <div className="text-4xl mb-4">🏛️</div>
-              <h3 className="text-2xl font-bold text-white mb-4">Pour les organisateurs</h3>
-              <p className="text-blue-200 mb-6">Mairies, comités des fêtes, associations</p>
-              <ul className="space-y-3">
-                {[
-                  'Publiez vos événements en quelques minutes',
-                  'Recevez des dossiers complets et vérifiés automatiquement',
-                  'Validez ou refusez les candidatures en 1 clic',
-                  'Messagerie groupée pour tous vos exposants',
-                  'Zéro appel téléphonique, zéro email perdu',
-                ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-blue-100">
-                    <span className="text-green-400 font-bold mt-0.5">✓</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => router.push('/auth')}
-                className="mt-8 w-full bg-white text-[#1E3A5F] py-3 rounded-xl font-medium hover:bg-blue-50 transition-colors"
-              >
-                Créer mon compte organisateur
-              </button>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* COMMENT ÇA MARCHE */}
-      <section className="py-20 px-6 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-[#1E3A5F] text-center mb-4">
-            Comment ça marche ?
-          </h2>
-          <p className="text-gray-500 text-center mb-16">3 étapes pour les exposants</p>
-          <div className="grid md:grid-cols-3 gap-8">
+          <AnimatedSection className="grid md:grid-cols-4 gap-4">
             {[
               {
                 step: '01',
-                icon: '📄',
-                title: 'Créez votre dossier',
-                desc: 'Uploadez votre Kbis et votre RC Pro une seule fois. Notre IA vérifie votre SIREN automatiquement en 10 secondes.'
+                icon: <FileCheck size={18} style={{ color: '#4F46E5' }} />,
+                title: 'Inscription & Upload',
+                desc: "L'exposant dépose son extrait Kbis certifié et son certificat d'assurance RC Pro. Les fichiers sont chiffrés AES-256 et stockés dans un bucket privé.",
               },
               {
                 step: '02',
-                icon: '🗺️',
-                title: 'Trouvez des événements',
-                desc: 'Parcourez les marchés et festivals disponibles dans votre région. Filtrez par date, lieu et type d\'événement.'
+                icon: <ShieldCheck size={18} style={{ color: '#4F46E5' }} />,
+                title: 'Certification OCR',
+                desc: "Notre moteur IA extrait le numéro SIREN, la raison sociale et la date de création. Une requête temps réel vers l'API SIRENE de l'INSEE confirme le statut actif.",
               },
               {
                 step: '03',
-                icon: '⚡',
-                title: 'Postulez en 1 clic',
-                desc: 'Votre dossier complet est envoyé automatiquement. Plus besoin de ressaisir vos informations à chaque fois.'
+                icon: <CheckCircle size={18} style={{ color: '#4F46E5' }} />,
+                title: 'Validation Placier',
+                desc: "L'agent placier consulte le dossier certifié sur son dashboard. Il accepte ou refuse en 1 clic. La décision génère automatiquement un courrier de notification.",
+              },
+              {
+                step: '04',
+                icon: <Lock size={18} style={{ color: '#4F46E5' }} />,
+                title: 'AOT & Paiement',
+                desc: "L'Autorisation d'Occupation du Domaine Public (AOT) est générée avec les coordonnées GPS de l'emplacement. Le paiement sécurisé est traité via Stripe.",
               },
             ].map((item, i) => (
-              <div key={i} className="text-center">
-                <div className="text-5xl mb-4">{item.icon}</div>
-                <div className="text-sm font-bold text-green-600 mb-2">ÉTAPE {item.step}</div>
-                <h3 className="text-xl font-bold text-[#1E3A5F] mb-3">{item.title}</h3>
-                <p className="text-gray-500 leading-relaxed">{item.desc}</p>
-              </div>
+              <motion.div
+                key={i}
+                variants={fadeUp}
+                style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24, position: 'relative' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                  <div style={{ background: '#EEF2FF', borderRadius: 8, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {item.icon}
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#CBD5E1', letterSpacing: '0.05em' }}>{item.step}</span>
+                </div>
+                <h3 style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>{item.title}</h3>
+                <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.65 }}>{item.desc}</p>
+                {i < 3 && (
+                  <div className="hidden md:block" style={{ position: 'absolute', right: -12, top: '50%', transform: 'translateY(-50%)', zIndex: 1 }}>
+                    <ChevronRight size={14} style={{ color: '#CBD5E1' }} />
+                  </div>
+                )}
+              </motion.div>
             ))}
+          </AnimatedSection>
+        </div>
+      </section>
+
+      {/* FOCUS ADMINISTRATION */}
+      <section id="admin" className="py-20 px-6" style={{ borderBottom: '1px solid #E2E8F0' }}>
+        <div className="max-w-6xl mx-auto">
+          <AnimatedSection>
+            <motion.div variants={fadeUp} className="mb-3">
+              <span style={{ background: '#F0FDF4', color: '#16A34A', padding: '4px 12px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: '1px solid #BBF7D0' }}>
+                Pour les administrations
+              </span>
+            </motion.div>
+            <motion.h2 variants={fadeUp} style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-0.02em', maxWidth: 560 }} className="mb-12">
+              Sécurité juridique et gain de temps pour l'agent placier
+            </motion.h2>
+          </AnimatedSection>
+
+          {/* BENTO GRID */}
+          <AnimatedSection className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Grande carte */}
+            <motion.div
+              variants={fadeUp}
+              className="md:col-span-2"
+              style={{ background: '#0F172A', borderRadius: 12, padding: 32, minHeight: 280 }}
+            >
+              <div style={{ background: 'rgba(79,70,229,0.2)', borderRadius: 8, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                <BarChart3 size={20} style={{ color: '#818CF8' }} />
+              </div>
+              <h3 style={{ color: 'white', fontWeight: 600, fontSize: 18, marginBottom: 12 }}>
+                Génération automatique des arrêtés municipaux
+              </h3>
+              <p style={{ color: '#94A3B8', fontSize: 14, lineHeight: 1.7, maxWidth: 420 }}>
+                À chaque validation de candidature, PlaceMarket génère un projet d'arrêté municipal pré-rempli avec : coordonnées de l'exposant, numéro SIREN vérifié, surface d'occupation, coordonnées GPS de l'emplacement et montant de la redevance AOT calculée automatiquement.
+              </p>
+              <div style={{ marginTop: 24, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {['PDF signable', 'Coordonnées GPS', 'Redevance AOT auto', 'Archivage 10 ans'].map((tag) => (
+                  <span key={tag} style={{ background: 'rgba(255,255,255,0.08)', color: '#CBD5E1', padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500 }}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </motion.div>
+
+            <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24 }}>
+              <Clock size={18} style={{ color: '#4F46E5', marginBottom: 16 }} />
+              <h3 style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Gain de temps estimé</h3>
+              <p style={{ fontSize: 36, fontWeight: 700, color: '#4F46E5', marginBottom: 4 }}>-80%</p>
+              <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>
+                de temps administratif par événement. Plus d'appels téléphoniques, de relances email ni de dossiers papier manquants.
+              </p>
+            </motion.div>
+
+            <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24 }}>
+              <ShieldCheck size={18} style={{ color: '#16A34A', marginBottom: 16 }} />
+              <h3 style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Conformité juridique</h3>
+              <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>
+                Chaque dossier est archivé avec horodatage légal. Les certificats d'assurance RC Pro sont vérifiés à date de validité. Votre responsabilité est couverte.
+              </p>
+            </motion.div>
+
+            <motion.div
+              variants={fadeUp}
+              className="md:col-span-2"
+              style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24 }}
+            >
+              <Bell size={18} style={{ color: '#F59E0B', marginBottom: 16 }} />
+              <h3 style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Messagerie groupée exposants</h3>
+              <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6, maxWidth: 480 }}>
+                Envoyez en un clic un message à l'ensemble des exposants validés pour un événement donné. Alertes météo, changement de placement, report de date — tous notifiés instantanément par email et SMS.
+              </p>
+            </motion.div>
+          </AnimatedSection>
+        </div>
+      </section>
+
+      {/* FOCUS EXPOSANT */}
+      <section id="exposant" className="py-20 px-6" style={{ borderBottom: '1px solid #E2E8F0', background: 'white' }}>
+        <div className="max-w-6xl mx-auto">
+          <AnimatedSection>
+            <motion.div variants={fadeUp} className="mb-3">
+              <span style={{ background: '#EFF6FF', color: '#2563EB', padding: '4px 12px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: '1px solid #BFDBFE' }}>
+                Pour les exposants
+              </span>
+            </motion.div>
+            <motion.h2 variants={fadeUp} style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-0.02em', maxWidth: 560 }} className="mb-12">
+              Votre portefeuille numérique d'exposant
+            </motion.h2>
+          </AnimatedSection>
+
+          <div className="grid md:grid-cols-2 gap-8 items-start">
+            <AnimatedSection className="space-y-4">
+              {[
+                {
+                  icon: <FileCheck size={16} style={{ color: '#4F46E5' }} />,
+                  title: 'Extraits Kbis et RC Pro centralisés',
+                  desc: "Déposez vos documents légaux une seule fois. Notre système OCR extrait automatiquement les informations clés et les associe à chaque candidature. Fini de rescanner vos documents à chaque marché.",
+                },
+                {
+                  icon: <Zap size={16} style={{ color: '#4F46E5' }} />,
+                  title: 'Candidature en 1 clic avec dossier complet',
+                  desc: "Lorsqu'un événement vous correspond, postulez instantanément. Votre dossier certifié — Kbis, assurance RC Pro, SIREN vérifié, caractéristiques du stand — est transmis automatiquement à l'organisateur.",
+                },
+                {
+                  icon: <MapPin size={16} style={{ color: '#4F46E5' }} />,
+                  title: 'Alertes géolocalisées sur les opportunités',
+                  desc: "Définissez votre zone de chalandise et recevez une notification dès qu'un organisateur publie un événement dans votre secteur. Les événements exclusifs (réservés aux abonnés Pro) partent en moins d'une heure.",
+                },
+                {
+                  icon: <Lock size={16} style={{ color: '#4F46E5' }} />,
+                  title: "Badge 'Dossier Vérifié' — gage de confiance",
+                  desc: "Après vérification de votre SIREN via l'API SIRENE et validation de vos documents, un badge officiel est apposé sur votre profil. Les organisateurs identifient immédiatement les exposants sérieux.",
+                },
+              ].map((item, i) => (
+                <motion.div
+                  key={i}
+                  variants={fadeUp}
+                  style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 20, display: 'flex', gap: 16 }}
+                >
+                  <div style={{ background: '#EEF2FF', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {item.icon}
+                  </div>
+                  <div>
+                    <h3 style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>{item.title}</h3>
+                    <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.65 }}>{item.desc}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatedSection>
+
+            <AnimatedSection>
+              <motion.div variants={fadeUp}>
+                <Calculator />
+              </motion.div>
+            </AnimatedSection>
           </div>
         </div>
       </section>
 
       {/* TARIFS */}
-      <section className="py-20 px-6">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-[#1E3A5F] text-center mb-4">Tarifs simples et transparents</h2>
-          <p className="text-gray-500 text-center mb-16">Pour les exposants</p>
-          <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-            <div className="bg-white rounded-2xl p-8 border border-gray-200">
-              <h3 className="text-xl font-bold text-[#1E3A5F] mb-2">Gratuit</h3>
-              <p className="text-4xl font-bold text-[#1E3A5F] mb-6">0€<span className="text-lg text-gray-400 font-normal">/mois</span></p>
-              <ul className="space-y-3 mb-8">
-                {[
-                  'Consultation des événements',
-                  'Création de profil',
-                  'Upload des documents',
-                  '1 candidature par mois',
-                ].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 text-gray-600">
-                    <span className="text-green-500">✓</span>{item}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => router.push('/auth')}
-                className="w-full border-2 border-[#1E3A5F] text-[#1E3A5F] py-3 rounded-xl font-medium hover:bg-blue-50 transition-colors"
-              >
-                Commencer gratuitement
-              </button>
-            </div>
-            <div className="bg-[#1E3A5F] rounded-2xl p-8 relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-green-500 text-white text-xs font-bold px-4 py-1 rounded-full">
-                LE PLUS POPULAIRE
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Pro</h3>
-              <p className="text-4xl font-bold text-white mb-6">20€<span className="text-lg text-blue-200 font-normal">/mois</span></p>
-              <ul className="space-y-3 mb-8">
-                {[
+      <section id="tarifs" className="py-20 px-6" style={{ borderBottom: '1px solid #E2E8F0' }}>
+        <div className="max-w-4xl mx-auto">
+          <AnimatedSection>
+            <motion.p variants={fadeUp} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#94A3B8', textTransform: 'uppercase', textAlign: 'center', marginBottom: 12 }}>
+              Tarification
+            </motion.p>
+            <motion.h2 variants={fadeUp} style={{ fontSize: 32, fontWeight: 700, textAlign: 'center', letterSpacing: '-0.02em', marginBottom: 8 }}>
+              Modèle SaaS transparent
+            </motion.h2>
+            <motion.p variants={fadeUp} style={{ color: '#64748B', textAlign: 'center', marginBottom: 48, fontSize: 15 }}>
+              Les administrations démarrent gratuitement. La valeur créée justifie l'abonnement exposant.
+            </motion.p>
+          </AnimatedSection>
+
+          <AnimatedSection className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                name: 'Exposant Gratuit',
+                price: '0€',
+                period: 'pour toujours',
+                features: [
+                  'Consultation carte des événements',
+                  'Création profil exposant',
+                  'Upload Kbis & RC Pro',
+                  '1 candidature / mois',
+                  'Vérification SIREN basique',
+                ],
+                cta: 'Commencer',
+                accent: false,
+              },
+              {
+                name: 'Exposant Pro',
+                price: '20€',
+                period: 'par mois',
+                features: [
                   'Candidatures illimitées',
-                  'Badge Dossier Vérifié ✅',
-                  'Alertes SMS/Push',
+                  "Badge Dossier Vérifié (API SIRENE)",
+                  'Alertes SMS & Push géolocalisées',
                   'Accès événements exclusifs',
-                  'Support prioritaire',
-                ].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 text-blue-100">
-                    <span className="text-green-400">✓</span>{item}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => router.push('/auth')}
-                className="w-full bg-white text-[#1E3A5F] py-3 rounded-xl font-semibold hover:bg-blue-50 transition-colors"
+                  'Archivage dossier 3 ans',
+                ],
+                cta: 'Passer en Pro',
+                accent: true,
+              },
+              {
+                name: 'Administration',
+                price: '150€',
+                period: 'par mois',
+                features: [
+                  'Événements illimités',
+                  'Génération arrêtés municipaux',
+                  'Messagerie groupée exposants',
+                  'Export comptable CSV/PDF',
+                  'Support dédié agent placier',
+                ],
+                cta: 'Contacter',
+                accent: false,
+              },
+            ].map((plan, i) => (
+              <motion.div
+                key={i}
+                variants={fadeUp}
+                style={{
+                  background: plan.accent ? '#0F172A' : 'white',
+                  border: `1px solid ${plan.accent ? '#0F172A' : '#E2E8F0'}`,
+                  borderRadius: 12,
+                  padding: 28,
+                  position: 'relative',
+                }}
               >
-                Passer en Pro
-              </button>
-            </div>
-          </div>
+                {plan.accent && (
+                  <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#4F46E5', color: 'white', fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 100 }}>
+                    RECOMMANDÉ
+                  </div>
+                )}
+                <p style={{ fontSize: 13, fontWeight: 600, color: plan.accent ? '#94A3B8' : '#64748B', marginBottom: 8 }}>{plan.name}</p>
+                <p style={{ fontSize: 36, fontWeight: 700, color: plan.accent ? 'white' : '#0F172A' }}>{plan.price}</p>
+                <p style={{ fontSize: 13, color: plan.accent ? '#64748B' : '#94A3B8', marginBottom: 24 }}>{plan.period}</p>
+                <ul className="space-y-3 mb-8">
+                  {plan.features.map((f, j) => (
+                    <li key={j} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                      <CheckCircle size={14} style={{ color: plan.accent ? '#818CF8' : '#4F46E5', flexShrink: 0, marginTop: 2 }} />
+                      <span style={{ fontSize: 13, color: plan.accent ? '#94A3B8' : '#475569', lineHeight: 1.5 }}>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => router.push('/auth')}
+                  style={{
+                    width: '100%',
+                    background: plan.accent ? '#4F46E5' : 'transparent',
+                    color: plan.accent ? 'white' : '#0F172A',
+                    border: plan.accent ? 'none' : '1px solid #E2E8F0',
+                    padding: '10px 0',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                  className="hover:opacity-90 transition-opacity"
+                >
+                  {plan.cta}
+                </button>
+              </motion.div>
+            ))}
+          </AnimatedSection>
         </div>
       </section>
 
       {/* CTA FINAL */}
-      <section className="py-20 px-6 bg-[#1E3A5F]">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl font-bold text-white mb-6">
-            Prêt à rejoindre PlaceMarket ?
-          </h2>
-          <p className="text-blue-200 text-xl mb-10">
-            Rejoignez les exposants et organisateurs qui font confiance à PlaceMarket.
-          </p>
-          <button
-            onClick={() => router.push('/auth')}
-            className="bg-white text-[#1E3A5F] px-10 py-4 rounded-xl font-bold text-lg hover:bg-blue-50 transition-colors"
-          >
-            Créer mon compte gratuitement →
-          </button>
+      <section className="py-24 px-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <AnimatedSection>
+            <motion.h2 variants={fadeUp} style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 16 }}>
+              Prêt à numériser vos marchés ?
+            </motion.h2>
+            <motion.p variants={fadeUp} style={{ color: '#64748B', fontSize: 16, marginBottom: 32, lineHeight: 1.7 }}>
+              Rejoignez les premiers organisateurs et exposants qui font confiance à PlaceMarket pour gérer leurs AOT, certifier leurs dossiers et simplifier leur quotidien.
+            </motion.p>
+            <motion.button
+              variants={fadeUp}
+              onClick={() => router.push('/auth')}
+              style={{ background: '#4F46E5', color: 'white', padding: '14px 32px', borderRadius: 10, fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
+              className="hover:opacity-90 transition-opacity inline-flex items-center gap-2"
+            >
+              Créer mon compte gratuitement <ArrowRight size={16} />
+            </motion.button>
+          </AnimatedSection>
         </div>
       </section>
 
       {/* FOOTER */}
-      <footer className="py-8 px-6 bg-[#162d4a]">
+      <footer style={{ borderTop: '1px solid #E2E8F0', background: 'white', padding: '24px 24px' }}>
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-white rounded flex items-center justify-center">
-              <span className="text-[#1E3A5F] text-xs font-bold">P</span>
+            <div style={{ width: 24, height: 24, background: '#0F172A', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ color: 'white', fontSize: 10, fontWeight: 700 }}>PM</span>
             </div>
-            <span className="text-white font-bold">PlaceMarket</span>
+            <span style={{ fontWeight: 600, fontSize: 14 }}>PlaceMarket</span>
           </div>
-          <p className="text-blue-200 text-sm">© 2026 PlaceMarket — Tous droits réservés</p>
-          <div className="flex gap-6 text-blue-200 text-sm">
-            <a href="#" className="hover:text-white">Mentions légales</a>
-            <a href="#" className="hover:text-white">CGU</a>
-            <a href="#" className="hover:text-white">Contact</a>
+          <p style={{ fontSize: 13, color: '#94A3B8' }}>© 2026 PlaceMarket SAS — Tous droits réservés</p>
+          <div className="flex gap-6" style={{ fontSize: 13, color: '#94A3B8' }}>
+            <a href="#" className="hover:text-slate-900 transition-colors">Mentions légales</a>
+            <a href="#" className="hover:text-slate-900 transition-colors">CGU</a>
+            <a href="#" className="hover:text-slate-900 transition-colors">contact@placemarket.fr</a>
           </div>
         </div>
       </footer>

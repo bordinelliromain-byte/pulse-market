@@ -3,6 +3,21 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { 
+  FileText, 
+  Calendar, 
+  CheckCircle, 
+  Clock,
+  Plus,
+  Users,
+  TrendingUp,
+  LogOut,
+  ChevronRight,
+  Star,
+  MapPin
+} from 'lucide-react'
 
 export default function Dashboard() {
   const [profile, setProfile] = useState<any>(null)
@@ -39,6 +54,7 @@ export default function Dashboard() {
         setStats({
           total: apps?.length || 0,
           validated: apps?.filter(a => a.status === 'validated').length || 0,
+          pending: apps?.filter(a => a.status === 'pending').length || 0,
           plan: expData?.plan || 'gratuit',
           isVerified: expData?.is_verified || false
         })
@@ -51,9 +67,9 @@ export default function Dashboard() {
           .eq('organisateur_id', user.id)
 
         const eventIds = events?.map(e => e.id) || []
-
         let totalApps = 0
         let validatedApps = 0
+        let pendingApps = 0
 
         if (eventIds.length > 0) {
           const { data: apps } = await supabase
@@ -63,13 +79,10 @@ export default function Dashboard() {
 
           totalApps = apps?.length || 0
           validatedApps = apps?.filter(a => a.status === 'validated').length || 0
+          pendingApps = apps?.filter(a => a.status === 'pending').length || 0
         }
 
-        setStats({
-          events: events?.length || 0,
-          totalApps,
-          validatedApps
-        })
+        setStats({ events: events?.length || 0, totalApps, validatedApps, pendingApps })
       }
 
       setLoading(false)
@@ -78,127 +91,275 @@ export default function Dashboard() {
   }, [])
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-gray-500">Chargement...</p>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm text-slate-500">Chargement...</p>
+      </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-slate-50">
 
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-bold">
-              Bonjour {profile?.full_name || 'utilisateur'} 👋
-            </h1>
-            <p className="text-gray-500 capitalize">
-              Espace {profile?.role}
-            </p>
+      {/* NAVBAR */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
+              <span className="text-white text-sm font-bold">P</span>
+            </div>
+            <span className="font-semibold text-slate-900">PlaceMarket</span>
           </div>
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut()
-              router.push('/auth')
-            }}
-            className="text-sm text-red-500 hover:underline"
-          >
-            Se déconnecter
-          </button>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-slate-500 hidden md:block">
+              {profile?.full_name}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                await supabase.auth.signOut()
+                router.push('/auth')
+              }}
+              className="text-slate-500 hover:text-slate-900 gap-2"
+            >
+              <LogOut size={16} />
+              <span className="hidden md:block">Déconnexion</span>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-6 py-10">
+
+        {/* PAGE HEADER */}
+        <div className="mb-10">
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Bonjour, {profile?.full_name?.split(' ')[0]} 👋
+          </h1>
+          <p className="text-slate-500 mt-1 text-sm">
+            {profile?.role === 'exposant' ? 'Espace Exposant' : 'Espace Organisateur'} — {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </p>
         </div>
 
-        {/* Dashboard Exposant */}
+        {/* ========== DASHBOARD EXPOSANT ========== */}
         {profile?.role === 'exposant' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl p-6 shadow-sm border">
-                <p className="text-gray-500 text-sm">Candidatures envoyées</p>
-                <p className="text-3xl font-bold mt-1">{stats.total}</p>
-              </div>
-              <div className="bg-white rounded-xl p-6 shadow-sm border">
-                <p className="text-gray-500 text-sm">Candidatures validées</p>
-                <p className="text-3xl font-bold mt-1 text-green-600">{stats.validated}</p>
-              </div>
-              <div className="bg-white rounded-xl p-6 shadow-sm border">
-                <p className="text-gray-500 text-sm">Mon plan</p>
-                <p className={`text-3xl font-bold mt-1 ${stats.plan === 'pro' ? 'text-yellow-500' : 'text-blue-600'}`}>
-                  {stats.plan === 'pro' ? '⭐ Pro' : 'Gratuit'}
-                </p>
-              </div>
-            </div>
+          <div className="space-y-6">
 
             {/* Badge vérifié */}
             {stats.isVerified && (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
-                <span className="text-2xl">✅</span>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4 flex items-center gap-3">
+                <CheckCircle size={20} className="text-emerald-600 shrink-0" />
                 <div>
-                  <p className="font-semibold text-blue-700">Dossier vérifié</p>
-                  <p className="text-blue-600 text-sm">Votre dossier est validé — les mairies vous font confiance</p>
+                  <p className="text-sm font-medium text-emerald-800">Dossier vérifié</p>
+                  <p className="text-xs text-emerald-600">Votre dossier est validé — les organisateurs vous font confiance</p>
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <button
+            {/* BENTO GRID STATS */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="border-slate-200 shadow-none">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Candidatures</span>
+                    <FileText size={16} className="text-slate-400" />
+                  </div>
+                  <p className="text-3xl font-semibold text-slate-900">{stats.total}</p>
+                  <p className="text-xs text-slate-400 mt-1">au total</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-slate-200 shadow-none">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Validées</span>
+                    <CheckCircle size={16} className="text-emerald-500" />
+                  </div>
+                  <p className="text-3xl font-semibold text-emerald-600">{stats.validated}</p>
+                  <p className="text-xs text-slate-400 mt-1">acceptées</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-slate-200 shadow-none">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">En attente</span>
+                    <Clock size={16} className="text-amber-500" />
+                  </div>
+                  <p className="text-3xl font-semibold text-amber-600">{stats.pending}</p>
+                  <p className="text-xs text-slate-400 mt-1">en cours</p>
+                </CardContent>
+              </Card>
+
+              <Card className={`shadow-none ${stats.plan === 'pro' ? 'border-slate-900 bg-slate-900' : 'border-slate-200'}`}>
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`text-xs font-medium uppercase tracking-wide ${stats.plan === 'pro' ? 'text-slate-400' : 'text-slate-500'}`}>Plan</span>
+                    <Star size={16} className={stats.plan === 'pro' ? 'text-yellow-400' : 'text-slate-400'} />
+                  </div>
+                  <p className={`text-3xl font-semibold ${stats.plan === 'pro' ? 'text-white' : 'text-slate-900'}`}>
+                    {stats.plan === 'pro' ? 'Pro' : 'Free'}
+                  </p>
+                  <p className={`text-xs mt-1 ${stats.plan === 'pro' ? 'text-slate-400' : 'text-slate-400'}`}>
+                    {stats.plan === 'pro' ? 'Illimité' : '1 candidature/mois'}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* ACTIONS */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card
+                className="border-slate-200 shadow-none hover:border-slate-400 transition-colors cursor-pointer group"
                 onClick={() => router.push('/dashboard/profil')}
-                className="bg-white rounded-xl p-6 shadow-sm border hover:border-blue-500 transition-all text-left"
               >
-                <p className="text-2xl mb-2">📄</p>
-                <p className="font-semibold">Mon dossier exposant</p>
-                <p className="text-gray-500 text-sm">Gérer mes documents et infos</p>
-              </button>
-              <button
+                <CardContent className="p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center group-hover:bg-slate-200 transition-colors">
+                      <FileText size={18} className="text-slate-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">Mon dossier</p>
+                      <p className="text-sm text-slate-500">Documents et informations</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+                </CardContent>
+              </Card>
+
+              <Card
+                className="border-slate-200 shadow-none hover:border-slate-400 transition-colors cursor-pointer group"
                 onClick={() => router.push('/dashboard/evenements')}
-                className="bg-white rounded-xl p-6 shadow-sm border hover:border-blue-500 transition-all text-left"
               >
-                <p className="text-2xl mb-2">🗺️</p>
-                <p className="font-semibold">Trouver un événement</p>
-                <p className="text-gray-500 text-sm">Parcourir les marchés disponibles</p>
-              </button>
+                <CardContent className="p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center group-hover:bg-slate-200 transition-colors">
+                      <MapPin size={18} className="text-slate-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">Trouver un événement</p>
+                      <p className="text-sm text-slate-500">Marchés et festivals disponibles</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+                </CardContent>
+              </Card>
             </div>
+
+            {/* UPGRADE BANNER */}
+            {stats.plan !== 'pro' && (
+              <Card className="border-slate-900 bg-slate-900 shadow-none">
+                <CardContent className="p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-white">Passez en Pro — 20€/mois</p>
+                    <p className="text-sm text-slate-400 mt-1">Candidatures illimitées, badge vérifié, alertes instantanées</p>
+                  </div>
+                  <Button className="bg-white text-slate-900 hover:bg-slate-100 shrink-0">
+                    Upgrader maintenant →
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
           </div>
         )}
 
-        {/* Dashboard Organisateur */}
+        {/* ========== DASHBOARD ORGANISATEUR ========== */}
         {profile?.role === 'organisateur' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl p-6 shadow-sm border">
-                <p className="text-gray-500 text-sm">Événements créés</p>
-                <p className="text-3xl font-bold mt-1">{stats.events}</p>
-              </div>
-              <div className="bg-white rounded-xl p-6 shadow-sm border">
-                <p className="text-gray-500 text-sm">Candidatures reçues</p>
-                <p className="text-3xl font-bold mt-1">{stats.totalApps}</p>
-              </div>
-              <div className="bg-white rounded-xl p-6 shadow-sm border">
-                <p className="text-gray-500 text-sm">Exposants validés</p>
-                <p className="text-3xl font-bold mt-1 text-green-600">{stats.validatedApps}</p>
-              </div>
+          <div className="space-y-6">
+
+            {/* BENTO GRID STATS */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="border-slate-200 shadow-none">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Événements</span>
+                    <Calendar size={16} className="text-slate-400" />
+                  </div>
+                  <p className="text-3xl font-semibold text-slate-900">{stats.events}</p>
+                  <p className="text-xs text-slate-400 mt-1">publiés</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-slate-200 shadow-none">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Dossiers</span>
+                    <Users size={16} className="text-slate-400" />
+                  </div>
+                  <p className="text-3xl font-semibold text-slate-900">{stats.totalApps}</p>
+                  <p className="text-xs text-slate-400 mt-1">reçus</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-slate-200 shadow-none">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Validés</span>
+                    <CheckCircle size={16} className="text-emerald-500" />
+                  </div>
+                  <p className="text-3xl font-semibold text-emerald-600">{stats.validatedApps}</p>
+                  <p className="text-xs text-slate-400 mt-1">acceptés</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-slate-200 shadow-none">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">En attente</span>
+                    <Clock size={16} className="text-amber-500" />
+                  </div>
+                  <p className="text-3xl font-semibold text-amber-600">{stats.pendingApps}</p>
+                  <p className="text-xs text-slate-400 mt-1">à traiter</p>
+                </CardContent>
+              </Card>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <button
+
+            {/* ACTIONS */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card
+                className="border-slate-200 shadow-none hover:border-slate-400 transition-colors cursor-pointer group"
                 onClick={() => router.push('/dashboard/creer-evenement')}
-                className="bg-white rounded-xl p-6 shadow-sm border hover:border-blue-500 transition-all text-left"
               >
-                <p className="text-2xl mb-2">➕</p>
-                <p className="font-semibold">Créer un événement</p>
-                <p className="text-gray-500 text-sm">Publier un marché ou une foire</p>
-              </button>
-              <button
+                <CardContent className="p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center">
+                      <Plus size={18} className="text-white" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">Créer un événement</p>
+                      <p className="text-sm text-slate-500">Publier un marché ou une foire</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+                </CardContent>
+              </Card>
+
+              <Card
+                className="border-slate-200 shadow-none hover:border-slate-400 transition-colors cursor-pointer group"
                 onClick={() => router.push('/dashboard/candidatures')}
-                className="bg-white rounded-xl p-6 shadow-sm border hover:border-blue-500 transition-all text-left"
               >
-                <p className="text-2xl mb-2">📋</p>
-                <p className="font-semibold">Gérer les candidatures</p>
-                <p className="text-gray-500 text-sm">Valider ou refuser les dossiers</p>
-              </button>
+                <CardContent className="p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center group-hover:bg-slate-200 transition-colors">
+                      <TrendingUp size={18} className="text-slate-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">Gérer les candidatures</p>
+                      <p className="text-sm text-slate-500">Valider ou refuser les dossiers</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+                </CardContent>
+              </Card>
             </div>
+
           </div>
         )}
 
-      </div>
+      </main>
     </div>
   )
 }
