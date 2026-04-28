@@ -102,9 +102,12 @@ export default function CreerEvenement() {
       if (imageFile) {
         const ext = imageFile.name.split('.').pop()
         const path = `events/${user.id}/${Date.now()}.${ext}`
-        const { data } = await supabase.storage.from('documents').upload(path, imageFile, { upsert: true })
-        if (data) imageUrl = data.path
-      }
+        const { data, error: uploadError } = await supabase.storage.from('documents').upload(path, imageFile, { upsert: true })
+          if (uploadError) console.error('Upload error:', uploadError)
+          if (data) {
+          const { data: urlData } = supabase.storage.from('documents').getPublicUrl(data.path)
+          imageUrl = urlData.publicUrl
+          }
 
       const { error } = await supabase.from('events').insert({
         organisateur_id: user.id,
@@ -117,7 +120,7 @@ export default function CreerEvenement() {
         available_spots: parseInt(totalSpots),
         price_per_spot: parseFloat(pricePerSpot) || 0,
         is_exclusive: isExclusive,
-        img_url: imageUrl,
+        image_url: imageUrl,
         status: 'published',
       })
 
