@@ -157,6 +157,10 @@ export default function Dashboard() {
       if (!user) { router.push('/auth'); return }
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       setProfile(profileData)
+      if (profileData?.role === 'organisateur') {
+  router.push('/dashboard/organisateur')
+  return
+}
       if (profileData?.role === 'exposant') {
         const { data: apps } = await supabase.from('applications').select('status').eq('exposant_id', user.id)
         const { data: expData } = await supabase.from('exposant_data').select('plan, is_verified').eq('user_id', user.id).single()
