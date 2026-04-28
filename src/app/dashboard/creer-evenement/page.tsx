@@ -131,7 +131,7 @@ export default function CreerEvenement() {
       alert('Erreur : ' + err.message)
     }
     setSaving(false)
-  }
+  };
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#EEF2F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
