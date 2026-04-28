@@ -18,7 +18,7 @@ const stagger: Variants = {
   visible: { transition: { staggerChildren: 0.06 } },
 }
 
-export default function AuthPage() {
+export AuthForm() {
   const searchParams = useSearchParams()
   const [tab, setTab] = useState<'signin' | 'signup'>(
   (searchParams.get('tab') as 'signin' | 'signup') || 'signin')
@@ -349,5 +349,17 @@ export default function AuthPage() {
         </motion.div>
       </div>
     </div>
+    )
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid #4F46E5', borderTopColor: 'transparent', borderRadius: '50%' }} />
+      </div>
+    }>
+      <AuthForm />
+    </Suspense>
   )
 }
