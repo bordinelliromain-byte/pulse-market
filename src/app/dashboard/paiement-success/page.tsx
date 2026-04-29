@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { motion } from 'framer-motion'
 import { openFacturePDF } from '@/lib/generateFacture'
 import { CheckCircle, FileText, ArrowLeft, Loader } from 'lucide-react'
 
-export default function PaiementSuccess() {
+function PaiementSuccessContent() {
   const [loading, setLoading] = useState(true)
   const [candidature, setCandidature] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
@@ -30,7 +30,6 @@ export default function PaiementSuccess() {
       setProfile(profileData)
 
       if (candidatureId) {
-        // Mettre à jour le statut en "paid"
         const { error: updateErr } = await supabase
           .from('applications')
           .update({ status: 'paid' })
@@ -43,7 +42,6 @@ export default function PaiementSuccess() {
           console.log('✅ Statut mis à jour en paid')
         }
 
-        // Charger les données complètes
         const { data: app } = await supabase
           .from('applications')
           .select(`*, profiles:exposant_id(full_name, email), events:event_id(title, start_date, location_name, price_per_spot)`)
@@ -153,5 +151,18 @@ export default function PaiementSuccess() {
         </p>
       </motion.div>
     </div>
+  )
+}
+
+export default function PaiementSuccess() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 28, height: 28, border: '2px solid #4F46E5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    }>
+      <PaiementSuccessContent />
+    </Suspense>
   )
 }
