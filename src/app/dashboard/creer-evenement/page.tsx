@@ -92,46 +92,50 @@ export default function CreerEvenement() {
   }
 
   const handleSubmit = async () => {
-    if (!title || !startDate || !endDate || !locationName || !totalSpots) return
-    setSaving(true)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+  if (!title || !startDate || !endDate || !locationName || !totalSpots) return
+  setSaving(true)
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
-      let imageUrl = null
-      if (imageFile) {
-        const ext = imageFile.name.split('.').pop()
-        const path = `events/${user.id}/${Date.now()}.${ext}`
-        const { data, error: uploadError } = await supabase.storage.from('documents').upload(path, imageFile, { upsert: true })
-          if (uploadError) console.error('Upload error:', uploadError)
-          if (data) {
-          const { data: urlData } = supabase.storage.from('documents').getPublicUrl(data.path)
-          imageUrl = urlData.publicUrl
-          }
-
-      const { error } = await supabase.from('events').insert({
-        organisateur_id: user.id,
-        title,
-        description,
-        start_date: startDate,
-        end_date: endDate,
-        location_name: locationName,
-        total_spots: parseInt(totalSpots),
-        available_spots: parseInt(totalSpots),
-        price_per_spot: parseFloat(pricePerSpot) || 0,
-        is_exclusive: isExclusive,
-        image_url: imageUrl,
-        status: 'published',
-      })
-
-      if (error) throw error
-      await new Promise(r => setTimeout(r, 1000))
-      setSuccess(true)
-    } catch (err: any) {
-      alert('Erreur : ' + err.message)
+    let imageUrl = null
+    if (imageFile) {
+      const ext = imageFile.name.split('.').pop()
+      const path = `events/${user.id}/${Date.now()}.${ext}`
+      const { data, error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(path, imageFile, { upsert: true })
+      if (!uploadError && data) {
+        const { data: urlData } = supabase.storage
+          .from('documents')
+          .getPublicUrl(data.path)
+        imageUrl = urlData.publicUrl
+      }
     }
-    setSaving(false)
-  };
+
+    const { error } = await supabase.from('events').insert({
+      organisateur_id: user.id,
+      title,
+      description,
+      start_date: startDate,
+      end_date: endDate,
+      location_name: locationName,
+      total_spots: parseInt(totalSpots),
+      available_spots: parseInt(totalSpots),
+      price_per_spot: parseFloat(pricePerSpot) || 0,
+      is_exclusive: isExclusive,
+      image_url: imageUrl,
+      status: 'published',
+    })
+
+    if (error) throw error
+    await new Promise(r => setTimeout(r, 1000))
+    setSuccess(true)
+  } catch (err: any) {
+    alert('Erreur : ' + err.message)
+  }
+  setSaving(false)
+};
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#EEF2F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
