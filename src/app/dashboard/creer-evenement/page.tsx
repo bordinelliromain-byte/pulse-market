@@ -9,8 +9,9 @@ import {
   LayoutDashboard, Map, FileText, Receipt, Settings,
   LogOut, ArrowLeft, Save, Loader, Upload, ImageIcon,
   MapPin, Calendar, Users, Euro, Zap, Star, ChevronRight,
-  CheckCircle, AlertCircle, Eye, EyeOff
+  CheckCircle
 } from 'lucide-react'
+import AddressMap from '@/components/AddressMap'
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 12 },
@@ -47,11 +48,14 @@ export default function CreerEvenement() {
   const [activeNav, setActiveNav] = useState('Marchés')
   const [step, setStep] = useState(1)
 
-  // Form fields
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [eventType, setEventType] = useState('')
   const [locationName, setLocationName] = useState('')
+  const [latitude, setLatitude] = useState<number | null>(null)
+  const [longitude, setLongitude] = useState<number | null>(null)
+  const [city, setCity] = useState('')
+  const [postalCode, setPostalCode] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [totalSpots, setTotalSpots] = useState('')
@@ -92,54 +96,52 @@ export default function CreerEvenement() {
   }
 
   const handleSubmit = async () => {
-  if (!title || !startDate || !endDate || !locationName || !totalSpots) return
-  setSaving(true)
-  try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!title || !startDate || !endDate || !locationName || !totalSpots) return
+    setSaving(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-    let imageUrl = null
-    if (imageFile) {
-  console.log('Image file:', imageFile.name, imageFile.size)
-  const ext = imageFile.name.split('.').pop()
-  const path = `events/${user.id}/${Date.now()}.${ext}`
-  console.log('Upload path:', path)
-  const { data, error: uploadError } = await supabase.storage
-    .from('images')
-    .upload(path, imageFile, { upsert: true })
-  console.log('Upload result:', data, uploadError)
-  if (!uploadError && data) {
-    const { data: urlData } = supabase.storage
-      .from('images')
-      .getPublicUrl(data.path)
-    imageUrl = urlData.publicUrl
-    console.log('Image URL:', imageUrl)
+      let imageUrl = null
+      if (imageFile) {
+        const ext = imageFile.name.split('.').pop()
+        const path = `events/${user.id}/${Date.now()}.${ext}`
+        const { data, error: uploadError } = await supabase.storage
+          .from('images')
+          .upload(path, imageFile, { upsert: true })
+        if (!uploadError && data) {
+          const { data: urlData } = supabase.storage.from('images').getPublicUrl(data.path)
+          imageUrl = urlData.publicUrl
+        }
+      }
+
+      const { error } = await supabase.from('events').insert({
+        organisateur_id: user.id,
+        title,
+        description,
+        start_date: startDate,
+        end_date: endDate,
+        location_name: locationName,
+        total_spots: parseInt(totalSpots),
+        available_spots: parseInt(totalSpots),
+        price_per_spot: parseFloat(pricePerSpot) || 0,
+        is_exclusive: isExclusive,
+        image_url: imageUrl,
+        latitude,
+        longitude,
+        city,
+        postal_code: postalCode,
+        status: 'published',
+      })
+
+      if (error) throw error
+      await new Promise(r => setTimeout(r, 1000))
+      setSuccess(true)
+    } catch (err: any) {
+      alert('Erreur : ' + err.message)
+    }
+    setSaving(false)
   }
-}
-
-    const { error } = await supabase.from('events').insert({
-      organisateur_id: user.id,
-      title,
-      description,
-      start_date: startDate,
-      end_date: endDate,
-      location_name: locationName,
-      total_spots: parseInt(totalSpots),
-      available_spots: parseInt(totalSpots),
-      price_per_spot: parseFloat(pricePerSpot) || 0,
-      is_exclusive: isExclusive,
-      image_url: imageUrl,
-      status: 'published',
-    })
-
-    if (error) throw error
-    await new Promise(r => setTimeout(r, 1000))
-    setSuccess(true)
-  } catch (err: any) {
-    alert('Erreur : ' + err.message)
-  }
-  setSaving(false)
-};
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#EEF2F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -148,7 +150,6 @@ export default function CreerEvenement() {
     </div>
   )
 
-  // SUCCESS SCREEN
   if (success) return (
     <div style={{ minHeight: '100vh', background: '#EEF2F7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }}
@@ -156,13 +157,11 @@ export default function CreerEvenement() {
         <div style={{ width: 60, height: 60, background: '#F0FDF4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
           <CheckCircle size={28} style={{ color: '#16A34A' }} />
         </div>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0F172A', marginBottom: 8, letterSpacing: '-0.02em' }}>
-          Événement publié !
-        </h2>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0F172A', marginBottom: 8, letterSpacing: '-0.02em' }}>Événement publié !</h2>
         <p style={{ fontSize: 13, color: '#64748B', marginBottom: 6, lineHeight: 1.6 }}>
-          <strong style={{ color: '#0F172A' }}>{title}</strong> est maintenant visible par tous les exposants de la plateforme.
+          <strong style={{ color: '#0F172A' }}>{title}</strong> est maintenant visible par tous les exposants.
         </p>
-        <p style={{ fontSize: 12, color: '#94A3B8', marginBottom: 28 }}>{totalSpots} emplacements disponibles — {pricePerSpot ? `Dès ${pricePerSpot}€` : 'Gratuit'}</p>
+        <p style={{ fontSize: 12, color: '#94A3B8', marginBottom: 28 }}>{totalSpots} emplacements — {pricePerSpot ? `Dès ${pricePerSpot}€` : 'Gratuit'}</p>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => router.push('/dashboard/candidatures')}
             style={{ flex: 1, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '11px 0', fontSize: 13, fontWeight: 500, color: '#475569', cursor: 'pointer' }}>
@@ -198,14 +197,7 @@ export default function CreerEvenement() {
           <p style={{ fontSize: 10, fontWeight: 600, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '8px 10px', marginBottom: 4 }}>Navigation</p>
           {NAV_ITEMS.map((item) => (
             <button key={item.label} onClick={() => { setActiveNav(item.label); router.push(item.path) }}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                padding: '9px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                background: activeNav === item.label ? 'rgba(79,70,229,0.15)' : 'transparent',
-                color: activeNav === item.label ? '#818CF8' : '#64748B',
-                fontSize: 13, fontWeight: activeNav === item.label ? 600 : 400,
-                marginBottom: 2, textAlign: 'left', transition: 'all 0.15s',
-              }}>
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: activeNav === item.label ? 'rgba(79,70,229,0.15)' : 'transparent', color: activeNav === item.label ? '#818CF8' : '#64748B', fontSize: 13, fontWeight: activeNav === item.label ? 600 : 400, marginBottom: 2, textAlign: 'left', transition: 'all 0.15s' }}>
               {item.icon}{item.label}
             </button>
           ))}
@@ -251,14 +243,10 @@ export default function CreerEvenement() {
 
               {/* STEPPER */}
               <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 20px', display: 'flex', alignItems: 'center' }}>
-                {[
-                  { n: 1, label: "Identité" },
-                  { n: 2, label: "Logistique" },
-                  { n: 3, label: "Publication" },
-                ].map((s, i) => (
+                {[{ n: 1, label: 'Identité' }, { n: 2, label: 'Logistique' }, { n: 3, label: 'Publication' }].map((s, i) => (
                   <div key={s.n} style={{ display: 'flex', alignItems: 'center', flex: i < 2 ? 1 : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: step > s.n ? '#4F46E5' : step === s.n ? '#4F46E5' : '#F1F5F9', color: step >= s.n ? 'white' : '#94A3B8', fontSize: 11, fontWeight: 700, boxShadow: step === s.n ? '0 0 0 3px rgba(79,70,229,0.15)' : 'none' }}>
+                      <div style={{ width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: step >= s.n ? '#4F46E5' : '#F1F5F9', color: step >= s.n ? 'white' : '#94A3B8', fontSize: 11, fontWeight: 700, boxShadow: step === s.n ? '0 0 0 3px rgba(79,70,229,0.15)' : 'none' }}>
                         {step > s.n ? <CheckCircle size={13} /> : s.n}
                       </div>
                       <span style={{ fontSize: 12, fontWeight: step === s.n ? 600 : 400, color: step === s.n ? '#0F172A' : '#94A3B8', whiteSpace: 'nowrap' }}>{s.label}</span>
@@ -268,7 +256,7 @@ export default function CreerEvenement() {
                 ))}
               </motion.div>
 
-              {/* ÉTAPE 1 — IDENTITÉ */}
+              {/* ÉTAPE 1 */}
               {step === 1 && (
                 <motion.div variants={fadeUp} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
@@ -297,23 +285,14 @@ export default function CreerEvenement() {
                           </div>
                         </div>
                       ) : (
-                        <div
-                          onDragOver={e => { e.preventDefault(); setImageDragging(true) }}
-                          onDragLeave={() => setImageDragging(false)}
-                          onDrop={handleDrop}
-                          onClick={() => fileInputRef.current?.click()}
-                          style={{
-                            height: 160, border: `2px dashed ${imageDragging ? '#4F46E5' : '#E2E8F0'}`, borderRadius: 10,
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-                            cursor: 'pointer', background: imageDragging ? '#EEF2FF' : '#FAFAFA', transition: 'all 0.2s',
-                          }}>
+                        <div onDragOver={e => { e.preventDefault(); setImageDragging(true) }} onDragLeave={() => setImageDragging(false)} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}
+                          style={{ height: 160, border: `2px dashed ${imageDragging ? '#4F46E5' : '#E2E8F0'}`, borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', background: imageDragging ? '#EEF2FF' : '#FAFAFA', transition: 'all 0.2s' }}>
                           <div style={{ width: 40, height: 40, background: '#EEF2FF', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <Upload size={18} style={{ color: '#4F46E5' }} />
                           </div>
                           <p style={{ fontSize: 13, fontWeight: 500, color: '#475569' }}>Glissez une image ou cliquez</p>
                           <p style={{ fontSize: 11, color: '#94A3B8' }}>JPG, PNG — max 5 MB</p>
-                          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }}
-                            onChange={e => { const f = e.target.files?.[0]; if (f) handleImageChange(f) }} />
+                          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleImageChange(f) }} />
                         </div>
                       )}
                     </div>
@@ -321,6 +300,7 @@ export default function CreerEvenement() {
 
                   {/* Infos de base */}
                   <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
                     <div>
                       <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Titre de l'événement *</label>
                       <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Marché de Noël d'Aubagne 2026"
@@ -330,7 +310,6 @@ export default function CreerEvenement() {
                       />
                     </div>
 
-                    {/* Type d'événement */}
                     <div>
                       <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>Type d'événement *</label>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
@@ -345,15 +324,17 @@ export default function CreerEvenement() {
                     </div>
 
                     <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Lieu *</label>
-                      <div style={{ position: 'relative' }}>
-                        <MapPin size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
-                        <input value={locationName} onChange={e => setLocationName(e.target.value)} placeholder="Place de la Mairie, Aubagne"
-                          style={{ width: '100%', padding: '9px 12px 9px 30px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, color: '#0F172A', background: '#FAFAFA', outline: 'none', boxSizing: 'border-box' }}
-                          onFocus={e => { e.target.style.borderColor = '#4F46E5'; e.target.style.background = 'white' }}
-                          onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.background = '#FAFAFA' }}
-                        />
-                      </div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Adresse exacte *</label>
+                      <AddressMap
+                        value={locationName}
+                        onChange={(address) => {
+                          setLocationName(address.label)
+                          setLatitude(address.lat)
+                          setLongitude(address.lng)
+                          setCity(address.city)
+                          setPostalCode(address.postcode)
+                        }}
+                      />
                     </div>
 
                     <div>
@@ -364,18 +345,21 @@ export default function CreerEvenement() {
                         onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.background = '#FAFAFA' }}
                       />
                     </div>
+
                   </div>
 
                   <button onClick={() => canGoStep2 && setStep(2)} disabled={!canGoStep2}
                     style={{ background: canGoStep2 ? '#4F46E5' : '#E2E8F0', color: canGoStep2 ? 'white' : '#94A3B8', border: 'none', borderRadius: 10, padding: '12px 0', fontSize: 14, fontWeight: 600, cursor: canGoStep2 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                     Continuer <ChevronRight size={16} />
                   </button>
+
                 </motion.div>
               )}
 
-              {/* ÉTAPE 2 — LOGISTIQUE */}
+              {/* ÉTAPE 2 */}
               {step === 2 && (
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <div>
                       <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Date de début *</label>
@@ -426,7 +410,6 @@ export default function CreerEvenement() {
                     </div>
                   </div>
 
-                  {/* Exclusif toggle */}
                   <div style={{ border: '1px solid #E2E8F0', borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ width: 32, height: 32, background: isExclusive ? '#FEF3C7' : '#F8FAFC', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -453,10 +436,11 @@ export default function CreerEvenement() {
                       Continuer <ChevronRight size={16} />
                     </button>
                   </div>
+
                 </motion.div>
               )}
 
-              {/* ÉTAPE 3 — RÉCAP */}
+              {/* ÉTAPE 3 */}
               {step === 3 && (
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', marginBottom: 4 }}>Récapitulatif avant publication</p>
@@ -469,15 +453,16 @@ export default function CreerEvenement() {
                     {[
                       { label: 'Titre', value: title },
                       { label: 'Type', value: eventType },
-                      { label: 'Lieu', value: locationName },
+                      { label: 'Adresse', value: locationName },
+                      { label: 'Ville', value: city ? `${city} ${postalCode}` : '—' },
+                      { label: 'GPS', value: latitude ? `${latitude.toFixed(4)}, ${longitude?.toFixed(4)}` : '—' },
                       { label: 'Date début', value: startDate ? new Date(startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—' },
                       { label: 'Emplacements', value: `${totalSpots} places` },
                       { label: 'Prix', value: pricePerSpot ? `${pricePerSpot} €/emplacement` : 'Gratuit' },
-                      { label: 'Exclusif Pro', value: isExclusive ? 'Oui' : 'Non' },
-                    ].map((item, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingBottom: i < 6 ? 8 : 0, marginBottom: i < 6 ? 8 : 0, borderBottom: i < 6 ? '1px solid #F1F5F9' : 'none' }}>
+                    ].map((item, i, arr) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingBottom: i < arr.length - 1 ? 8 : 0, marginBottom: i < arr.length - 1 ? 8 : 0, borderBottom: i < arr.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
                         <span style={{ color: '#64748B' }}>{item.label}</span>
-                        <span style={{ fontWeight: 600, color: '#0F172A', maxWidth: 200, textAlign: 'right' }}>{item.value}</span>
+                        <span style={{ fontWeight: 600, color: '#0F172A', maxWidth: 220, textAlign: 'right' }}>{item.value}</span>
                       </div>
                     ))}
                   </div>
@@ -492,6 +477,7 @@ export default function CreerEvenement() {
                       {saving ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Publication...</> : <><Save size={14} /> Publier l'événement</>}
                     </button>
                   </div>
+
                 </motion.div>
               )}
             </div>
@@ -502,41 +488,35 @@ export default function CreerEvenement() {
                 <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9', background: '#0F172A' }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Aperçu de l'annonce</p>
                 </div>
-
-                {/* Mini preview card */}
                 <div>
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="cover" style={{ width: '100%', height: 120, objectFit: 'cover' }} />
-                  ) : (
-                    <div style={{ height: 120, background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <ImageIcon size={28} style={{ color: 'rgba(255,255,255,0.3)' }} />
-                    </div>
-                  )}
+                  {imagePreview
+                    ? <img src={imagePreview} alt="cover" style={{ width: '100%', height: 120, objectFit: 'cover' }} />
+                    : <div style={{ height: 120, background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <ImageIcon size={28} style={{ color: 'rgba(255,255,255,0.3)' }} />
+                      </div>
+                  }
                   <div style={{ padding: '14px 16px' }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>{title || 'Titre de l\'événement'}</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>{title || "Titre de l'événement"}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#64748B', marginBottom: 8 }}>
                       <MapPin size={10} style={{ color: '#4F46E5' }} />
                       {locationName || 'Localisation'}
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
-                        {pricePerSpot ? `Dès ${pricePerSpot}€` : 'Gratuit'}
-                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>{pricePerSpot ? `Dès ${pricePerSpot}€` : 'Gratuit'}</span>
                       <span style={{ fontSize: 11, color: '#94A3B8' }}>{totalSpots || '—'} places</span>
                     </div>
                   </div>
                 </div>
-
-                {/* Checklist */}
                 <div style={{ padding: '14px 16px', borderTop: '1px solid #F1F5F9' }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Checklist</p>
                   {[
                     { label: 'Titre', ok: !!title },
                     { label: 'Type', ok: !!eventType },
-                    { label: 'Lieu', ok: !!locationName },
+                    { label: 'Adresse', ok: !!locationName },
+                    { label: 'GPS', ok: !!(latitude && longitude) },
                     { label: 'Dates', ok: !!(startDate && endDate) },
                     { label: 'Emplacements', ok: !!totalSpots },
-                    { label: 'Image de couverture', ok: !!imageFile },
+                    { label: 'Image', ok: !!imageFile },
                   ].map((item, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 6 }}>
                       <span style={{ color: '#64748B' }}>{item.label}</span>

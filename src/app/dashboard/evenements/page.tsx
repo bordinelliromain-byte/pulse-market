@@ -10,7 +10,7 @@ import {
   LogOut, Search, MapPin, Calendar, CheckCircle,
   ChevronRight, Bell, Star, SlidersHorizontal,
   Utensils, Brush, ShoppingBag, Leaf, Moon, Euro,
-  ArrowUpRight, Shield, Sparkles, Zap
+  ArrowUpRight, Shield, Navigation
 } from 'lucide-react'
 
 function AnimatedCard({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
@@ -232,8 +232,6 @@ export default function Evenements() {
         {/* STICKY FILTERS */}
         <div style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '10px 28px', position: 'sticky', top: 52, zIndex: 9 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-
-            {/* Search */}
             <div style={{ position: 'relative', width: 260 }}>
               <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
               <input value={search} onChange={e => setSearch(e.target.value)}
@@ -243,11 +241,7 @@ export default function Evenements() {
                 onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.background = '#F8FAFC' }}
               />
             </div>
-
-            {/* Separator */}
             <div style={{ width: 1, height: 20, background: '#E2E8F0' }} />
-
-            {/* Type filters with icons */}
             {TYPE_FILTERS.map(type => (
               <button key={type.label} onClick={() => setActiveType(type.label)}
                 style={{
@@ -259,19 +253,15 @@ export default function Evenements() {
                   fontSize: 11, fontWeight: activeType === type.label ? 600 : 400,
                   cursor: 'pointer', transition: 'all 0.15s',
                 }}>
-                {type.icon}
-                {type.label}
+                {type.icon}{type.label}
               </button>
             ))}
-
-            {/* Budget */}
             <button onClick={() => setShowFilters(!showFilters)}
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', border: showFilters ? '1.5px solid #4F46E5' : '1px solid #E2E8F0', borderRadius: 8, background: showFilters ? '#EEF2FF' : 'white', color: showFilters ? '#4F46E5' : '#64748B', fontSize: 11, fontWeight: 500, cursor: 'pointer', marginLeft: 'auto' }}>
               <SlidersHorizontal size={12} />
               Budget {maxPrice < 200 ? `≤ ${maxPrice}€` : ''}
             </button>
           </div>
-
           {showFilters && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
               <Euro size={12} style={{ color: '#64748B' }} />
@@ -294,7 +284,6 @@ export default function Evenements() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
               {filteredEvents.map((event, i) => {
                 const hasApplied = userApplications.includes(event.id)
-                const isAlmostFull = event.available_spots <= 5
                 const isNew = i < 2
 
                 return (
@@ -312,24 +301,19 @@ export default function Evenements() {
                         e.currentTarget.style.borderColor = '#E2E8F0'
                       }}
                     >
-                      {/* Cover image */}
                       <EventCoverImage
-                      title={event.title}
-                      location={event.location_name}
-                      exclusive={event.is_exclusive}
-                      isNew={isNew}
-                      imageUrl={event.image_url}
+                        title={event.title}
+                        location={event.location_name}
+                        exclusive={event.is_exclusive}
+                        isNew={isNew}
+                        imageUrl={event.image_url}
                       />
 
-                      {/* Content */}
                       <div style={{ padding: '14px 16px' }}>
-
-                        {/* Title */}
                         <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', marginBottom: 5, lineHeight: 1.3, letterSpacing: '-0.01em' }}>
                           {event.title}
                         </h3>
 
-                        {/* Location + distance */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#64748B', marginBottom: 10 }}>
                           <MapPin size={11} style={{ color: '#4F46E5', flexShrink: 0 }} />
                           <span>{event.location_name}</span>
@@ -337,18 +321,15 @@ export default function Evenements() {
                           <span style={{ color: '#4F46E5', fontWeight: 500 }}>à {((Math.random() * 20) + 1).toFixed(1)} km</span>
                         </div>
 
-                        {/* Date */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#94A3B8', marginBottom: 12 }}>
                           <Calendar size={10} />
                           {formatDate(event.start_date)}
                         </div>
 
-                        {/* Availability bar */}
                         <div style={{ marginBottom: 14 }}>
                           <AvailabilityBar available={event.available_spots} total={event.total_spots} />
                         </div>
 
-                        {/* Description */}
                         {event.description && (
                           <p style={{ fontSize: 12, color: '#64748B', lineHeight: 1.6, marginBottom: 12, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                             {event.description}
@@ -364,24 +345,43 @@ export default function Evenements() {
                             </p>
                           </div>
 
-                          {hasApplied ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '7px 11px', fontSize: 11, color: '#16A34A', fontWeight: 600 }}>
-                              <CheckCircle size={12} /> Envoyée
-                            </div>
-                          ) : event.available_spots === 0 ? (
-                            <span style={{ fontSize: 11, color: '#94A3B8', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '7px 11px', fontWeight: 500 }}>
-                              Complet
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => router.push(`/dashboard/candidature?eventId=${event.id}&eventName=${encodeURIComponent(event.title)}&eventDate=${encodeURIComponent(formatDate(event.start_date))}&eventLocation=${encodeURIComponent(event.location_name || '')}`)}
-                              style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#4F46E5', color: 'white', border: 'none', borderRadius: 9, padding: '8px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
-                              onMouseEnter={e => { e.currentTarget.style.background = '#4338CA'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(79,70,229,0.4)' }}
-                              onMouseLeave={e => { e.currentTarget.style.background = '#4F46E5'; e.currentTarget.style.boxShadow = 'none' }}
-                            >
-                              Postuler <ArrowUpRight size={13} />
-                            </button>
-                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+
+                            {/* Bouton Itinéraire */}
+                            {event.latitude && event.longitude && (
+                              <a
+                                href={`https://www.google.com/maps/dir/?api=1&destination=${event.latitude},${event.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#64748B', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '7px 10px', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}
+                                onMouseEnter={e => e.currentTarget.style.borderColor = '#4F46E5'}
+                                onMouseLeave={e => e.currentTarget.style.borderColor = '#E2E8F0'}
+                              >
+                                <Navigation size={11} /> Itinéraire
+                              </a>
+                            )}
+
+                            {/* Bouton Postuler / Statut */}
+                            {hasApplied ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '7px 11px', fontSize: 11, color: '#16A34A', fontWeight: 600 }}>
+                                <CheckCircle size={12} /> Envoyée
+                              </div>
+                            ) : event.available_spots === 0 ? (
+                              <span style={{ fontSize: 11, color: '#94A3B8', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '7px 11px', fontWeight: 500 }}>
+                                Complet
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => router.push(`/dashboard/candidature?eventId=${event.id}&eventName=${encodeURIComponent(event.title)}&eventDate=${encodeURIComponent(formatDate(event.start_date))}&eventLocation=${encodeURIComponent(event.location_name || '')}`)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#4F46E5', color: 'white', border: 'none', borderRadius: 9, padding: '8px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = '#4338CA'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(79,70,229,0.4)' }}
+                                onMouseLeave={e => { e.currentTarget.style.background = '#4F46E5'; e.currentTarget.style.boxShadow = 'none' }}
+                              >
+                                Postuler <ArrowUpRight size={13} />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
