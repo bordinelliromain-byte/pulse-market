@@ -5,10 +5,9 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import type { Variants } from 'framer-motion'
+import Sidebar from '@/components/Sidebar'
 import {
-  LayoutDashboard, Map, FileText, Receipt, Settings,
-  LogOut, ArrowLeft, User, Mail, Phone, Bell,
-  Shield, CreditCard, Save, CheckCircle, Eye, EyeOff, Loader
+  User, Bell, Shield, CreditCard, Save, CheckCircle, Eye, EyeOff, Loader
 } from 'lucide-react'
 
 const fadeUp: Variants = {
@@ -21,28 +20,11 @@ const stagger: Variants = {
   visible: { transition: { staggerChildren: 0.07 } },
 }
 
-const NAV_EXPOSANT = [
-  { icon: <LayoutDashboard size={15} />, label: 'Dashboard', path: '/dashboard' },
-  { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/evenements' },
-  { icon: <FileText size={15} />, label: 'Documents', path: '/dashboard/profil' },
-  { icon: <Receipt size={15} />, label: 'Factures', path: '/dashboard/factures' },
-  { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard/parametres' },
-]
-
-const NAV_ORGANISATEUR = [
-  { icon: <LayoutDashboard size={15} />, label: 'Dashboard', path: '/dashboard' },
-  { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/creer-evenement' },
-  { icon: <FileText size={15} />, label: 'Candidatures', path: '/dashboard/candidatures' },
-  { icon: <Receipt size={15} />, label: 'Trésorerie', path: '/dashboard' },
-  { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard/parametres' },
-]
-
 export default function Parametres() {
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
-  const [activeNav, setActiveNav] = useState('Paramètres')
 
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -76,13 +58,8 @@ export default function Parametres() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-
       await supabase.from('profiles').update({ full_name: fullName, phone }).eq('id', user.id)
-
-      if (newPassword) {
-        await supabase.auth.updateUser({ password: newPassword })
-      }
-
+      if (newPassword) await supabase.auth.updateUser({ password: newPassword })
       setMessage({ type: 'success', text: 'Paramètres sauvegardés avec succès' })
       setNewPassword('')
     } catch (err: any) {
@@ -91,10 +68,8 @@ export default function Parametres() {
     setSaving(false)
   }
 
-  const NAV_ITEMS = profile?.role === 'organisateur' ? NAV_ORGANISATEUR : NAV_EXPOSANT
-
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#EEF2F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: 28, height: 28, border: '2px solid #4F46E5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
@@ -103,36 +78,7 @@ export default function Parametres() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      {/* SIDEBAR */}
-      <aside style={{ width: 220, background: '#020617', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 20 }}>
-        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, background: '#4F46E5', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>PM</span>
-            </div>
-            <span style={{ color: 'white', fontWeight: 600, fontSize: 14 }}>PlaceMarket</span>
-          </div>
-        </div>
-        <nav style={{ flex: 1, padding: '12px 10px' }}>
-          <p style={{ fontSize: 10, fontWeight: 600, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '8px 10px', marginBottom: 4 }}>Navigation</p>
-          {NAV_ITEMS.map((item) => (
-            <button key={item.label} onClick={() => { setActiveNav(item.label); router.push(item.path) }}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: activeNav === item.label ? 'rgba(79,70,229,0.15)' : 'transparent', color: activeNav === item.label ? '#818CF8' : '#64748B', fontSize: 13, fontWeight: activeNav === item.label ? 600 : 400, marginBottom: 2, textAlign: 'left', transition: 'all 0.15s' }}>
-              {item.icon}{item.label}
-            </button>
-          ))}
-        </nav>
-        <div style={{ padding: '12px 10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ padding: '8px 10px', marginBottom: 4 }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: '#CBD5E1' }}>{profile?.full_name}</p>
-            <p style={{ fontSize: 11, color: '#475569' }}>{profile?.role === 'organisateur' ? 'Administration' : 'Espace exposant'}</p>
-          </div>
-          <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent', color: '#64748B', fontSize: 12 }}>
-            <LogOut size={13} /> Déconnexion
-          </button>
-        </div>
-      </aside>
+      <Sidebar profile={profile} />
 
       <div style={{ marginLeft: 220, flex: 1 }}>
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
@@ -239,7 +185,7 @@ export default function Parametres() {
                 {[
                   { label: 'Notifications par email', sub: 'Candidatures, validations, messages', val: notifEmail, set: setNotifEmail },
                   { label: 'Notifications SMS', sub: 'Alertes urgentes uniquement (Plan Pro)', val: notifSms, set: setNotifSms },
-                  { label: 'Alertes nouveaux événements', sub: 'Soyez notifié dès qu\'un marché est publié près de vous', val: notifNewEvent, set: setNotifNewEvent },
+                  { label: 'Alertes nouveaux événements', sub: "Soyez notifié dès qu'un marché est publié près de vous", val: notifNewEvent, set: setNotifNewEvent },
                 ].map((item, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: i < 2 ? 14 : 0, marginBottom: i < 2 ? 14 : 0, borderBottom: i < 2 ? '1px solid #F8FAFC' : 'none' }}>
                     <div>
@@ -255,9 +201,9 @@ export default function Parametres() {
               </div>
             </motion.div>
 
-            {/* Plan */}
+            {/* Plan — exposant uniquement */}
             {profile?.role === 'exposant' && (
-              <motion.div variants={fadeUp} style={{ background: '#0F172A', border: '1px solid #0F172A', borderRadius: 12, padding: '20px' }}>
+              <motion.div variants={fadeUp} style={{ background: '#0F172A', borderRadius: 12, padding: '20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                   <div style={{ width: 30, height: 30, background: 'rgba(79,70,229,0.2)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <CreditCard size={15} style={{ color: '#818CF8' }} />

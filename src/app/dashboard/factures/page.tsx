@@ -5,10 +5,10 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import type { Variants } from 'framer-motion'
+import Sidebar from '@/components/Sidebar'
 import {
-  LayoutDashboard, Map, FileText, Receipt, Settings,
-  LogOut, Download, CheckCircle, Clock, CreditCard,
-  Euro, TrendingUp, Calendar, ArrowUpRight
+  Download, CheckCircle, Clock, CreditCard,
+  Euro, TrendingUp, Calendar
 } from 'lucide-react'
 
 const fadeUp: Variants = {
@@ -21,15 +21,6 @@ const stagger: Variants = {
   visible: { transition: { staggerChildren: 0.07 } },
 }
 
-const NAV_ITEMS = [
-  { icon: <LayoutDashboard size={15} />, label: 'Dashboard', path: '/dashboard' },
-  { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/evenements' },
-  { icon: <FileText size={15} />, label: 'Documents', path: '/dashboard/profil' },
-  { icon: <Receipt size={15} />, label: 'Factures', path: '/dashboard/factures' },
-  { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard/parametres' },
-]
-
-// Mock factures — seront remplacées par Stripe plus tard
 const MOCK_FACTURES = [
   { id: 'FAC-2026-004', date: '2026-04-15', event: 'Marché de Printemps — Aubagne', montant: 42, statut: 'paid' },
   { id: 'FAC-2026-003', date: '2026-03-28', event: 'Foire Artisanale — Gémenos', montant: 60, statut: 'paid' },
@@ -40,7 +31,6 @@ const MOCK_FACTURES = [
 export default function Factures() {
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [activeNav, setActiveNav] = useState('Factures')
   const router = useRouter()
   const supabase = createClient()
 
@@ -49,7 +39,6 @@ export default function Factures() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth'); return }
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (profileData?.role !== 'exposant') { router.push('/dashboard'); return }
       setProfile(profileData)
       setLoading(false)
     }
@@ -58,7 +47,6 @@ export default function Factures() {
 
   const totalPaid = MOCK_FACTURES.filter(f => f.statut === 'paid').reduce((acc, f) => acc + f.montant, 0)
   const totalPending = MOCK_FACTURES.filter(f => f.statut === 'pending').reduce((acc, f) => acc + f.montant, 0)
-
   const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
   if (loading) return (
@@ -71,40 +59,9 @@ export default function Factures() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      {/* SIDEBAR */}
-      <aside style={{ width: 220, background: '#020617', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 20 }}>
-        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, background: '#4F46E5', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>PM</span>
-            </div>
-            <span style={{ color: 'white', fontWeight: 600, fontSize: 14 }}>PlaceMarket</span>
-          </div>
-        </div>
-        <nav style={{ flex: 1, padding: '12px 10px' }}>
-          <p style={{ fontSize: 10, fontWeight: 600, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '8px 10px', marginBottom: 4 }}>Navigation</p>
-          {NAV_ITEMS.map((item) => (
-            <button key={item.label} onClick={() => { setActiveNav(item.label); router.push(item.path) }}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: activeNav === item.label ? 'rgba(79,70,229,0.15)' : 'transparent', color: activeNav === item.label ? '#818CF8' : '#64748B', fontSize: 13, fontWeight: activeNav === item.label ? 600 : 400, marginBottom: 2, textAlign: 'left', transition: 'all 0.15s' }}>
-              {item.icon}{item.label}
-            </button>
-          ))}
-        </nav>
-        <div style={{ padding: '12px 10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ padding: '8px 10px', marginBottom: 4 }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: '#CBD5E1' }}>{profile?.full_name}</p>
-            <p style={{ fontSize: 11, color: '#475569' }}>Espace exposant</p>
-          </div>
-          <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent', color: '#64748B', fontSize: 12 }}>
-            <LogOut size={13} /> Déconnexion
-          </button>
-        </div>
-      </aside>
+      <Sidebar profile={profile} />
 
       <div style={{ marginLeft: 220, flex: 1 }}>
-
-        {/* TOP BAR */}
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Mes factures</p>
           <button
@@ -127,7 +84,6 @@ export default function Factures() {
         <main style={{ padding: '24px 28px' }}>
           <motion.div variants={stagger} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-            {/* STATS */}
             <motion.div variants={fadeUp} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
               {[
                 { label: 'Total réglé', value: `${totalPaid} €`, icon: <CheckCircle size={15} style={{ color: '#16A34A' }} />, color: '#16A34A', bg: '#F0FDF4' },
@@ -137,16 +93,13 @@ export default function Factures() {
                 <div key={i} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                     <span style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</span>
-                    <div style={{ width: 30, height: 30, background: s.bg, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {s.icon}
-                    </div>
+                    <div style={{ width: 30, height: 30, background: s.bg, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{s.icon}</div>
                   </div>
                   <p style={{ fontSize: 26, fontWeight: 700, color: s.color }}>{s.value}</p>
                 </div>
               ))}
             </motion.div>
 
-            {/* BANNER STRIPE */}
             <motion.div variants={fadeUp} style={{ background: '#0F172A', borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 36, height: 36, background: 'rgba(79,70,229,0.2)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -157,18 +110,14 @@ export default function Factures() {
                   <p style={{ fontSize: 11, color: '#64748B' }}>Les factures seront générées automatiquement dès qu'un paiement est effectué</p>
                 </div>
               </div>
-              <span style={{ fontSize: 11, background: '#1E293B', color: '#64748B', padding: '4px 10px', borderRadius: 100, whiteSpace: 'nowrap' }}>
-                Bientôt disponible
-              </span>
+              <span style={{ fontSize: 11, background: '#1E293B', color: '#64748B', padding: '4px 10px', borderRadius: 100, whiteSpace: 'nowrap' }}>Bientôt disponible</span>
             </motion.div>
 
-            {/* LISTE FACTURES */}
             <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
               <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Historique des paiements</p>
                 <span style={{ fontSize: 11, color: '#94A3B8' }}>{MOCK_FACTURES.length} facture(s)</span>
               </div>
-
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #F1F5F9', background: '#FAFAFA' }}>
@@ -191,21 +140,14 @@ export default function Factures() {
                       </td>
                       <td style={{ padding: '14px 18px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#64748B' }}>
-                          <Calendar size={11} />
-                          {formatDate(f.date)}
+                          <Calendar size={11} /> {formatDate(f.date)}
                         </div>
                       </td>
                       <td style={{ padding: '14px 18px' }}>
                         <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>{f.montant} €</p>
                       </td>
                       <td style={{ padding: '14px 18px' }}>
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 4,
-                          background: f.statut === 'paid' ? '#F0FDF4' : '#FFFBEB',
-                          color: f.statut === 'paid' ? '#16A34A' : '#F59E0B',
-                          fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 100,
-                          border: `1px solid ${f.statut === 'paid' ? '#BBF7D0' : '#FDE68A'}`,
-                        }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: f.statut === 'paid' ? '#F0FDF4' : '#FFFBEB', color: f.statut === 'paid' ? '#16A34A' : '#F59E0B', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 100, border: `1px solid ${f.statut === 'paid' ? '#BBF7D0' : '#FDE68A'}` }}>
                           {f.statut === 'paid' ? <CheckCircle size={10} /> : <Clock size={10} />}
                           {f.statut === 'paid' ? 'Payé' : 'En attente'}
                         </span>
@@ -231,14 +173,11 @@ export default function Factures() {
               </table>
             </motion.div>
 
-            {/* INFO COMPTABLE */}
             <motion.div variants={fadeUp} style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
               <Euro size={15} style={{ color: '#4F46E5', flexShrink: 0, marginTop: 1 }} />
               <div>
                 <p style={{ fontSize: 12, fontWeight: 600, color: '#4338CA', marginBottom: 3 }}>Pour votre comptabilité</p>
-                <p style={{ fontSize: 12, color: '#4F46E5', lineHeight: 1.6 }}>
-                  Exportez vos factures en CSV pour les intégrer directement dans votre logiciel comptable. Les factures officielles au format PDF seront disponibles dès l'intégration de Stripe.
-                </p>
+                <p style={{ fontSize: 12, color: '#4F46E5', lineHeight: 1.6 }}>Exportez vos factures en CSV pour les intégrer dans votre logiciel comptable. Les factures PDF seront disponibles dès l'intégration de Stripe.</p>
               </div>
             </motion.div>
 

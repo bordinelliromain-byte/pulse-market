@@ -53,8 +53,8 @@ const NAV_ITEMS = [
   { icon: <LayoutDashboard size={15} />, label: 'Dashboard', path: '/dashboard' },
   { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/creer-evenement' },
   { icon: <FileText size={15} />, label: 'Candidatures', path: '/dashboard/candidatures' },
-  { icon: <Receipt size={15} />, label: 'Trésorerie', path: '/dashboard' },
-  { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard' },
+  { icon: <Receipt size={15} />, label: 'Trésorerie', path: '/dashboard/tresorerie' },
+  { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard/parametres' },
 ]
 
 const MOCK_ACTIVITIES = [

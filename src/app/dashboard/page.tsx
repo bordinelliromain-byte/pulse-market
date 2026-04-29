@@ -127,8 +127,8 @@ const NAV_ITEMS = [
   { icon: <LayoutDashboard size={15} />, label: 'Dashboard', path: '/dashboard' },
   { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/evenements' },
   { icon: <FileText size={15} />, label: 'Documents', path: '/dashboard/profil' },
-  { icon: <Receipt size={15} />, label: 'Factures', path: '/dashboard' },
-  { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard' },
+  { icon: <Receipt size={15} />, label: 'Factures', path: '/dashboard/factures' },
+  { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard/parametres' },
 ]
 
 const MOCK_MARCHES = [
