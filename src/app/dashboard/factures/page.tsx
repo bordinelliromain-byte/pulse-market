@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import type { Variants } from 'framer-motion'
 import Sidebar from '@/components/Sidebar'
+import { openFacturePDF } from '@/lib/generateFacture'
 import {
   Download, CheckCircle, Clock, CreditCard,
-  Euro, TrendingUp, Calendar
+  Euro, TrendingUp, Calendar, FileText
 } from 'lucide-react'
 
 const fadeUp: Variants = {
@@ -44,6 +45,20 @@ export default function Factures() {
     }
     getData()
   }, [])
+
+  const handleVoirFacture = (f: typeof MOCK_FACTURES[0]) => {
+    openFacturePDF({
+      candidatureId: f.id,
+      exposantNom: profile?.full_name || 'Exposant',
+      exposantEmail: profile?.email || '',
+      exposantBusinessName: profile?.full_name,
+      eventTitle: f.event.split('—')[0]?.trim() || f.event,
+      eventDate: new Date(f.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+      eventLocation: f.event.split('—')[1]?.trim() || '',
+      redevanceAOT: f.montant - 2,
+      fraisPlateforme: 2,
+    })
+  }
 
   const totalPaid = MOCK_FACTURES.filter(f => f.statut === 'paid').reduce((acc, f) => acc + f.montant, 0)
   const totalPending = MOCK_FACTURES.filter(f => f.statut === 'pending').reduce((acc, f) => acc + f.montant, 0)
@@ -154,17 +169,9 @@ export default function Factures() {
                       </td>
                       <td style={{ padding: '14px 18px' }}>
                         <button
-                          onClick={() => {
-                            const content = `FACTURE ${f.id}\nDate: ${formatDate(f.date)}\nÉvénement: ${f.event}\nMontant: ${f.montant} €\nStatut: ${f.statut === 'paid' ? 'Payé' : 'En attente'}\n\nPlaceMarket — placemarket.fr`
-                            const blob = new Blob([content], { type: 'text/plain' })
-                            const url = URL.createObjectURL(blob)
-                            const a = document.createElement('a')
-                            a.href = url
-                            a.download = `${f.id}.txt`
-                            a.click()
-                          }}
-                          style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 11, color: '#64748B', fontWeight: 500 }}>
-                          <Download size={11} /> Télécharger
+                          onClick={() => handleVoirFacture(f)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontSize: 11, color: '#4F46E5', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          <FileText size={11} /> Voir la facture
                         </button>
                       </td>
                     </tr>
@@ -177,7 +184,7 @@ export default function Factures() {
               <Euro size={15} style={{ color: '#4F46E5', flexShrink: 0, marginTop: 1 }} />
               <div>
                 <p style={{ fontSize: 12, fontWeight: 600, color: '#4338CA', marginBottom: 3 }}>Pour votre comptabilité</p>
-                <p style={{ fontSize: 12, color: '#4F46E5', lineHeight: 1.6 }}>Exportez vos factures en CSV pour les intégrer dans votre logiciel comptable. Les factures PDF seront disponibles dès l'intégration de Stripe.</p>
+                <p style={{ fontSize: 12, color: '#4F46E5', lineHeight: 1.6 }}>Cliquez sur "Voir la facture" pour ouvrir le PDF officiel, imprimable et accepté par l'administration. Exportez en CSV pour intégration dans votre logiciel comptable.</p>
               </div>
             </motion.div>
 

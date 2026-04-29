@@ -5,11 +5,12 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Variants } from 'framer-motion'
+import { openFacturePDF } from '@/lib/generateFacture'
 import {
   LayoutDashboard, Map, FileText, Receipt, Settings,
   LogOut, Search, CheckCircle, AlertCircle, Clock,
   XCircle, ChevronRight, X, Download, Bell, MapPin,
-  Shield, Eye, ThumbsUp, ThumbsDown, Plus, Calendar,
+  Shield, ThumbsUp, ThumbsDown, Plus, Calendar,
   Users, ArrowLeft, Zap, Ruler, User, ExternalLink,
   CreditCard, CheckSquare, Square
 } from 'lucide-react'
@@ -18,8 +19,8 @@ const NAV_ITEMS = [
   { icon: <LayoutDashboard size={15} />, label: 'Dashboard', path: '/dashboard' },
   { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/creer-evenement' },
   { icon: <FileText size={15} />, label: 'Candidatures', path: '/dashboard/candidatures' },
-  { icon: <Receipt size={15} />, label: 'Trésorerie', path: '/dashboard' },
-  { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard' },
+  { icon: <Receipt size={15} />, label: 'Trésorerie', path: '/dashboard/tresorerie' },
+  { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard/parametres' },
 ]
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
@@ -82,6 +83,18 @@ function EventCover({ event }: { event: any }) {
   )
 }
 
+// ── TOAST ──────────────────────────────────────────────────────────────────
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
+  useEffect(() => { const t = setTimeout(onClose, 4000); return () => clearTimeout(t) }, [])
+  return (
+    <motion.div initial={{ opacity: 0, x: 60 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 60 }}
+      style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 100, background: 'white', borderRadius: 12, padding: '14px 18px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 10, borderLeft: `3px solid ${type === 'success' ? '#16A34A' : '#DC2626'}`, minWidth: 300 }}>
+      <CheckCircle size={15} style={{ color: type === 'success' ? '#16A34A' : '#DC2626' }} />
+      <span style={{ fontSize: 13, fontWeight: 500, color: '#0F172A' }}>{message}</span>
+    </motion.div>
+  )
+}
+
 export default function Candidatures() {
   const [profile, setProfile] = useState<any>(null)
   const [events, setEvents] = useState<any[]>([])
@@ -98,6 +111,7 @@ export default function Candidatures() {
   const [showRejectInput, setShowRejectInput] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [eventCandidatures, setEventCandidatures] = useState<{ [key: string]: number }>({})
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   const router = useRouter()
   const supabase = createClient()
@@ -118,7 +132,7 @@ export default function Candidatures() {
       if (eventIds.length > 0) {
         const { data: apps } = await supabase
           .from('applications')
-          .select(`*, profiles:exposant_id(full_name, email, phone), events:event_id(title, start_date, location_name)`)
+          .select(`*, profiles:exposant_id(full_name, email, phone), events:event_id(title, start_date, location_name, price_per_spot)`)
           .in('event_id', eventIds)
           .order('created_at', { ascending: false })
 
@@ -130,7 +144,6 @@ export default function Candidatures() {
         )
         setAllCandidatures(appsWithData)
 
-        // Count per event
         const counts: { [key: string]: number } = {}
         appsWithData.forEach((a: any) => { counts[a.event_id] = (counts[a.event_id] || 0) + 1 })
         setEventCandidatures(counts)
@@ -140,17 +153,50 @@ export default function Candidatures() {
     getData()
   }, [])
 
-  const handleStatus = async (id: string, status: string) => {
+  // ── VALIDATION AVEC FACTURE ─────────────────────────────────────────────
+  const handleValidate = async (id: string) => {
     setUpdating(id)
-    await supabase.from('applications').update({ status }).eq('id', id)
-    setAllCandidatures(prev => prev.map(c => c.id === id ? { ...c, status } : c))
-    if (slideOver?.id === id) setSlideOver((prev: any) => ({ ...prev, status }))
+    await supabase.from('applications').update({ status: 'validated' }).eq('id', id)
+    setAllCandidatures(prev => prev.map(c => c.id === id ? { ...c, status: 'validated' } : c))
+    if (slideOver?.id === id) setSlideOver((prev: any) => ({ ...prev, status: 'validated' }))
+
+    const candidature = allCandidatures.find(c => c.id === id)
+    if (candidature) {
+      openFacturePDF({
+        candidatureId: id,
+        exposantNom: candidature.profiles?.full_name || '',
+        exposantEmail: candidature.profiles?.email || '',
+        exposantSiren: candidature.exposant_data?.siren,
+        exposantBusinessName: candidature.exposant_data?.business_name,
+        exposantAdresse: candidature.exposant_data?.description,
+        eventTitle: candidature.events?.title || '',
+        eventDate: candidature.events?.start_date
+          ? new Date(candidature.events.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+          : '',
+        eventLocation: candidature.events?.location_name || '',
+        mairieNom: profile?.full_name,
+        redevanceAOT: candidature.events?.price_per_spot || 0,
+        fraisPlateforme: 2,
+      })
+    }
+
+    setToast({ message: 'Dossier approuvé — facture générée', type: 'success' })
+    setUpdating(null)
+    setShowRejectInput(false)
+  }
+
+  const handleReject = async (id: string) => {
+    setUpdating(id)
+    await supabase.from('applications').update({ status: 'rejected' }).eq('id', id)
+    setAllCandidatures(prev => prev.map(c => c.id === id ? { ...c, status: 'rejected' } : c))
+    if (slideOver?.id === id) setSlideOver((prev: any) => ({ ...prev, status: 'rejected' }))
+    setToast({ message: 'Dossier refusé', type: 'error' })
     setUpdating(null)
     setShowRejectInput(false)
   }
 
   const handleBulkValidate = async () => {
-    for (const id of selectedIds) await handleStatus(id, 'validated')
+    for (const id of selectedIds) await handleValidate(id)
     setSelectedIds([])
   }
 
@@ -186,6 +232,11 @@ export default function Candidatures() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Inter', system-ui, sans-serif" }}>
+
+      {/* TOAST */}
+      <AnimatePresence>
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      </AnimatePresence>
 
       {/* SIDEBAR */}
       <aside style={{ width: 220, background: '#020617', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 20 }}>
@@ -260,11 +311,9 @@ export default function Candidatures() {
 
         <AnimatePresence mode="wait">
 
-          {/* ===== VUE GALERIE ÉVÉNEMENTS ===== */}
+          {/* VUE GALERIE */}
           {!selectedEvent && (
             <motion.div key="gallery" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}>
-
-              {/* Search bar */}
               <div style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '10px 28px' }}>
                 <div style={{ position: 'relative', maxWidth: 340 }}>
                   <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
@@ -278,8 +327,6 @@ export default function Candidatures() {
 
               <main style={{ padding: '24px 28px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
-
-                  {/* Bouton créer */}
                   <button onClick={() => router.push('/dashboard/creer-evenement')}
                     style={{ border: '2px dashed #E2E8F0', borderRadius: 12, padding: '32px 20px', background: 'white', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'all 0.2s', minHeight: 200 }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = '#4F46E5'; e.currentTarget.style.background = '#EEF2FF' }}
@@ -293,20 +340,16 @@ export default function Candidatures() {
                     </div>
                   </button>
 
-                  {/* Event cards */}
                   {filteredEvents.map((event, i) => {
                     const count = eventCandidatures[event.id] || 0
                     const pendingApp = allCandidatures.filter(c => c.event_id === event.id && c.status === 'pending').length
                     return (
                       <motion.div key={event.id}
-                        initial={{ opacity: 0, y: 16 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.05 }}
+                        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
                         onClick={() => setSelectedEvent(event)}
                         style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', cursor: 'pointer', transition: 'all 0.2s' }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 30px rgba(79,70,229,0.12)'; (e.currentTarget as HTMLElement).style.borderColor = '#C7D2FE' }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; (e.currentTarget as HTMLElement).style.borderColor = '#E2E8F0' }}
-                      >
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; (e.currentTarget as HTMLElement).style.borderColor = '#E2E8F0' }}>
                         <EventCover event={event} />
                         <div style={{ padding: '14px 16px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
@@ -318,8 +361,7 @@ export default function Candidatures() {
                             )}
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#94A3B8', marginBottom: 10 }}>
-                            <Calendar size={10} />
-                            {formatShort(event.start_date)}
+                            <Calendar size={10} /> {formatShort(event.start_date)}
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid #F8FAFC' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#64748B' }}>
@@ -327,19 +369,16 @@ export default function Candidatures() {
                               <span><strong style={{ color: '#0F172A' }}>{count}</strong> candidature{count !== 1 ? 's' : ''}</span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontSize: 11, color: '#94A3B8' }}>{event.available_spots} places</span>
-                             <button
-                              onClick={async (e) => {
-                               e.stopPropagation()
-                              if (!confirm(`Supprimer "${event.title}" ?`)) return
-                              await supabase.from('events').delete().eq('id', event.id)
-                              setEvents(prev => prev.filter(ev => ev.id !== event.id))
-                            }}
-                            style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 11, color: '#DC2626', fontWeight: 500 }}
-                          >
-                           Supprimer
-                        </button>
-                      </div>
+                              <span style={{ fontSize: 11, color: '#94A3B8' }}>{event.available_spots} places</span>
+                              <button onClick={async (e) => {
+                                e.stopPropagation()
+                                if (!confirm(`Supprimer "${event.title}" ?`)) return
+                                await supabase.from('events').delete().eq('id', event.id)
+                                setEvents(prev => prev.filter(ev => ev.id !== event.id))
+                              }} style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 11, color: '#DC2626', fontWeight: 500 }}>
+                                Supprimer
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </motion.div>
@@ -350,11 +389,9 @@ export default function Candidatures() {
             </motion.div>
           )}
 
-          {/* ===== VUE CANDIDATURES D'UN ÉVÉNEMENT ===== */}
+          {/* VUE CANDIDATURES */}
           {selectedEvent && (
             <motion.div key="detail" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-
-              {/* Event info banner */}
               <div style={{ background: '#0F172A', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{ width: 48, height: 36, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
                   <EventCover event={selectedEvent} />
@@ -369,14 +406,11 @@ export default function Candidatures() {
                     <span>{selectedEvent.available_spots}/{selectedEvent.total_spots} places</span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <span style={{ background: 'rgba(255,255,255,0.08)', color: '#94A3B8', fontSize: 11, padding: '4px 10px', borderRadius: 8 }}>
-                    {currentCandidatures.length} candidature(s)
-                  </span>
-                </div>
+                <span style={{ background: 'rgba(255,255,255,0.08)', color: '#94A3B8', fontSize: 11, padding: '4px 10px', borderRadius: 8 }}>
+                  {currentCandidatures.length} candidature(s)
+                </span>
               </div>
 
-              {/* Filters */}
               <div style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '10px 28px', display: 'flex', gap: 8, alignItems: 'center' }}>
                 <div style={{ position: 'relative', width: 240 }}>
                   <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
@@ -475,7 +509,6 @@ export default function Candidatures() {
                 )}
               </main>
 
-              {/* Floating bar */}
               <AnimatePresence>
                 {selectedIds.length > 0 && (
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
@@ -484,10 +517,7 @@ export default function Candidatures() {
                     <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
                     <button onClick={handleBulkValidate}
                       style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                      <CheckCircle size={13} /> Valider la sélection
-                    </button>
-                    <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.08)', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-                      <Download size={13} /> Télécharger les factures
+                      <CheckCircle size={13} /> Valider + générer factures
                     </button>
                     <button onClick={() => setSelectedIds([])} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
                       <X size={14} />
@@ -509,9 +539,7 @@ export default function Candidatures() {
               style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 40, backdropFilter: 'blur(2px)' }} />
 
             <motion.div
-              initial={{ x: '100%', opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: '100%', opacity: 0 }}
+              initial={{ x: '100%', opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: '100%', opacity: 0 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 420, background: 'white', zIndex: 50, display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 40px rgba(0,0,0,0.12)' }}>
 
@@ -584,8 +612,7 @@ export default function Candidatures() {
                 {showRejectInput && (
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 600, color: '#DC2626', display: 'block', marginBottom: 6 }}>Motif du refus</label>
-                    <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-                      placeholder="Ex: Dossier incomplet..."
+                    <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Ex: Dossier incomplet..."
                       style={{ width: '100%', padding: '8px 12px', border: '1px solid #FECACA', borderRadius: 8, fontSize: 12, resize: 'none', height: 70, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#0F172A' }} />
                   </div>
                 )}
@@ -593,9 +620,9 @@ export default function Candidatures() {
 
               {slideOver.status === 'pending' && (
                 <div style={{ padding: '16px 20px', borderTop: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <button onClick={() => handleStatus(slideOver.id, 'validated')} disabled={updating === slideOver.id}
-                    style={{ width: '100%', background: '#16A34A', color: 'white', border: 'none', borderRadius: 10, padding: '11px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-                    <ThumbsUp size={14} /> Approuver le dossier
+                  <button onClick={() => handleValidate(slideOver.id)} disabled={updating === slideOver.id}
+                    style={{ width: '100%', background: '#16A34A', color: 'white', border: 'none', borderRadius: 10, padding: '11px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, opacity: updating === slideOver.id ? 0.7 : 1 }}>
+                    <ThumbsUp size={14} /> Approuver + Générer la facture
                   </button>
                   {!showRejectInput ? (
                     <button onClick={() => setShowRejectInput(true)}
@@ -603,7 +630,7 @@ export default function Candidatures() {
                       <ThumbsDown size={14} /> Refuser avec un motif
                     </button>
                   ) : (
-                    <button onClick={() => handleStatus(slideOver.id, 'rejected')}
+                    <button onClick={() => handleReject(slideOver.id)}
                       style={{ width: '100%', background: '#DC2626', color: 'white', border: 'none', borderRadius: 10, padding: '10px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                       Confirmer le refus
                     </button>
@@ -616,7 +643,7 @@ export default function Candidatures() {
                   <div style={{ background: slideOver.status === 'validated' ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${slideOver.status === 'validated' ? '#BBF7D0' : '#FECACA'}`, borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
                     {slideOver.status === 'validated' ? <CheckCircle size={16} style={{ color: '#16A34A' }} /> : <XCircle size={16} style={{ color: '#DC2626' }} />}
                     <p style={{ fontSize: 12, color: slideOver.status === 'validated' ? '#15803D' : '#DC2626', fontWeight: 500 }}>
-                      {slideOver.status === 'validated' ? 'Dossier approuvé — en attente de paiement' : 'Dossier refusé'}
+                      {slideOver.status === 'validated' ? 'Dossier approuvé — facture générée' : 'Dossier refusé'}
                     </p>
                   </div>
                 </div>
