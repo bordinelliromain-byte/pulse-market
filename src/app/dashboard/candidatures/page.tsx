@@ -3,16 +3,101 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { motion, AnimatePresence } from 'framer-motion'
+import type { Variants } from 'framer-motion'
+import {
+  LayoutDashboard, Map, FileText, Receipt, Settings,
+  LogOut, Search, CheckCircle, AlertCircle, Clock,
+  XCircle, ChevronRight, X, Download, Bell, MapPin,
+  Shield, Eye, ThumbsUp, ThumbsDown, Plus, Calendar,
+  Users, ArrowLeft, Zap, Ruler, User, ExternalLink,
+  CreditCard, CheckSquare, Square
+} from 'lucide-react'
+
+const NAV_ITEMS = [
+  { icon: <LayoutDashboard size={15} />, label: 'Dashboard', path: '/dashboard' },
+  { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/creer-evenement' },
+  { icon: <FileText size={15} />, label: 'Candidatures', path: '/dashboard/candidatures' },
+  { icon: <Receipt size={15} />, label: 'Trésorerie', path: '/dashboard' },
+  { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard' },
+]
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
+  pending: { label: 'En attente', color: '#F59E0B', bg: '#FFFBEB', icon: <Clock size={11} /> },
+  validated: { label: 'Validé', color: '#16A34A', bg: '#F0FDF4', icon: <CheckCircle size={11} /> },
+  rejected: { label: 'Refusé', color: '#DC2626', bg: '#FEF2F2', icon: <XCircle size={11} /> },
+  paid: { label: 'Payé', color: '#4F46E5', bg: '#EEF2FF', icon: <CreditCard size={11} /> },
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: config.bg, color: config.color, fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 100, border: `1px solid ${config.color}22` }}>
+      {config.icon} {config.label}
+    </span>
+  )
+}
+
+function DocBadge({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: ok ? '#F0FDF4' : '#FEF2F2', color: ok ? '#16A34A' : '#DC2626', fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 100 }}>
+      {ok ? <CheckCircle size={9} /> : <AlertCircle size={9} />} {label}
+    </span>
+  )
+}
+
+function Avatar({ name }: { name: string }) {
+  const initials = name?.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || '?'
+  const colors = ['#4F46E5', '#16A34A', '#EA580C', '#0EA5E9', '#7C3AED', '#DC2626']
+  const color = colors[name?.length % colors.length] || '#4F46E5'
+  return (
+    <div style={{ width: 32, height: 32, borderRadius: '50%', background: `${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1.5px solid ${color}30` }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color }}>{initials}</span>
+    </div>
+  )
+}
+
+function EventCover({ event }: { event: any }) {
+  const gradients = [
+    'linear-gradient(135deg, #4F46E5, #7C3AED)',
+    'linear-gradient(135deg, #0EA5E9, #4F46E5)',
+    'linear-gradient(135deg, #16A34A, #0EA5E9)',
+    'linear-gradient(135deg, #EA580C, #DC2626)',
+    'linear-gradient(135deg, #7C3AED, #EC4899)',
+  ]
+  const gradient = gradients[event.title?.length % gradients.length]
+  return (
+    <div style={{ height: 120, position: 'relative', overflow: 'hidden', borderRadius: '10px 10px 0 0' }}>
+      {event.image_url ? (
+        <img src={event.image_url} alt={event.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        <div style={{ height: '100%', background: gradient }} />
+      )}
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 60%)' }} />
+      <div style={{ position: 'absolute', bottom: 8, left: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <MapPin size={10} style={{ color: 'white', opacity: 0.8 }} />
+        <span style={{ fontSize: 10, color: 'white', fontWeight: 500 }}>{event.location_name}</span>
+      </div>
+    </div>
+  )
+}
 
 export default function Candidatures() {
-  const [candidatures, setCandidatures] = useState<any[]>([])
+  const [profile, setProfile] = useState<any>(null)
   const [events, setEvents] = useState<any[]>([])
-  const [selectedEvent, setSelectedEvent] = useState<string>('all')
+  const [allCandidatures, setAllCandidatures] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeNav, setActiveNav] = useState('Candidatures')
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null)
+  const [searchEvents, setSearchEvents] = useState('')
+  const [searchCandidatures, setSearchCandidatures] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [slideOver, setSlideOver] = useState<any | null>(null)
   const [updating, setUpdating] = useState<string | null>(null)
-  const [message, setMessage] = useState('')
+  const [showRejectInput, setShowRejectInput] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+  const [eventCandidatures, setEventCandidatures] = useState<{ [key: string]: number }>({})
 
   const router = useRouter()
   const supabase = createClient()
@@ -21,241 +106,514 @@ export default function Candidatures() {
     const getData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth'); return }
+      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      if (profileData?.role !== 'organisateur') { router.push('/dashboard'); return }
+      setProfile(profileData)
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (profile?.role !== 'organisateur') { router.push('/dashboard'); return }
-
-      // Récupérer les événements de l'organisateur
       const { data: eventsData } = await supabase
-        .from('events')
-        .select('*')
-        .eq('organisateur_id', user.id)
-        .order('start_date', { ascending: true })
-
+        .from('events').select('*').eq('organisateur_id', user.id).order('start_date', { ascending: false })
       setEvents(eventsData || [])
 
-      // Récupérer toutes les candidatures
-      const eventIds = eventsData?.map(e => e.id) || []
-
+      const eventIds = eventsData?.map((e: any) => e.id) || []
       if (eventIds.length > 0) {
         const { data: apps } = await supabase
-  .from('applications')
-  .select(`
-    *,
-    profiles:exposant_id (
-      full_name,
-      email,
-      phone
-    ),
-    events:event_id (
-      title,
-      start_date
-    )
-  `)
-  .in('event_id', eventIds)
-  .order('created_at', { ascending: false })
+          .from('applications')
+          .select(`*, profiles:exposant_id(full_name, email, phone), events:event_id(title, start_date, location_name)`)
+          .in('event_id', eventIds)
+          .order('created_at', { ascending: false })
 
-// Récupérer les exposant_data séparément
-const appsWithData = await Promise.all(
-  (apps || []).map(async (app) => {
-    const { data: expData } = await supabase
-      .from('exposant_data')
-      .select('*')
-      .eq('user_id', app.exposant_id)
-      .single()
-    return { ...app, exposant_data: expData }
-  })
-)
+        const appsWithData = await Promise.all(
+          (apps || []).map(async (app: any) => {
+            const { data: expData } = await supabase.from('exposant_data').select('*').eq('user_id', app.exposant_id).single()
+            return { ...app, exposant_data: expData }
+          })
+        )
+        setAllCandidatures(appsWithData)
 
-setCandidatures(appsWithData)
+        // Count per event
+        const counts: { [key: string]: number } = {}
+        appsWithData.forEach((a: any) => { counts[a.event_id] = (counts[a.event_id] || 0) + 1 })
+        setEventCandidatures(counts)
       }
-
       setLoading(false)
     }
     getData()
   }, [])
 
-  const handleStatus = async (applicationId: string, newStatus: string) => {
-    setUpdating(applicationId)
-    setMessage('')
-
-    const { error } = await supabase
-      .from('applications')
-      .update({ status: newStatus })
-      .eq('id', applicationId)
-
-    if (error) {
-      setMessage('❌ Erreur : ' + error.message)
-    } else {
-      setCandidatures(prev =>
-        prev.map(c => c.id === applicationId ? { ...c, status: newStatus } : c)
-      )
-      setMessage('✅ Statut mis à jour !')
-    }
-
+  const handleStatus = async (id: string, status: string) => {
+    setUpdating(id)
+    await supabase.from('applications').update({ status }).eq('id', id)
+    setAllCandidatures(prev => prev.map(c => c.id === id ? { ...c, status } : c))
+    if (slideOver?.id === id) setSlideOver((prev: any) => ({ ...prev, status }))
     setUpdating(null)
+    setShowRejectInput(false)
   }
 
-  const filteredCandidatures = selectedEvent === 'all'
-    ? candidatures
-    : candidatures.filter(c => c.event_id === selectedEvent)
+  const handleBulkValidate = async () => {
+    for (const id of selectedIds) await handleStatus(id, 'validated')
+    setSelectedIds([])
+  }
 
-  const getStatusBadge = (status: string) => {
-    const styles: any = {
-      pending: 'bg-yellow-100 text-yellow-700',
-      validated: 'bg-green-100 text-green-700',
-      rejected: 'bg-red-100 text-red-700',
-      paid: 'bg-blue-100 text-blue-700'
-    }
-    const labels: any = {
-      pending: '⏳ En attente',
-      validated: '✅ Validé',
-      rejected: '❌ Refusé',
-      paid: '💶 Payé'
-    }
-    return (
-      <span className={`text-xs px-3 py-1 rounded-full font-medium ${styles[status]}`}>
-        {labels[status]}
-      </span>
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
+  }
+
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  const formatShort = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+
+  const filteredEvents = events.filter(e =>
+    e.title?.toLowerCase().includes(searchEvents.toLowerCase()) ||
+    e.location_name?.toLowerCase().includes(searchEvents.toLowerCase())
+  )
+
+  const currentCandidatures = allCandidatures
+    .filter(c => selectedEvent ? c.event_id === selectedEvent.id : true)
+    .filter(c => statusFilter === 'all' ? true : c.status === statusFilter)
+    .filter(c =>
+      !searchCandidatures ||
+      c.profiles?.full_name?.toLowerCase().includes(searchCandidatures.toLowerCase()) ||
+      c.exposant_data?.business_name?.toLowerCase().includes(searchCandidatures.toLowerCase())
     )
-  }
+
+  const pendingCount = currentCandidatures.filter(c => c.status === 'pending').length
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-gray-500">Chargement...</p>
+    <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 28, height: 28, border: '2px solid #4F46E5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Candidatures reçues</h1>
-            <p className="text-gray-500 text-sm">{filteredCandidatures.length} candidature(s)</p>
+      {/* SIDEBAR */}
+      <aside style={{ width: 220, background: '#020617', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 20 }}>
+        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 28, height: 28, background: '#4F46E5', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>PM</span>
+            </div>
+            <span style={{ color: 'white', fontWeight: 600, fontSize: 14 }}>PlaceMarket</span>
           </div>
-          <button onClick={() => router.push('/dashboard')} className="text-sm text-gray-500 hover:underline">
-            ← Retour
+        </div>
+        <nav style={{ flex: 1, padding: '12px 10px' }}>
+          <p style={{ fontSize: 10, fontWeight: 600, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '8px 10px', marginBottom: 4 }}>Navigation</p>
+          {NAV_ITEMS.map((item) => (
+            <button key={item.label} onClick={() => { setActiveNav(item.label); router.push(item.path) }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: activeNav === item.label ? 'rgba(79,70,229,0.15)' : 'transparent', color: activeNav === item.label ? '#818CF8' : '#64748B', fontSize: 13, fontWeight: activeNav === item.label ? 600 : 400, marginBottom: 2, textAlign: 'left', transition: 'all 0.15s' }}>
+              {item.icon}{item.label}
+            </button>
+          ))}
+        </nav>
+        <div style={{ padding: '12px 10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ padding: '8px 10px', marginBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: '#CBD5E1' }}>{profile?.full_name}</p>
+              <span style={{ fontSize: 9, fontWeight: 700, background: '#4F46E5', color: 'white', padding: '1px 6px', borderRadius: 100 }}>VÉRIFIÉ</span>
+            </div>
+            <p style={{ fontSize: 11, color: '#475569' }}>Administration municipale</p>
+          </div>
+          <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent', color: '#64748B', fontSize: 12 }}>
+            <LogOut size={13} /> Déconnexion
           </button>
         </div>
+      </aside>
 
-        {/* Filtre par événement */}
-        {events.length > 0 && (
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setSelectedEvent('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedEvent === 'all' ? 'bg-black text-white' : 'bg-white border hover:border-black'}`}
-            >
-              Tous les événements
-            </button>
-            {events.map(event => (
-              <button
-                key={event.id}
-                onClick={() => setSelectedEvent(event.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedEvent === event.id ? 'bg-black text-white' : 'bg-white border hover:border-black'}`}
-              >
-                {event.title}
+      <div style={{ marginLeft: 220, flex: 1, display: 'flex', flexDirection: 'column' }}>
+
+        {/* TOP BAR */}
+        <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {selectedEvent && (
+              <button onClick={() => { setSelectedEvent(null); setStatusFilter('all'); setSearchCandidatures('') }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontSize: 13 }}>
+                <ArrowLeft size={14} /> Mes événements
               </button>
-            ))}
+            )}
+            {selectedEvent && <div style={{ width: 1, height: 16, background: '#E2E8F0' }} />}
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>
+              {selectedEvent ? selectedEvent.title : 'Mes événements'}
+              {selectedEvent && pendingCount > 0 && (
+                <span style={{ marginLeft: 8, background: '#FEF3C7', color: '#92400E', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100 }}>
+                  {pendingCount} à traiter
+                </span>
+              )}
+            </p>
           </div>
-        )}
-
-        {message && <p className="text-center font-medium">{message}</p>}
-
-        {filteredCandidatures.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <p className="text-5xl mb-4">📭</p>
-            <p className="text-lg font-medium">Aucune candidature reçue</p>
-            <p className="text-sm">Publiez un événement pour commencer à recevoir des dossiers</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22C55E', display: 'inline-block', animation: 'pulse-live 2s infinite' }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#22C55E' }}>LIVE</span>
+            </div>
+            <button style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 8, padding: '5px 8px', cursor: 'pointer' }}>
+              <Bell size={14} style={{ color: '#64748B' }} />
+            </button>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredCandidatures.map(candidature => (
-              <Card key={candidature.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <div className="flex items-center gap-3 mb-1">
-                        <h2 className="font-bold text-lg">
-                          {candidature.exposant_data?.business_name || candidature.profiles?.full_name}
-                        </h2>
-                        {candidature.exposant_data?.is_verified && (
-                          <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                            ✅ Dossier vérifié
-                          </span>
-                        )}
-                        {getStatusBadge(candidature.status)}
-                      </div>
-                      <p className="text-gray-500 text-sm">📧 {candidature.profiles?.email}</p>
-                      <p className="text-gray-500 text-sm">🎪 {candidature.events?.title}</p>
+        </header>
+
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes pulse-live { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); } 70% { box-shadow: 0 0 0 6px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
+        `}</style>
+
+        <AnimatePresence mode="wait">
+
+          {/* ===== VUE GALERIE ÉVÉNEMENTS ===== */}
+          {!selectedEvent && (
+            <motion.div key="gallery" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}>
+
+              {/* Search bar */}
+              <div style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '10px 28px' }}>
+                <div style={{ position: 'relative', maxWidth: 340 }}>
+                  <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                  <input value={searchEvents} onChange={e => setSearchEvents(e.target.value)} placeholder="Rechercher un événement..."
+                    style={{ width: '100%', padding: '7px 12px 7px 30px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12, color: '#0F172A', background: '#F8FAFC', outline: 'none', boxSizing: 'border-box' }}
+                    onFocus={e => { e.target.style.borderColor = '#4F46E5'; e.target.style.background = 'white' }}
+                    onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.background = '#F8FAFC' }}
+                  />
+                </div>
+              </div>
+
+              <main style={{ padding: '24px 28px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+
+                  {/* Bouton créer */}
+                  <button onClick={() => router.push('/dashboard/creer-evenement')}
+                    style={{ border: '2px dashed #E2E8F0', borderRadius: 12, padding: '32px 20px', background: 'white', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'all 0.2s', minHeight: 200 }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#4F46E5'; e.currentTarget.style.background = '#EEF2FF' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.background = 'white' }}>
+                    <div style={{ width: 44, height: 44, background: '#EEF2FF', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Plus size={22} style={{ color: '#4F46E5' }} />
                     </div>
-                  </div>
-
-                  {/* Infos stand */}
-                  {candidature.exposant_data && (
-                    <div className="bg-gray-50 rounded-lg p-4 mb-4 grid grid-cols-2 gap-3 text-sm">
-                      {candidature.exposant_data.siren && (
-                        <p><span className="text-gray-400">SIREN :</span> {candidature.exposant_data.siren}</p>
-                      )}
-                      {candidature.exposant_data.stand_width && (
-                        <p><span className="text-gray-400">Stand :</span> {candidature.exposant_data.stand_width}m × {candidature.exposant_data.stand_length}m</p>
-                      )}
-                      {candidature.exposant_data.needs_electricity && (
-                        <p>⚡ Besoin d'électricité</p>
-                      )}
-                      {candidature.exposant_data.description && (
-                        <p className="col-span-2"><span className="text-gray-400">Activité :</span> {candidature.exposant_data.description}</p>
-                      )}
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: '#4F46E5', marginBottom: 3 }}>Créer un événement</p>
+                      <p style={{ fontSize: 11, color: '#94A3B8' }}>Publier un marché ou festival</p>
                     </div>
-                  )}
+                  </button>
 
-                  {/* Documents */}
-                  <div className="flex gap-3 mb-4">
-                    {candidature.exposant_data?.kbis_url && (
-                      <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
-                        📄 Kbis fourni
-                      </span>
-                    )}
-                    {candidature.exposant_data?.assurance_url && (
-                      <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
-                        📄 Assurance fournie
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  {candidature.status === 'pending' && (
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={() => handleStatus(candidature.id, 'validated')}
-                        disabled={updating === candidature.id}
-                        className="bg-green-600 hover:bg-green-700"
-                        size="sm"
+                  {/* Event cards */}
+                  {filteredEvents.map((event, i) => {
+                    const count = eventCandidatures[event.id] || 0
+                    const pendingApp = allCandidatures.filter(c => c.event_id === event.id && c.status === 'pending').length
+                    return (
+                      <motion.div key={event.id}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        onClick={() => setSelectedEvent(event)}
+                        style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 30px rgba(79,70,229,0.12)'; (e.currentTarget as HTMLElement).style.borderColor = '#C7D2FE' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; (e.currentTarget as HTMLElement).style.borderColor = '#E2E8F0' }}
                       >
-                        ✅ Valider
-                      </Button>
-                      <Button
-                        onClick={() => handleStatus(candidature.id, 'rejected')}
-                        disabled={updating === candidature.id}
-                        variant="destructive"
-                        size="sm"
-                      >
-                        ❌ Refuser
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                        <EventCover event={event} />
+                        <div style={{ padding: '14px 16px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                            <h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', lineHeight: 1.3, flex: 1, paddingRight: 8 }}>{event.title}</h3>
+                            {pendingApp > 0 && (
+                              <span style={{ background: '#FEF3C7', color: '#92400E', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 100, flexShrink: 0 }}>
+                                {pendingApp} à traiter
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#94A3B8', marginBottom: 10 }}>
+                            <Calendar size={10} />
+                            {formatShort(event.start_date)}
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid #F8FAFC' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#64748B' }}>
+                              <Users size={12} style={{ color: '#4F46E5' }} />
+                              <span><strong style={{ color: '#0F172A' }}>{count}</strong> candidature{count !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#94A3B8' }}>
+                              {event.available_spots} places restantes <ChevronRight size={12} />
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              </main>
+            </motion.div>
+          )}
+
+          {/* ===== VUE CANDIDATURES D'UN ÉVÉNEMENT ===== */}
+          {selectedEvent && (
+            <motion.div key="detail" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+
+              {/* Event info banner */}
+              <div style={{ background: '#0F172A', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ width: 48, height: 36, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
+                  <EventCover event={selectedEvent} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 2 }}>{selectedEvent.title}</p>
+                  <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#64748B' }}>
+                    <span>{formatDate(selectedEvent.start_date)}</span>
+                    <span>·</span>
+                    <span>{selectedEvent.location_name}</span>
+                    <span>·</span>
+                    <span>{selectedEvent.available_spots}/{selectedEvent.total_spots} places</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <span style={{ background: 'rgba(255,255,255,0.08)', color: '#94A3B8', fontSize: 11, padding: '4px 10px', borderRadius: 8 }}>
+                    {currentCandidatures.length} candidature(s)
+                  </span>
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '10px 28px', display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ position: 'relative', width: 240 }}>
+                  <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                  <input value={searchCandidatures} onChange={e => setSearchCandidatures(e.target.value)} placeholder="Rechercher un exposant..."
+                    style={{ width: '100%', padding: '7px 12px 7px 30px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12, color: '#0F172A', background: '#F8FAFC', outline: 'none', boxSizing: 'border-box' }}
+                    onFocus={e => { e.target.style.borderColor = '#4F46E5'; e.target.style.background = 'white' }}
+                    onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.background = '#F8FAFC' }}
+                  />
+                </div>
+                <div style={{ width: 1, height: 20, background: '#E2E8F0' }} />
+                {[
+                  { key: 'all', label: 'Tous' },
+                  { key: 'pending', label: 'À vérifier' },
+                  { key: 'validated', label: 'Validés' },
+                  { key: 'rejected', label: 'Refusés' },
+                ].map(f => (
+                  <button key={f.key} onClick={() => setStatusFilter(f.key)}
+                    style={{ padding: '6px 12px', borderRadius: 8, border: statusFilter === f.key ? '1.5px solid #4F46E5' : '1px solid #E2E8F0', background: statusFilter === f.key ? '#EEF2FF' : 'white', color: statusFilter === f.key ? '#4F46E5' : '#64748B', fontSize: 11, fontWeight: statusFilter === f.key ? 600 : 400, cursor: 'pointer' }}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              <main style={{ padding: '20px 28px', flex: 1 }}>
+                {currentCandidatures.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '80px 0' }}>
+                    <Users size={40} style={{ margin: '0 auto 16px', color: '#CBD5E1' }} />
+                    <p style={{ fontSize: 15, fontWeight: 500, color: '#64748B' }}>Aucune candidature pour cet événement</p>
+                  </div>
+                ) : (
+                  <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid #F1F5F9', background: '#FAFAFA' }}>
+                          <th style={{ padding: '11px 16px', width: 40 }}>
+                            <button onClick={() => {
+                              if (selectedIds.length === currentCandidatures.length) setSelectedIds([])
+                              else setSelectedIds(currentCandidatures.map(c => c.id))
+                            }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', display: 'flex', alignItems: 'center' }}>
+                              {selectedIds.length === currentCandidatures.length && currentCandidatures.length > 0
+                                ? <CheckSquare size={15} style={{ color: '#4F46E5' }} />
+                                : <Square size={15} />}
+                            </button>
+                          </th>
+                          {['Exposant', 'Activité', 'Stand', 'Reçu le', 'Documents', 'Statut', ''].map((h, i) => (
+                            <th key={i} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentCandidatures.map((c, i) => {
+                          const isSelected = selectedIds.includes(c.id)
+                          return (
+                            <tr key={c.id}
+                              style={{ borderBottom: i < currentCandidatures.length - 1 ? '1px solid #F8FAFC' : 'none', background: isSelected ? '#EEF2FF' : 'transparent', cursor: 'pointer', transition: 'background 0.1s' }}
+                              onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#FAFAFA' }}
+                              onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
+                              onClick={() => setSlideOver(c)}>
+                              <td style={{ padding: '12px 16px' }} onClick={e => { e.stopPropagation(); toggleSelect(c.id) }}>
+                                {isSelected ? <CheckSquare size={15} style={{ color: '#4F46E5' }} /> : <Square size={15} style={{ color: '#CBD5E1' }} />}
+                              </td>
+                              <td style={{ padding: '12px 14px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  <Avatar name={c.profiles?.full_name || '?'} />
+                                  <div>
+                                    <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>{c.exposant_data?.business_name || c.profiles?.full_name}</p>
+                                    <p style={{ fontSize: 11, color: '#94A3B8' }}>{c.profiles?.email}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ padding: '12px 14px' }}>
+                                <p style={{ fontSize: 12, color: '#64748B', maxWidth: 160 }}>{c.exposant_data?.description?.substring(0, 30) || '—'}</p>
+                              </td>
+                              <td style={{ padding: '12px 14px' }}>
+                                <p style={{ fontSize: 12, color: '#64748B', whiteSpace: 'nowrap' }}>
+                                  {c.exposant_data?.stand_width ? `${c.exposant_data.stand_width}m × ${c.exposant_data.stand_length}m` : '—'}
+                                </p>
+                              </td>
+                              <td style={{ padding: '12px 14px' }}>
+                                <p style={{ fontSize: 12, color: '#64748B', whiteSpace: 'nowrap' }}>{formatDate(c.created_at)}</p>
+                              </td>
+                              <td style={{ padding: '12px 14px' }}>
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                  <DocBadge ok={!!c.exposant_data?.kbis_url} label="Kbis" />
+                                  <DocBadge ok={!!c.exposant_data?.assurance_url} label="RC Pro" />
+                                </div>
+                              </td>
+                              <td style={{ padding: '12px 14px' }}><StatusBadge status={c.status} /></td>
+                              <td style={{ padding: '12px 14px' }}><ChevronRight size={14} style={{ color: '#CBD5E1' }} /></td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </main>
+
+              {/* Floating bar */}
+              <AnimatePresence>
+                {selectedIds.length > 0 && (
+                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+                    style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#0F172A', borderRadius: 12, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 8px 40px rgba(0,0,0,0.3)', zIndex: 30 }}>
+                    <span style={{ fontSize: 13, color: '#94A3B8' }}><strong style={{ color: 'white' }}>{selectedIds.length}</strong> sélectionné(s)</span>
+                    <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
+                    <button onClick={handleBulkValidate}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      <CheckCircle size={13} /> Valider la sélection
+                    </button>
+                    <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.08)', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+                      <Download size={13} /> Télécharger les factures
+                    </button>
+                    <button onClick={() => setSelectedIds([])} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
+                      <X size={14} />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* SLIDE-OVER */}
+      <AnimatePresence>
+        {slideOver && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => { setSlideOver(null); setShowRejectInput(false) }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 40, backdropFilter: 'blur(2px)' }} />
+
+            <motion.div
+              initial={{ x: '100%', opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 420, background: 'white', zIndex: 50, display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 40px rgba(0,0,0,0.12)' }}>
+
+              <div style={{ padding: '18px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Avatar name={slideOver.profiles?.full_name || '?'} />
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>{slideOver.exposant_data?.business_name || slideOver.profiles?.full_name}</p>
+                    <p style={{ fontSize: 11, color: '#94A3B8' }}>{slideOver.profiles?.email}</p>
+                  </div>
+                </div>
+                <button onClick={() => { setSlideOver(null); setShowRejectInput(false) }}
+                  style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '6px', cursor: 'pointer', display: 'flex' }}>
+                  <X size={14} style={{ color: '#64748B' }} />
+                </button>
+              </div>
+
+              <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <StatusBadge status={slideOver.status} />
+                  <span style={{ fontSize: 11, color: '#94A3B8' }}>Reçu le {new Date(slideOver.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                </div>
+
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 14px' }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Informations exposant</p>
+                  {[
+                    { label: 'SIREN', value: slideOver.exposant_data?.siren || '—', icon: <Shield size={11} /> },
+                    { label: 'Activité', value: slideOver.exposant_data?.description || '—', icon: <User size={11} /> },
+                    { label: 'Stand', value: slideOver.exposant_data?.stand_width ? `${slideOver.exposant_data.stand_width}m × ${slideOver.exposant_data.stand_length}m` : '—', icon: <Ruler size={11} /> },
+                    { label: 'Électricité', value: slideOver.exposant_data?.needs_electricity ? 'Requise' : 'Non requise', icon: <Zap size={11} /> },
+                  ].map((item, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: i < 3 ? 8 : 0, marginBottom: i < 3 ? 8 : 0, borderBottom: i < 3 ? '1px solid #F1F5F9' : 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#64748B', fontSize: 12 }}>{item.icon} {item.label}</div>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: '#0F172A', textAlign: 'right', maxWidth: 200 }}>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 14px' }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Documents légaux</p>
+                  {[
+                    { label: 'Extrait Kbis', url: slideOver.exposant_data?.kbis_url },
+                    { label: 'Attestation RC Pro', url: slideOver.exposant_data?.assurance_url },
+                  ].map((doc, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: i < 1 ? 8 : 0, marginBottom: i < 1 ? 8 : 0, borderBottom: i < 1 ? '1px solid #F1F5F9' : 'none' }}>
+                      <DocBadge ok={!!doc.url} label={doc.label} />
+                      {doc.url && (
+                        <a href={doc.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#4F46E5', fontWeight: 500, textDecoration: 'none' }}>
+                          Voir <ExternalLink size={10} />
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                  {slideOver.exposant_data?.is_verified && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '7px 10px' }}>
+                      <Shield size={12} style={{ color: '#16A34A' }} />
+                      <span style={{ fontSize: 11, color: '#15803D', fontWeight: 600 }}>SIREN vérifié via API INSEE</span>
+                    </div>
+                  )}
+                </div>
+
+                {slideOver.message && (
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 14px' }}>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Message</p>
+                    <p style={{ fontSize: 12, color: '#475569', lineHeight: 1.6, fontStyle: 'italic' }}>"{slideOver.message}"</p>
+                  </div>
+                )}
+
+                {showRejectInput && (
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#DC2626', display: 'block', marginBottom: 6 }}>Motif du refus</label>
+                    <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                      placeholder="Ex: Dossier incomplet..."
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #FECACA', borderRadius: 8, fontSize: 12, resize: 'none', height: 70, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#0F172A' }} />
+                  </div>
+                )}
+              </div>
+
+              {slideOver.status === 'pending' && (
+                <div style={{ padding: '16px 20px', borderTop: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <button onClick={() => handleStatus(slideOver.id, 'validated')} disabled={updating === slideOver.id}
+                    style={{ width: '100%', background: '#16A34A', color: 'white', border: 'none', borderRadius: 10, padding: '11px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+                    <ThumbsUp size={14} /> Approuver le dossier
+                  </button>
+                  {!showRejectInput ? (
+                    <button onClick={() => setShowRejectInput(true)}
+                      style={{ width: '100%', background: 'white', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 0', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+                      <ThumbsDown size={14} /> Refuser avec un motif
+                    </button>
+                  ) : (
+                    <button onClick={() => handleStatus(slideOver.id, 'rejected')}
+                      style={{ width: '100%', background: '#DC2626', color: 'white', border: 'none', borderRadius: 10, padding: '10px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                      Confirmer le refus
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {slideOver.status !== 'pending' && (
+                <div style={{ padding: '16px 20px', borderTop: '1px solid #E2E8F0' }}>
+                  <div style={{ background: slideOver.status === 'validated' ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${slideOver.status === 'validated' ? '#BBF7D0' : '#FECACA'}`, borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {slideOver.status === 'validated' ? <CheckCircle size={16} style={{ color: '#16A34A' }} /> : <XCircle size={16} style={{ color: '#DC2626' }} />}
+                    <p style={{ fontSize: 12, color: slideOver.status === 'validated' ? '#15803D' : '#DC2626', fontWeight: 500 }}>
+                      {slideOver.status === 'validated' ? 'Dossier approuvé — en attente de paiement' : 'Dossier refusé'}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
