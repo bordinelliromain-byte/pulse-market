@@ -326,9 +326,20 @@ export default function Candidatures() {
                               <Users size={12} style={{ color: '#4F46E5' }} />
                               <span><strong style={{ color: '#0F172A' }}>{count}</strong> candidature{count !== 1 ? 's' : ''}</span>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#94A3B8' }}>
-                              {event.available_spots} places restantes <ChevronRight size={12} />
-                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 11, color: '#94A3B8' }}>{event.available_spots} places</span>
+                             <button
+                              onClick={async (e) => {
+                               e.stopPropagation()
+                              if (!confirm(`Supprimer "${event.title}" ?`)) return
+                              await supabase.from('events').delete().eq('id', event.id)
+                              setEvents(prev => prev.filter(ev => ev.id !== event.id))
+                            }}
+                            style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 11, color: '#DC2626', fontWeight: 500 }}
+                          >
+                           Supprimer
+                        </button>
+                      </div>
                           </div>
                         </div>
                       </motion.div>
