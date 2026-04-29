@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import type { Variants } from 'framer-motion'
+import Sidebar from '@/components/Sidebar'
 import {
-  LayoutDashboard, Map, FileText, Receipt, Settings,
-  LogOut, ChevronRight, CheckCircle, Clock, Star,
-  TrendingUp, Users, Plus, Bell, MapPin, ArrowUpRight,
-  Shield, Zap, Camera, Send, Eye, CreditCard
+  ChevronRight, CheckCircle, Clock, Star,
+  Bell, MapPin, ArrowUpRight,
+  Shield, Zap, Camera, Send, Eye, CreditCard,
+  Loader
 } from 'lucide-react'
 
 const fadeUp: Variants = {
@@ -41,7 +42,7 @@ function CandidatureTimeline({ status }: { status: string }) {
     { key: 'validating', label: 'En validation', icon: <Clock size={12} /> },
     { key: 'validated', label: 'Paiement reçu', icon: <CreditCard size={12} /> },
   ]
-  const activeIndex = status === 'validated' ? 3 : status === 'pending' ? 1 : 0
+  const activeIndex = status === 'validated' || status === 'paid' ? 3 : status === 'pending' ? 1 : 0
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
       {steps.map((step, i) => (
@@ -81,11 +82,9 @@ function MiniCalendar() {
         <span style={{ fontSize: 10, color: '#94A3B8' }}>Semaine en cours</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 6 }}>
-        {DAYS.map((d, i) => (
-          <div key={i} style={{ textAlign: 'center', fontSize: 10, color: '#94A3B8', fontWeight: 600, padding: '2px 0' }}>{d}</div>
-        ))}
+        {DAYS.map((d, i) => <div key={i} style={{ textAlign: 'center', fontSize: 10, color: '#94A3B8', fontWeight: 600, padding: '2px 0' }}>{d}</div>)}
         {cells.map((day, i) => (
-          <div key={i} style={{ textAlign: 'center', fontSize: 11, padding: '4px 2px', borderRadius: 5, background: day === today.getDate() ? '#4F46E5' : highlightedDays.includes(day!) ? '#EEF2FF' : 'transparent', color: day === today.getDate() ? 'white' : highlightedDays.includes(day!) ? '#4F46E5' : day ? '#475569' : 'transparent', fontWeight: day === today.getDate() || highlightedDays.includes(day!) ? 700 : 400, position: 'relative' }}>
+          <div key={i} style={{ textAlign: 'center', fontSize: 11, padding: '4px 2px', borderRadius: 5, background: day === today.getDate() ? '#4F46E5' : highlightedDays.includes(day!) ? '#EEF2FF' : 'transparent', color: day === today.getDate() ? 'white' : highlightedDays.includes(day!) ? '#4F46E5' : day ? '#475569' : 'transparent', fontWeight: day === today.getDate() || highlightedDays.includes(day!) ? 700 : 400 }}>
             {day || ''}
           </div>
         ))}
@@ -99,71 +98,84 @@ function MiniCalendar() {
   )
 }
 
-const NAV_ITEMS = [
-  { icon: <LayoutDashboard size={15} />, label: 'Dashboard', path: '/dashboard' },
-  { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/evenements' },
-  { icon: <FileText size={15} />, label: 'Documents', path: '/dashboard/profil' },
-  { icon: <Receipt size={15} />, label: 'Factures', path: '/dashboard/factures' },
-  { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard/parametres' },
-]
-
-const MOCK_CANDIDATURES = [
-  { name: 'Fête de la Lavande — Apt', status: 'validated' },
-  { name: 'Marché de Noël — Aix', status: 'pending' },
-]
-
 export default function Dashboard() {
   const [profile, setProfile] = useState<any>(null)
   const [nearbyEvents, setNearbyEvents] = useState<any[]>([])
+  const [candidatures, setCandidatures] = useState<any[]>([])
   const [stats, setStats] = useState<any>({})
   const [loading, setLoading] = useState(true)
-  const [activeNav, setActiveNav] = useState('Dashboard')
+  const [payingId, setPayingId] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
-  useEffect(() => {
-    const getData = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/auth'); return }
+  const loadData = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.push('/auth'); return }
 
-      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      setProfile(profileData)
+    const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    setProfile(profileData)
 
-      // Redirect organisateur
-      if (profileData?.role === 'organisateur') {
-        router.push('/dashboard/organisateur')
-        return
-      }
-
-      // Fetch nearby events pour exposant
-      const { data: eventsData } = await supabase
-        .from('events')
-        .select('*')
-        .eq('status', 'published')
-        .order('start_date', { ascending: true })
-        .limit(5)
-      setNearbyEvents(eventsData || [])
-
-      // Stats exposant
-      if (profileData?.role === 'exposant') {
-        const { data: apps } = await supabase.from('applications').select('status').eq('exposant_id', user.id)
-        const { data: expData } = await supabase.from('exposant_data').select('plan, is_verified').eq('user_id', user.id).single()
-        setStats({
-          total: apps?.length || 0,
-          validated: apps?.filter(a => a.status === 'validated').length || 0,
-          pending: apps?.filter(a => a.status === 'pending').length || 0,
-          plan: expData?.plan || 'gratuit',
-          isVerified: expData?.is_verified || false,
-        })
-      }
-
-      setLoading(false)
+    if (profileData?.role === 'organisateur') {
+      router.push('/dashboard/organisateur')
+      return
     }
-    getData()
-  }, [])
+
+    const { data: eventsData } = await supabase
+      .from('events').select('*').eq('status', 'published').order('start_date', { ascending: true }).limit(5)
+    setNearbyEvents(eventsData || [])
+
+    const { data: apps } = await supabase
+      .from('applications')
+      .select(`*, events:event_id(title, start_date, location_name, price_per_spot)`)
+      .eq('exposant_id', user.id)
+      .order('created_at', { ascending: false })
+    setCandidatures(apps || [])
+
+    const { data: expData } = await supabase.from('exposant_data').select('plan, is_verified').eq('user_id', user.id).single()
+    setStats({
+      total: apps?.length || 0,
+      validated: apps?.filter(a => a.status === 'validated').length || 0,
+      paid: apps?.filter(a => a.status === 'paid').length || 0,
+      pending: apps?.filter(a => a.status === 'pending').length || 0,
+      plan: expData?.plan || 'gratuit',
+      isVerified: expData?.is_verified || false,
+    })
+
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [searchParams]) // ← se recharge quand ?refresh=true arrive depuis paiement-success
+
+  const candidaturesAPayer = candidatures.filter(c => c.status === 'validated')
+
+  const handlePayer = async (candidature: any) => {
+    setPayingId(candidature.id)
+    try {
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          candidatureId: candidature.id,
+          eventTitle: candidature.events?.title || '',
+          amount: candidature.events?.price_per_spot || 0,
+          exposantEmail: profile?.email || '',
+          exposantNom: profile?.full_name || '',
+        }),
+      })
+      const { url, error } = await res.json()
+      if (error) throw new Error(error)
+      if (url) window.location.href = url
+    } catch (err: any) {
+      alert('Erreur paiement : ' + err.message)
+    }
+    setPayingId(null)
+  }
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: 28, height: 28, border: '2px solid #4F46E5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
@@ -172,40 +184,10 @@ export default function Dashboard() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#EEF2F7', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      {/* SIDEBAR */}
-      <aside style={{ width: 220, background: '#020617', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 20 }}>
-        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, background: '#4F46E5', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>PM</span>
-            </div>
-            <span style={{ color: 'white', fontWeight: 600, fontSize: 14 }}>PlaceMarket</span>
-          </div>
-        </div>
-        <nav style={{ flex: 1, padding: '12px 10px' }}>
-          <p style={{ fontSize: 10, fontWeight: 600, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '8px 10px', marginBottom: 4 }}>Navigation</p>
-          {NAV_ITEMS.map((item) => (
-            <button key={item.label} onClick={() => { setActiveNav(item.label); router.push(item.path) }}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: activeNav === item.label ? 'rgba(79,70,229,0.15)' : 'transparent', color: activeNav === item.label ? '#818CF8' : '#64748B', fontSize: 13, fontWeight: activeNav === item.label ? 600 : 400, marginBottom: 2, textAlign: 'left', transition: 'all 0.15s' }}>
-              {item.icon}{item.label}
-            </button>
-          ))}
-        </nav>
-        <div style={{ padding: '12px 10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ padding: '8px 10px', marginBottom: 4 }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: '#CBD5E1' }}>{profile?.full_name}</p>
-            <p style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>{profile?.email}</p>
-          </div>
-          <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent', color: '#64748B', fontSize: 12 }}>
-            <LogOut size={13} /> Déconnexion
-          </button>
-        </div>
-      </aside>
+      <Sidebar profile={profile} />
 
       <div style={{ marginLeft: 220, flex: 1, display: 'flex', flexDirection: 'column' }}>
 
-        {/* TOP BAR */}
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>
             Tableau de bord — <span style={{ color: '#64748B', fontWeight: 400 }}>Exposant</span>
@@ -219,24 +201,58 @@ export default function Dashboard() {
               <MapPin size={12} style={{ color: '#4F46E5' }} />
               Bouches-du-Rhône, PACA
             </div>
-            <button style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 8, padding: '5px 8px', cursor: 'pointer' }}>
-              <Bell size={14} style={{ color: '#64748B' }} />
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 8, padding: '5px 8px', cursor: 'pointer' }}>
+                <Bell size={14} style={{ color: '#64748B' }} />
+              </button>
+              {candidaturesAPayer.length > 0 && (
+                <span style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, background: '#DC2626', borderRadius: '50%', fontSize: 9, fontWeight: 700, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {candidaturesAPayer.length}
+                </span>
+              )}
+            </div>
           </div>
         </header>
 
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }
-          @keyframes pulse-live {
-            0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
-            70% { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
-            100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
-          }
+          @keyframes pulse-live { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); } 70% { box-shadow: 0 0 0 6px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
           .hide-scrollbar::-webkit-scrollbar { display: none; }
         `}</style>
 
         <main style={{ padding: '24px 28px', flex: 1 }}>
           <motion.div variants={stagger} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+            {/* BANNER PAIEMENT */}
+            {candidaturesAPayer.length > 0 && (
+              <motion.div variants={fadeUp}>
+                {candidaturesAPayer.map(c => (
+                  <div key={c.id} style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', borderRadius: 14, padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 12, boxShadow: '0 4px 24px rgba(79,70,229,0.25)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ width: 42, height: 42, background: 'rgba(255,255,255,0.15)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <CheckCircle size={22} style={{ color: 'white' }} />
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                          <p style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>Candidature acceptée !</p>
+                          <span style={{ background: 'rgba(255,255,255,0.2)', color: 'white', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100 }}>ACTION REQUISE</span>
+                        </div>
+                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>
+                          La mairie a approuvé votre dossier pour <strong style={{ color: 'white' }}>{c.events?.title}</strong>. Procédez au paiement pour confirmer votre place.
+                        </p>
+                      </div>
+                    </div>
+                    <button onClick={() => handlePayer(c)} disabled={payingId === c.id}
+                      style={{ background: 'white', color: '#4F46E5', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0, opacity: payingId === c.id ? 0.8 : 1 }}>
+                      {payingId === c.id
+                        ? <><Loader size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</>
+                        : <><CreditCard size={14} /> Payer {(c.events?.price_per_spot || 0) + 2} €</>
+                      }
+                    </button>
+                  </div>
+                ))}
+              </motion.div>
+            )}
 
             {/* STATS */}
             <motion.div variants={fadeUp} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
@@ -244,7 +260,7 @@ export default function Dashboard() {
                 { label: 'Candidatures envoyées', value: stats.total || 0, spark: [0, 1, 1, 2, 1, 2, stats.total || 0], color: '#4F46E5' },
                 { label: 'Candidatures validées', value: stats.validated || 0, spark: [0, 0, 1, 1, 1, 1, stats.validated || 0], color: '#16A34A' },
                 { label: 'En attente', value: stats.pending || 0, spark: [0, 1, 0, 1, 1, 0, stats.pending || 0], color: '#F59E0B' },
-                { label: 'Taux de validation', value: stats.total > 0 ? `${Math.round((stats.validated / stats.total) * 100)}%` : '—', spark: [0, 20, 40, 50, 60, 75, stats.total > 0 ? Math.round((stats.validated / stats.total) * 100) : 0], color: '#0EA5E9' },
+                { label: 'Places payées', value: stats.paid || 0, spark: [0, 0, 0, 1, 1, 1, stats.paid || 0], color: '#0EA5E9' },
               ].map((s, i) => (
                 <div key={i} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px 18px' }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>{s.label}</p>
@@ -256,11 +272,9 @@ export default function Dashboard() {
 
             {/* SPLIT */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }}>
-
-              {/* LEFT */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-                {/* CAROUSEL MARCHÉS SUGGÉRÉS */}
+                {/* CAROUSEL */}
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '16px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
@@ -272,23 +286,12 @@ export default function Dashboard() {
                       Voir tout <ArrowUpRight size={13} />
                     </button>
                   </div>
-
                   {nearbyEvents.length === 0 ? (
-                    <div style={{ padding: '32px', textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>
-                      Aucun événement disponible pour le moment
-                    </div>
+                    <div style={{ padding: '32px', textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>Aucun événement disponible</div>
                   ) : (
-                    <div
-                      className="hide-scrollbar"
-                      style={{ overflowX: 'auto', display: 'flex', gap: 14, padding: '16px 20px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                    <div className="hide-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 14, padding: '16px 20px', scrollbarWidth: 'none' }}>
                       {nearbyEvents.slice(0, 5).map((event: any, i: number) => {
-                        const gradients = [
-                          'linear-gradient(135deg, #4F46E5, #7C3AED)',
-                          'linear-gradient(135deg, #0EA5E9, #4F46E5)',
-                          'linear-gradient(135deg, #16A34A, #0EA5E9)',
-                          'linear-gradient(135deg, #EA580C, #DC2626)',
-                          'linear-gradient(135deg, #7C3AED, #EC4899)',
-                        ]
+                        const gradients = ['linear-gradient(135deg, #4F46E5, #7C3AED)', 'linear-gradient(135deg, #0EA5E9, #4F46E5)', 'linear-gradient(135deg, #16A34A, #0EA5E9)', 'linear-gradient(135deg, #EA580C, #DC2626)', 'linear-gradient(135deg, #7C3AED, #EC4899)']
                         return (
                           <div key={event.id}
                             onClick={() => router.push(`/dashboard/candidature?eventId=${event.id}&eventName=${encodeURIComponent(event.title)}&eventDate=${encodeURIComponent(new Date(event.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(event.location_name || '')}`)}
@@ -296,13 +299,9 @@ export default function Dashboard() {
                             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(79,70,229,0.15)'; e.currentTarget.style.borderColor = '#C7D2FE' }}
                             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#E2E8F0' }}>
                             <div style={{ height: 110, position: 'relative', overflow: 'hidden', background: gradients[i % gradients.length] }}>
-                              {event.image_url && (
-                                <img src={event.image_url} alt={event.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              )}
+                              {event.image_url && <img src={event.image_url} alt={event.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 60%)' }} />
-                              {event.is_exclusive && (
-                                <span style={{ position: 'absolute', top: 7, left: 7, background: '#FBBF24', color: '#92400E', fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 100 }}>PRO</span>
-                              )}
+                              {event.is_exclusive && <span style={{ position: 'absolute', top: 7, left: 7, background: '#FBBF24', color: '#92400E', fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 100 }}>PRO</span>}
                               <div style={{ position: 'absolute', bottom: 6, left: 8, display: 'flex', alignItems: 'center', gap: 3 }}>
                                 <MapPin size={9} style={{ color: 'white' }} />
                                 <span style={{ fontSize: 9, color: 'white', fontWeight: 500 }}>{event.location_name?.split(',')[0]}</span>
@@ -310,13 +309,9 @@ export default function Dashboard() {
                             </div>
                             <div style={{ padding: '10px 12px' }}>
                               <p style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', marginBottom: 4, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.title}</p>
-                              <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 8 }}>
-                                {new Date(event.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                              </p>
+                              <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 8 }}>{new Date(event.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</p>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: 13, fontWeight: 800, color: '#4F46E5' }}>
-                                  {event.price_per_spot === 0 ? 'Gratuit' : `${event.price_per_spot}€`}
-                                </span>
+                                <span style={{ fontSize: 13, fontWeight: 800, color: '#4F46E5' }}>{event.price_per_spot === 0 ? 'Gratuit' : `${event.price_per_spot}€`}</span>
                                 <span style={{ fontSize: 10, color: '#94A3B8' }}>{event.available_spots} places</span>
                               </div>
                             </div>
@@ -327,31 +322,47 @@ export default function Dashboard() {
                   )}
                 </motion.div>
 
-                {/* TIMELINE CANDIDATURES */}
+                {/* SUIVI CANDIDATURES */}
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px 20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Suivi de mes dossiers en cours</p>
-                    <span style={{ fontSize: 11, color: '#94A3B8' }}>{stats.total || 0} dossier(s)</span>
+                    <span style={{ fontSize: 11, color: '#94A3B8' }}>{candidatures.length} dossier(s)</span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                    {MOCK_CANDIDATURES.map((c, i) => (
-                      <div key={i}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                          <p style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>{c.name}</p>
-                          <span style={{ fontSize: 10, fontWeight: 600, color: c.status === 'validated' ? '#16A34A' : '#F59E0B', background: c.status === 'validated' ? '#F0FDF4' : '#FFFBEB', padding: '2px 8px', borderRadius: 100 }}>
-                            {c.status === 'validated' ? 'Validé' : 'En attente'}
-                          </span>
+                  {candidatures.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px 0', color: '#94A3B8', fontSize: 13 }}>Aucune candidature envoyée pour le moment</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                      {candidatures.slice(0, 4).map((c) => (
+                        <div key={c.id}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                            <p style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>{c.events?.title || 'Événement'}</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              {c.status === 'validated' && (
+                                <button onClick={() => handlePayer(c)} disabled={payingId === c.id}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#4F46E5', color: 'white', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                  <CreditCard size={10} /> Payer
+                                </button>
+                              )}
+                              {c.status === 'paid' && (
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: '#4F46E5', background: '#EEF2FF', padding: '2px 8px', borderRadius: 100 }}>
+                                  <CheckCircle size={9} /> Payé
+                                </span>
+                              )}
+                              <span style={{ fontSize: 10, fontWeight: 600, color: c.status === 'validated' ? '#16A34A' : c.status === 'paid' ? '#4F46E5' : '#F59E0B', background: c.status === 'validated' ? '#F0FDF4' : c.status === 'paid' ? '#EEF2FF' : '#FFFBEB', padding: '2px 8px', borderRadius: 100 }}>
+                                {c.status === 'validated' ? 'Accepté' : c.status === 'paid' ? 'Confirmé' : 'En attente'}
+                              </span>
+                            </div>
+                          </div>
+                          <CandidatureTimeline status={c.status} />
                         </div>
-                        <CandidatureTimeline status={c.status} />
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               </div>
 
               {/* RIGHT */}
               <motion.div variants={fadeUp} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
                 {stats.plan !== 'pro' && (
                   <div style={{ background: '#0F172A', borderRadius: 12, padding: '14px 16px' }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 10 }}>
@@ -391,9 +402,7 @@ export default function Dashboard() {
                     ].map((doc, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 12, color: '#475569' }}>{doc.label}</span>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: doc.status ? '#16A34A' : '#F59E0B' }}>
-                          {doc.status ? '✓ Fourni' : '⏳ Manquant'}
-                        </span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: doc.status ? '#16A34A' : '#F59E0B' }}>{doc.status ? '✓ Fourni' : '⏳ Manquant'}</span>
                       </div>
                     ))}
                   </div>
@@ -416,7 +425,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
-
               </motion.div>
             </div>
 
