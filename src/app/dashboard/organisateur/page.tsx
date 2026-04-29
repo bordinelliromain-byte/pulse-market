@@ -1,27 +1,67 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { Variants } from 'framer-motion'
+import Sidebar from '@/components/Sidebar'
 import {
-  LayoutDashboard, Map, FileText, Receipt, Settings,
-  LogOut, Bell, MapPin, Plus, Users, CheckCircle,
-  Clock, TrendingUp, Euro, Megaphone, ShieldCheck,
-  BarChart3, Download, ChevronRight, ArrowUpRight,
-  Zap, Activity
+  Bell, AlertTriangle, CheckCircle, Clock, Euro,
+  Users, Map, TrendingUp, ArrowUpRight, ChevronRight,
+  FileText, XCircle, RefreshCw, Zap, BarChart3,
+  MapPin, Calendar, Shield, Activity
 } from 'lucide-react'
 
-const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+// ─── TYPES ──────────────────────────────────────────────────────────────────
+
+interface Toast {
+  id: string
+  type: 'success' | 'error' | 'warning' | 'info'
+  title: string
+  message?: string
 }
 
-const stagger: Variants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.06 } },
+// ─── TOAST SYSTEM ────────────────────────────────────────────────────────────
+
+function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) {
+  return (
+    <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 100, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <AnimatePresence>
+        {toasts.map(toast => (
+          <motion.div key={toast.id}
+            initial={{ opacity: 0, x: 60, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 60, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 200 }}
+            style={{
+              background: 'white', borderRadius: 12, padding: '14px 16px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05)',
+              display: 'flex', alignItems: 'flex-start', gap: 12, minWidth: 300, maxWidth: 380,
+              borderLeft: `3px solid ${toast.type === 'success' ? '#16A34A' : toast.type === 'error' ? '#DC2626' : toast.type === 'warning' ? '#F59E0B' : '#4F46E5'}`
+            }}>
+            <div style={{ flexShrink: 0, marginTop: 1 }}>
+              {toast.type === 'success' && <CheckCircle size={16} style={{ color: '#16A34A' }} />}
+              {toast.type === 'error' && <XCircle size={16} style={{ color: '#DC2626' }} />}
+              {toast.type === 'warning' && <AlertTriangle size={16} style={{ color: '#F59E0B' }} />}
+              {toast.type === 'info' && <Zap size={16} style={{ color: '#4F46E5' }} />}
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', marginBottom: toast.message ? 3 : 0 }}>{toast.title}</p>
+              {toast.message && <p style={{ fontSize: 12, color: '#64748B', lineHeight: 1.5 }}>{toast.message}</p>}
+            </div>
+            <button onClick={() => onRemove(toast.id)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CBD5E1', padding: 0, flexShrink: 0 }}>
+              <XCircle size={14} />
+            </button>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  )
 }
+
+// ─── SPARKLINE ───────────────────────────────────────────────────────────────
 
 function Sparkline({ values, color = '#4F46E5' }: { values: number[]; color?: string }) {
   const max = Math.max(...values, 1)
@@ -29,49 +69,35 @@ function Sparkline({ values, color = '#4F46E5' }: { values: number[]; color?: st
   const points = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - (v / max) * h}`).join(' ')
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none">
-      <polyline points={points} stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.7" />
-      <polyline points={`0,${h} ${points} ${w},${h}`} stroke="none" fill={color} opacity="0.08" />
+      <polyline points={points} stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" />
+      <polyline points={`0,${h} ${points} ${w},${h}`} fill={color} opacity="0.08" />
     </svg>
   )
 }
 
-// Barre de progression circulaire
-function CircularProgress({ value, size = 56, color = '#4F46E5' }: { value: number; size?: number; color?: string }) {
-  const r = (size - 8) / 2
-  const circ = 2 * Math.PI * r
-  const dash = (value / 100) * circ
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#E2E8F0" strokeWidth={5} />
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={5}
-        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" style={{ transition: 'stroke-dasharray 0.6s ease' }} />
-    </svg>
-  )
-}
-
-const NAV_ITEMS = [
-  { icon: <LayoutDashboard size={15} />, label: 'Dashboard', path: '/dashboard' },
-  { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/creer-evenement' },
-  { icon: <FileText size={15} />, label: 'Candidatures', path: '/dashboard/candidatures' },
-  { icon: <Receipt size={15} />, label: 'Trésorerie', path: '/dashboard/tresorerie' },
-  { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard/parametres' },
-]
-
-const MOCK_ACTIVITIES = [
-  { avatar: 'MM', name: 'Mme Martin', action: 'a payé sa place pour le Marché de Printemps', time: 'il y a 3 min', tag: 'Paiement', color: '#16A34A' },
-  { avatar: 'JD', name: 'Jean Dupont', action: 'a mis à jour son attestation RC Pro', time: 'il y a 12 min', tag: 'Document', color: '#4F46E5' },
-  { avatar: 'SB', name: 'Sophie Blanc', action: 'a soumis une candidature pour la Foire Artisanale', time: 'il y a 28 min', tag: 'Candidature', color: '#F59E0B' },
-  { avatar: 'PL', name: 'Pierre Laurent', action: 'SIREN vérifié — dossier certifié automatiquement', time: 'il y a 1h', tag: 'Certification', color: '#0EA5E9' },
-  { avatar: 'AM', name: 'Atelier Moreau', action: 'a été validé pour le Festival du Terroir', time: 'il y a 2h', tag: 'Validation', color: '#16A34A' },
-]
+// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 
 export default function DashboardOrganisateur() {
   const [profile, setProfile] = useState<any>(null)
-  const [stats, setStats] = useState<any>({})
+  const [events, setEvents] = useState<any[]>([])
+  const [candidatures, setCandidatures] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeNav, setActiveNav] = useState('Dashboard')
+  const [toasts, setToasts] = useState<Toast[]>([])
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+
   const router = useRouter()
   const supabase = createClient()
+
+  // Toast system
+  const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
+    const id = Math.random().toString(36).slice(2)
+    setToasts(prev => [...prev, { ...toast, id }])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000)
+  }, [])
+
+  const removeToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }, [])
 
   useEffect(() => {
     const getData = async () => {
@@ -80,301 +106,385 @@ export default function DashboardOrganisateur() {
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       if (profileData?.role !== 'organisateur') { router.push('/dashboard'); return }
       setProfile(profileData)
-      const { data: events } = await supabase.from('events').select('id, total_spots, available_spots, price_per_spot').eq('organisateur_id', user.id)
-      const eventIds = events?.map(e => e.id) || []
-      let totalApps = 0, validatedApps = 0, pendingApps = 0
+
+      const { data: eventsData } = await supabase
+        .from('events').select('*').eq('organisateur_id', user.id).order('start_date', { ascending: true })
+      setEvents(eventsData || [])
+
+      const eventIds = eventsData?.map((e: any) => e.id) || []
       if (eventIds.length > 0) {
-        const { data: apps } = await supabase.from('applications').select('status').in('event_id', eventIds)
-        totalApps = apps?.length || 0
-        validatedApps = apps?.filter(a => a.status === 'validated').length || 0
-        pendingApps = apps?.filter(a => a.status === 'pending').length || 0
+        const { data: apps } = await supabase
+          .from('applications')
+          .select(`*, profiles:exposant_id(full_name, email), events:event_id(title, price_per_spot, start_date, location_name)`)
+          .in('event_id', eventIds)
+          .order('created_at', { ascending: false })
+
+        const appsWithData = await Promise.all(
+          (apps || []).map(async (app: any) => {
+            const { data: expData } = await supabase.from('exposant_data').select('*').eq('user_id', app.exposant_id).single()
+            return { ...app, exposant_data: expData }
+          })
+        )
+        setCandidatures(appsWithData)
       }
-      const totalSpots = events?.reduce((acc, e) => acc + (e.total_spots || 0), 0) || 0
-      const occupiedSpots = events?.reduce((acc, e) => acc + ((e.total_spots || 0) - (e.available_spots || 0)), 0) || 0
-      const occupancyRate = totalSpots > 0 ? Math.round((occupiedSpots / totalSpots) * 100) : 0
-      const monthlyRevenue = validatedApps * 45
-      setStats({ events: events?.length || 0, totalApps, validatedApps, pendingApps, occupancyRate, monthlyRevenue })
       setLoading(false)
     }
     getData()
   }, [])
 
+  const handleValidate = async (id: string, name: string) => {
+    setUpdatingId(id)
+    await supabase.from('applications').update({ status: 'validated' }).eq('id', id)
+    setCandidatures(prev => prev.map(c => c.id === id ? { ...c, status: 'validated' } : c))
+    addToast({ type: 'success', title: 'Dossier approuvé', message: `${name} a été notifié par email.` })
+    setUpdatingId(null)
+  }
+
+  const handleReject = async (id: string, name: string) => {
+    setUpdatingId(id)
+    await supabase.from('applications').update({ status: 'rejected' }).eq('id', id)
+    setCandidatures(prev => prev.map(c => c.id === id ? { ...c, status: 'rejected' } : c))
+    addToast({ type: 'warning', title: 'Dossier refusé', message: `${name} a été informé du refus.` })
+    setUpdatingId(null)
+  }
+
+  // ── Computed stats ──────────────────────────────────────────────────────────
+  const pending = candidatures.filter(c => c.status === 'pending')
+  const validated = candidatures.filter(c => c.status === 'validated' || c.status === 'paid')
+  const docsIncomplete = candidatures.filter(c => c.status === 'pending' && (!c.exposant_data?.kbis_url || !c.exposant_data?.assurance_url))
+  const revenueEstimated = validated.reduce((acc, c) => acc + (c.events?.price_per_spot || 0), 0)
+  const nextEvent = events.find(e => new Date(e.start_date) > new Date())
+  const nextEventApps = nextEvent ? candidatures.filter(c => c.event_id === nextEvent.id && (c.status === 'validated' || c.status === 'paid')) : []
+  const nextEventFree = nextEvent ? (nextEvent.total_spots - nextEventApps.length) : 0
+
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#EEF2F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 28, height: 28, border: '2px solid #4F46E5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+        <div style={{ width: 32, height: 32, border: '2px solid #4F46E5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <p style={{ fontSize: 13, color: '#64748B', fontFamily: 'Inter, system-ui, sans-serif' }}>Chargement de votre tableau de bord...</p>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#EEF2F7', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <Sidebar profile={profile} />
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
 
-      {/* SIDEBAR */}
-      <aside style={{ width: 220, background: '#020617', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 20 }}>
-        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, background: '#4F46E5', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>PM</span>
-            </div>
-            <span style={{ color: 'white', fontWeight: 600, fontSize: 14 }}>PlaceMarket</span>
-          </div>
-        </div>
-        <nav style={{ flex: 1, padding: '12px 10px' }}>
-          <p style={{ fontSize: 10, fontWeight: 600, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '8px 10px', marginBottom: 4 }}>Navigation</p>
-          {NAV_ITEMS.map((item) => (
-            <button key={item.label} onClick={() => { setActiveNav(item.label); router.push(item.path) }}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                padding: '9px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                background: activeNav === item.label ? 'rgba(79,70,229,0.15)' : 'transparent',
-                color: activeNav === item.label ? '#818CF8' : '#64748B',
-                fontSize: 13, fontWeight: activeNav === item.label ? 600 : 400,
-                marginBottom: 2, textAlign: 'left', transition: 'all 0.15s',
-              }}>
-              {item.icon}{item.label}
-            </button>
-          ))}
-        </nav>
-        <div style={{ padding: '12px 10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ padding: '8px 10px', marginBottom: 4 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: '#CBD5E1' }}>{profile?.full_name}</p>
-              <span style={{ fontSize: 9, fontWeight: 700, background: '#4F46E5', color: 'white', padding: '1px 6px', borderRadius: 100, letterSpacing: '0.05em' }}>VÉRIFIÉ</span>
-            </div>
-            <p style={{ fontSize: 11, color: '#475569' }}>Administration municipale</p>
-          </div>
-          <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent', color: '#64748B', fontSize: 12 }}>
-            <LogOut size={13} /> Déconnexion
-          </button>
-        </div>
-      </aside>
-
-      {/* MAIN */}
       <div style={{ marginLeft: 220, flex: 1 }}>
 
-        {/* TOP BAR */}
-        <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>
-            Tableau de bord — <span style={{ color: '#64748B', fontWeight: 400 }}>Organisateur</span>
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22C55E', display: 'inline-block', animation: 'pulse-live 2s infinite' }} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#22C55E', letterSpacing: '0.05em' }}>LIVE</span>
+        {/* ── TOP BAR ──────────────────────────────────────────────────────── */}
+        <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>Tableau de bord</p>
+            <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 1 }}>Administration municipale · {profile?.full_name}</p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 100, padding: '4px 10px' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', display: 'inline-block', animation: 'pulse-live 2s infinite' }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#16A34A' }}>Système opérationnel</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#64748B' }}>
-              <MapPin size={12} style={{ color: '#4F46E5' }} />
-              Bouches-du-Rhône, PACA
-            </div>
-            <button style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 8, padding: '5px 8px', cursor: 'pointer' }}>
-              <Bell size={14} style={{ color: '#64748B' }} />
-            </button>
+            {pending.length > 0 && (
+              <div style={{ position: 'relative' }}>
+                <button style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', display: 'flex' }}>
+                  <Bell size={15} style={{ color: '#64748B' }} />
+                </button>
+                <span style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, background: '#DC2626', borderRadius: '50%', fontSize: 9, fontWeight: 700, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {pending.length}
+                </span>
+              </div>
+            )}
           </div>
         </header>
 
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }
-          @keyframes pulse-live {
-            0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
-            70% { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
-            100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
-          }
+          @keyframes pulse-live { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); } 70% { box-shadow: 0 0 0 5px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
         `}</style>
 
-        <main style={{ padding: '24px 28px' }}>
-          <motion.div variants={stagger} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <main style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-            {/* STATS ROW */}
-            <motion.div variants={fadeUp} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14 }}>
-              {[
-                { label: 'Événements publiés', value: stats.events, spark: [0, 1, 1, 2, 2, 3, stats.events], color: '#4F46E5' },
-                { label: 'Dossiers reçus', value: stats.totalApps, spark: [0, 1, 2, 3, 3, 4, stats.totalApps], color: '#0EA5E9' },
-                { label: 'Exposants validés', value: stats.validatedApps, spark: [0, 0, 1, 1, 2, 2, stats.validatedApps], color: '#16A34A' },
-                { label: 'En attente', value: stats.pendingApps, spark: [0, 1, 1, 2, 1, 1, stats.pendingApps], color: '#F59E0B' },
-                { label: 'Recettes du mois', value: `${stats.monthlyRevenue} €`, spark: [0, 200, 400, 350, 600, 750, stats.monthlyRevenue], color: '#4F46E5', highlight: true },
-              ].map((s, i) => (
-                <div key={i} style={{ background: s.highlight ? '#0F172A' : 'white', border: `1px solid ${s.highlight ? '#0F172A' : '#E2E8F0'}`, borderRadius: 12, padding: '16px 18px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                    {s.highlight && <Euro size={12} style={{ color: '#818CF8' }} />}
-                    <p style={{ fontSize: 11, fontWeight: 600, color: s.highlight ? '#64748B' : '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</p>
+          {/* ── COMMAND CENTER ──────────────────────────────────────────────── */}
+          <section>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <Activity size={14} style={{ color: '#4F46E5' }} />
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Centre de commandement</p>
+              <span style={{ fontSize: 11, color: '#94A3B8' }}>— Actions prioritaires du jour</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+
+              {/* CARD 1 — URGENT */}
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
+                style={{ background: docsIncomplete.length > 0 ? '#FEF2F2' : 'white', border: `1px solid ${docsIncomplete.length > 0 ? '#FECACA' : '#E2E8F0'}`, borderRadius: 14, padding: '20px 22px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: docsIncomplete.length > 0 ? '#DC2626' : '#E2E8F0', borderRadius: '14px 14px 0 0' }} />
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+                  <div style={{ width: 36, height: 36, background: docsIncomplete.length > 0 ? '#FEE2E2' : '#F1F5F9', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <AlertTriangle size={16} style={{ color: docsIncomplete.length > 0 ? '#DC2626' : '#94A3B8' }} />
                   </div>
-                  <p style={{ fontSize: s.highlight ? 22 : 28, fontWeight: 700, color: s.highlight ? 'white' : '#0F172A', marginBottom: 8 }}>{s.value}</p>
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: docsIncomplete.length > 0 ? '#DC2626' : '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Urgent</p>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', lineHeight: 1.3 }}>
+                      {docsIncomplete.length > 0
+                        ? `${docsIncomplete.length} dossier${docsIncomplete.length > 1 ? 's' : ''} incomplet${docsIncomplete.length > 1 ? 's' : ''}`
+                        : 'Aucune action requise'}
+                    </p>
+                    <p style={{ fontSize: 12, color: '#64748B', marginTop: 4, lineHeight: 1.5 }}>
+                      {docsIncomplete.length > 0
+                        ? `Documents manquants — relance automatique possible`
+                        : 'Tous les dossiers sont complets'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (docsIncomplete.length > 0) {
+                      router.push('/dashboard/candidatures')
+                      addToast({ type: 'info', title: 'Filtrage appliqué', message: 'Affichage des dossiers incomplets uniquement.' })
+                    }
+                  }}
+                  style={{ width: '100%', background: docsIncomplete.length > 0 ? '#DC2626' : '#F8FAFC', color: docsIncomplete.length > 0 ? 'white' : '#94A3B8', border: 'none', borderRadius: 9, padding: '9px 0', fontSize: 12, fontWeight: 600, cursor: docsIncomplete.length > 0 ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+                  <RefreshCw size={12} />
+                  {docsIncomplete.length > 0 ? 'Relancer les exposants' : 'Tout est à jour'}
+                </button>
+              </motion.div>
+
+              {/* CARD 2 — LOGISTIQUE */}
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}
+                style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 14, padding: '20px 22px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: nextEvent ? '#4F46E5' : '#E2E8F0', borderRadius: '14px 14px 0 0' }} />
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+                  <div style={{ width: 36, height: 36, background: '#EEF2FF', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <MapPin size={16} style={{ color: '#4F46E5' }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: '#4F46E5', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Prochain événement</p>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', lineHeight: 1.3 }}>
+                      {nextEvent ? nextEvent.title : 'Aucun événement prévu'}
+                    </p>
+                    <p style={{ fontSize: 12, color: '#64748B', marginTop: 4, lineHeight: 1.5 }}>
+                      {nextEvent
+                        ? `${formatDate(nextEvent.start_date)} — ${nextEventFree} place${nextEventFree > 1 ? 's' : ''} restante${nextEventFree > 1 ? 's' : ''}`
+                        : 'Créez un événement pour commencer'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => nextEvent ? router.push('/dashboard/candidatures') : router.push('/dashboard/creer-evenement')}
+                  style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 9, padding: '9px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+                  <Map size={12} />
+                  {nextEvent ? 'Voir les candidatures' : 'Créer un événement'}
+                </button>
+              </motion.div>
+
+              {/* CARD 3 — FINANCE */}
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
+                style={{ background: revenueEstimated > 0 ? '#F0FDF4' : 'white', border: `1px solid ${revenueEstimated > 0 ? '#BBF7D0' : '#E2E8F0'}`, borderRadius: 14, padding: '20px 22px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: revenueEstimated > 0 ? '#16A34A' : '#E2E8F0', borderRadius: '14px 14px 0 0' }} />
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+                  <div style={{ width: 36, height: 36, background: revenueEstimated > 0 ? '#DCFCE7' : '#F1F5F9', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Euro size={16} style={{ color: revenueEstimated > 0 ? '#16A34A' : '#94A3B8' }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: revenueEstimated > 0 ? '#16A34A' : '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Finance</p>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', lineHeight: 1.3 }}>
+                      {revenueEstimated > 0 ? `${revenueEstimated} € à encaisser` : 'Aucune recette en attente'}
+                    </p>
+                    <p style={{ fontSize: 12, color: '#64748B', marginTop: 4, lineHeight: 1.5 }}>
+                      {validated.length > 0
+                        ? `${validated.length} exposant${validated.length > 1 ? 's' : ''} validé${validated.length > 1 ? 's' : ''} · Paiement Stripe bientôt`
+                        : 'Validez des dossiers pour générer des recettes'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => router.push('/dashboard/tresorerie')}
+                  style={{ width: '100%', background: revenueEstimated > 0 ? '#16A34A' : '#F8FAFC', color: revenueEstimated > 0 ? 'white' : '#94A3B8', border: 'none', borderRadius: 9, padding: '9px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+                  <TrendingUp size={12} />
+                  Voir la trésorerie
+                </button>
+              </motion.div>
+
+            </div>
+          </section>
+
+          {/* ── KPI STATS ────────────────────────────────────────────────────── */}
+          <section>
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+              {[
+                { label: 'Événements actifs', value: events.filter(e => e.status === 'published').length, spark: [0, 1, 1, 2, 2, 3, events.length], color: '#4F46E5', icon: <Map size={13} style={{ color: '#4F46E5' }} /> },
+                { label: 'Dossiers reçus', value: candidatures.length, spark: [0, 2, 4, 6, 8, 10, candidatures.length], color: '#0EA5E9', icon: <FileText size={13} style={{ color: '#0EA5E9' }} /> },
+                { label: 'Exposants validés', value: validated.length, spark: [0, 1, 2, 3, 4, 5, validated.length], color: '#16A34A', icon: <CheckCircle size={13} style={{ color: '#16A34A' }} /> },
+                { label: 'En attente de traitement', value: pending.length, spark: [0, 1, 2, 1, 3, 2, pending.length], color: '#F59E0B', icon: <Clock size={13} style={{ color: '#F59E0B' }} /> },
+              ].map((s, i) => (
+                <div key={i} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px 20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</span>
+                    {s.icon}
+                  </div>
+                  <p style={{ fontSize: 30, fontWeight: 700, color: '#0F172A', marginBottom: 8, letterSpacing: '-0.02em' }}>{s.value}</p>
                   <Sparkline values={s.spark} color={s.color} />
                 </div>
               ))}
             </motion.div>
+          </section>
 
-            {/* SPLIT LAYOUT */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16 }}>
+          {/* ── FLUX EN TEMPS RÉEL ───────────────────────────────────────────── */}
+          <section>
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}
+              style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
 
-              {/* LEFT */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-                {/* BENTO GRID ACTIONS */}
-                <motion.div variants={fadeUp}>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Actions rapides</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-
-                    {/* Publier un flash */}
-                    <button onClick={() => router.push('/dashboard/candidatures')}
-                      style={{ background: '#4F46E5', borderRadius: 12, padding: '18px', border: 'none', cursor: 'pointer', textAlign: 'left', position: 'relative', overflow: 'hidden' }}
-                      onMouseEnter={e => e.currentTarget.style.opacity = '0.92'}
-                      onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
-                      <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, background: 'rgba(255,255,255,0.06)', borderRadius: '50%' }} />
-                      <div style={{ width: 34, height: 34, background: 'rgba(255,255,255,0.15)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                        <Megaphone size={16} style={{ color: 'white' }} />
-                      </div>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 4 }}>Publier un flash</p>
-                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>SMS & email à tous les exposants d'un événement</p>
-                    </button>
-
-                    {/* Vérification en masse */}
-                    <button onClick={() => router.push('/dashboard/candidatures')}
-                      style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.2s' }}
-                      onMouseEnter={e => e.currentTarget.style.borderColor = '#4F46E5'}
-                      onMouseLeave={e => e.currentTarget.style.borderColor = '#E2E8F0'}>
-                      <div style={{ width: 34, height: 34, background: '#F0FDF4', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                        <ShieldCheck size={16} style={{ color: '#16A34A' }} />
-                      </div>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>Vérification en masse</p>
-                      <p style={{ fontSize: 11, color: '#94A3B8', lineHeight: 1.5 }}>Valider tous les dossiers complets en 1 clic</p>
-                      {stats.pendingApps > 0 && (
-                        <span style={{ display: 'inline-block', marginTop: 8, background: '#FEF3C7', color: '#92400E', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100 }}>
-                          {stats.pendingApps} dossier(s) en attente
-                        </span>
-                      )}
-                    </button>
-
-                    {/* Plan du marché */}
-                    <button onClick={() => router.push('/dashboard/creer-evenement')}
-                      style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.2s' }}
-                      onMouseEnter={e => e.currentTarget.style.borderColor = '#4F46E5'}
-                      onMouseLeave={e => e.currentTarget.style.borderColor = '#E2E8F0'}>
-                      <div style={{ width: 34, height: 34, background: '#EFF6FF', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                        <Map size={16} style={{ color: '#2563EB' }} />
-                      </div>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>Plan du marché</p>
-                      <p style={{ fontSize: 11, color: '#94A3B8', lineHeight: 1.5 }}>Carte interactive des emplacements géolocalisés</p>
-                    </button>
-
-                    {/* Rapport Trésorerie */}
-                    <button style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.2s' }}
-                      onMouseEnter={e => e.currentTarget.style.borderColor = '#4F46E5'}
-                      onMouseLeave={e => e.currentTarget.style.borderColor = '#E2E8F0'}>
-                      <div style={{ width: 34, height: 34, background: '#FFF7ED', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                        <Download size={16} style={{ color: '#EA580C' }} />
-                      </div>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>Rapport Trésorerie</p>
-                      <p style={{ fontSize: 11, color: '#94A3B8', lineHeight: 1.5 }}>Export Excel pour la comptabilité municipale</p>
-                    </button>
-
-                  </div>
-                </motion.div>
-
-                {/* FLUX D'ACTIVITÉ */}
-                <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
-                  <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Activity size={15} style={{ color: '#4F46E5' }} />
-                      <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Dernières activités</p>
-                    </div>
-                    <button style={{ fontSize: 12, color: '#4F46E5', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
-                      Tout voir <ArrowUpRight size={12} />
-                    </button>
-                  </div>
+              {/* Candidatures récentes */}
+              <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 14, overflow: 'hidden' }}>
+                <div style={{ padding: '16px 22px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    {MOCK_ACTIVITIES.map((act, i) => (
-                      <div key={i} style={{ padding: '12px 20px', borderBottom: i < MOCK_ACTIVITIES.length - 1 ? '1px solid #F8FAFC' : 'none', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#4F46E5' }}>{act.avatar}</span>
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <p style={{ fontSize: 12, color: '#0F172A', lineHeight: 1.5 }}>
-                            <strong>{act.name}</strong> {act.action}
-                          </p>
-                          <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>{act.time}</p>
-                        </div>
-                        <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 100, background: `${act.color}15`, color: act.color, flexShrink: 0, marginTop: 2 }}>
-                          {act.tag}
-                        </span>
-                      </div>
-                    ))}
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>Dossiers en attente de décision</p>
+                    <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>{pending.length} dossier{pending.length !== 1 ? 's' : ''} à traiter</p>
                   </div>
-                </motion.div>
-
-              </div>
-
-              {/* RIGHT WIDGETS */}
-              <motion.div variants={fadeUp} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-                {/* Taux d'occupation */}
-                <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px' }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14 }}>Taux d'occupation</p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <div style={{ position: 'relative', width: 56, height: 56, flexShrink: 0 }}>
-                      <CircularProgress value={stats.occupancyRate || 0} />
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#4F46E5' }}>{stats.occupancyRate || 0}%</span>
-                      </div>
-                    </div>
-                    <div>
-                      <p style={{ fontSize: 20, fontWeight: 700, color: '#0F172A' }}>{stats.occupancyRate || 0}%</p>
-                      <p style={{ fontSize: 11, color: '#94A3B8', lineHeight: 1.5 }}>des emplacements sont occupés sur vos événements</p>
-                    </div>
-                  </div>
+                  <button onClick={() => router.push('/dashboard/candidatures')}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#4F46E5', background: '#EEF2FF', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontWeight: 600 }}>
+                    Tout voir <ArrowUpRight size={12} />
+                  </button>
                 </div>
 
-                {/* Créer un événement */}
-                <button onClick={() => router.push('/dashboard/creer-evenement')}
-                  style={{ background: '#0F172A', border: '1px solid #0F172A', borderRadius: 12, padding: '16px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 34, height: 34, background: '#4F46E5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Plus size={16} style={{ color: 'white' }} />
-                    </div>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: 'white', marginBottom: 2 }}>Créer un événement</p>
-                      <p style={{ fontSize: 11, color: '#475569' }}>Publier un marché ou festival</p>
-                    </div>
+                {pending.length === 0 ? (
+                  <div style={{ padding: '48px 0', textAlign: 'center' }}>
+                    <CheckCircle size={32} style={{ margin: '0 auto 12px', color: '#BBF7D0' }} />
+                    <p style={{ fontSize: 14, fontWeight: 600, color: '#16A34A' }}>Tout est à jour</p>
+                    <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 4 }}>Aucun dossier en attente de validation</p>
                   </div>
-                  <ChevronRight size={15} style={{ color: '#475569' }} />
-                </button>
+                ) : (
+                  <div>
+                    {pending.slice(0, 5).map((c, i) => {
+                      const docsOk = !!(c.exposant_data?.kbis_url && c.exposant_data?.assurance_url)
+                      const name = c.exposant_data?.business_name || c.profiles?.full_name || 'Exposant'
+                      return (
+                        <div key={c.id}
+                          style={{ padding: '14px 22px', borderBottom: i < Math.min(pending.length, 5) - 1 ? '1px solid #F8FAFC' : 'none', display: 'flex', alignItems: 'center', gap: 14, transition: 'background 0.1s' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#FAFAFA'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
 
-                {/* Gérer candidatures */}
-                <button onClick={() => router.push('/dashboard/candidatures')}
-                  style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'border-color 0.2s' }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = '#4F46E5'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = '#E2E8F0'}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 34, height: 34, background: '#EEF2FF', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Users size={16} style={{ color: '#4F46E5' }} />
-                    </div>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', marginBottom: 2 }}>Gérer les candidatures</p>
-                      <p style={{ fontSize: 11, color: '#94A3B8' }}>Valider ou refuser les dossiers</p>
-                    </div>
+                          {/* Avatar */}
+                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: `${['#EEF2FF', '#F0FDF4', '#FEF3C7', '#FEF2F2', '#F0F9FF'][i % 5]}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1.5px solid ${['#C7D2FE', '#BBF7D0', '#FDE68A', '#FECACA', '#BAE6FD'][i % 5]}` }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: ['#4F46E5', '#16A34A', '#F59E0B', '#DC2626', '#0EA5E9'][i % 5] }}>
+                              {name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
+                              <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</p>
+                              {docsOk
+                                ? <span style={{ fontSize: 10, fontWeight: 700, color: '#16A34A', background: '#F0FDF4', padding: '1px 7px', borderRadius: 100, flexShrink: 0 }}>Complet</span>
+                                : <span style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', background: '#FEF2F2', padding: '1px 7px', borderRadius: 100, flexShrink: 0 }}>Incomplet</span>
+                              }
+                            </div>
+                            <p style={{ fontSize: 11, color: '#94A3B8' }}>{c.events?.title} · {c.events?.location_name?.split(',')[0]}</p>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                            <button
+                              onClick={() => handleValidate(c.id, name)}
+                              disabled={updatingId === c.id}
+                              style={{ background: '#16A34A', color: 'white', border: 'none', borderRadius: 7, padding: '6px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', opacity: updatingId === c.id ? 0.6 : 1, transition: 'all 0.15s' }}>
+                              Approuver
+                            </button>
+                            <button
+                              onClick={() => handleReject(c.id, name)}
+                              disabled={updatingId === c.id}
+                              style={{ background: '#F8FAFC', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 7, padding: '6px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', opacity: updatingId === c.id ? 0.6 : 1 }}>
+                              Refuser
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {pending.length > 5 && (
+                      <div style={{ padding: '12px 22px', borderTop: '1px solid #F1F5F9' }}>
+                        <button onClick={() => router.push('/dashboard/candidatures')}
+                          style={{ fontSize: 12, color: '#4F46E5', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          Voir {pending.length - 5} dossier{pending.length - 5 > 1 ? 's' : ''} supplémentaire{pending.length - 5 > 1 ? 's' : ''} <ChevronRight size={12} />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <ChevronRight size={15} style={{ color: '#CBD5E1' }} />
-                </button>
+                )}
+              </div>
 
-                {/* Résumé financier */}
-                <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px' }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Résumé financier</p>
+              {/* Sidebar droite */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Mes événements */}
+                <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 14, overflow: 'hidden' }}>
+                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>Mes marchés</p>
+                    <button onClick={() => router.push('/dashboard/creer-evenement')}
+                      style={{ fontSize: 11, color: '#4F46E5', background: '#EEF2FF', border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
+                      + Nouveau
+                    </button>
+                  </div>
+                  {events.length === 0 ? (
+                    <div style={{ padding: '24px 18px', textAlign: 'center', color: '#94A3B8', fontSize: 12 }}>
+                      Aucun événement créé
+                    </div>
+                  ) : (
+                    events.slice(0, 4).map((event, i) => {
+                      const eventApps = candidatures.filter(c => c.event_id === event.id)
+                      const eventValidated = eventApps.filter(c => c.status === 'validated' || c.status === 'paid')
+                      const pct = event.total_spots > 0 ? Math.round((eventValidated.length / event.total_spots) * 100) : 0
+                      return (
+                        <div key={event.id}
+                          onClick={() => router.push('/dashboard/candidatures')}
+                          style={{ padding: '12px 18px', borderBottom: i < Math.min(events.length, 4) - 1 ? '1px solid #F8FAFC' : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#FAFAFA'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontSize: 12, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.title}</p>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                                <Calendar size={9} style={{ color: '#94A3B8' }} />
+                                <p style={{ fontSize: 10, color: '#94A3B8' }}>{formatDate(event.start_date)}</p>
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: pct >= 80 ? '#DC2626' : pct >= 50 ? '#F59E0B' : '#16A34A', flexShrink: 0, marginLeft: 8 }}>{pct}%</span>
+                          </div>
+                          <div style={{ height: 3, background: '#F1F5F9', borderRadius: 100, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${pct}%`, background: pct >= 80 ? '#DC2626' : pct >= 50 ? '#F59E0B' : '#4F46E5', borderRadius: 100, transition: 'width 0.5s' }} />
+                          </div>
+                          <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 5 }}>{eventValidated.length}/{event.total_spots} emplacements</p>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+
+                {/* Actions rapides */}
+                <div style={{ background: '#0F172A', borderRadius: 14, padding: '18px' }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Actions rapides</p>
                   {[
-                    { label: 'Redevances encaissées', value: `${stats.monthlyRevenue} €`, color: '#16A34A' },
-                    { label: 'Redevances en attente', value: `${(stats.pendingApps || 0) * 45} €`, color: '#F59E0B' },
-                    { label: 'Total estimé', value: `${((stats.validatedApps || 0) + (stats.pendingApps || 0)) * 45} €`, color: '#4F46E5' },
+                    { icon: <Users size={13} style={{ color: '#818CF8' }} />, label: 'Gérer les candidatures', path: '/dashboard/candidatures' },
+                    { icon: <Map size={13} style={{ color: '#34D399' }} />, label: 'Créer un événement', path: '/dashboard/creer-evenement' },
+                    { icon: <TrendingUp size={13} style={{ color: '#FBBF24' }} />, label: 'Voir la trésorerie', path: '/dashboard/tresorerie' },
+                    { icon: <Shield size={13} style={{ color: '#60A5FA' }} />, label: 'Paramètres du compte', path: '/dashboard/parametres' },
                   ].map((item, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: i < 2 ? 10 : 0, marginBottom: i < 2 ? 10 : 0, borderBottom: i < 2 ? '1px solid #F1F5F9' : 'none' }}>
-                      <span style={{ fontSize: 12, color: '#64748B' }}>{item.label}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: item.color }}>{item.value}</span>
-                    </div>
+                    <button key={i} onClick={() => router.push(item.path)}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 9, cursor: 'pointer', marginBottom: i < 3 ? 8 : 0, transition: 'background 0.15s', textAlign: 'left' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}>
+                      {item.icon}
+                      <span style={{ fontSize: 12, fontWeight: 500, color: '#CBD5E1' }}>{item.label}</span>
+                      <ChevronRight size={12} style={{ color: '#475569', marginLeft: 'auto' }} />
+                    </button>
                   ))}
                 </div>
 
-              </motion.div>
-            </div>
+              </div>
+            </motion.div>
+          </section>
 
-          </motion.div>
         </main>
       </div>
     </div>
