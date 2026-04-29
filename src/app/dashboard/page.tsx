@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -98,7 +98,7 @@ function MiniCalendar() {
   )
 }
 
-export default function Dashboard() {
+function DashboardContent() {
   const [profile, setProfile] = useState<any>(null)
   const [nearbyEvents, setNearbyEvents] = useState<any[]>([])
   const [candidatures, setCandidatures] = useState<any[]>([])
@@ -112,26 +112,13 @@ export default function Dashboard() {
   const loadData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth'); return }
-
     const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     setProfile(profileData)
-
-    if (profileData?.role === 'organisateur') {
-      router.push('/dashboard/organisateur')
-      return
-    }
-
-    const { data: eventsData } = await supabase
-      .from('events').select('*').eq('status', 'published').order('start_date', { ascending: true }).limit(5)
+    if (profileData?.role === 'organisateur') { router.push('/dashboard/organisateur'); return }
+    const { data: eventsData } = await supabase.from('events').select('*').eq('status', 'published').order('start_date', { ascending: true }).limit(5)
     setNearbyEvents(eventsData || [])
-
-    const { data: apps } = await supabase
-      .from('applications')
-      .select(`*, events:event_id(title, start_date, location_name, price_per_spot)`)
-      .eq('exposant_id', user.id)
-      .order('created_at', { ascending: false })
+    const { data: apps } = await supabase.from('applications').select(`*, events:event_id(title, start_date, location_name, price_per_spot)`).eq('exposant_id', user.id).order('created_at', { ascending: false })
     setCandidatures(apps || [])
-
     const { data: expData } = await supabase.from('exposant_data').select('plan, is_verified').eq('user_id', user.id).single()
     setStats({
       total: apps?.length || 0,
@@ -141,13 +128,10 @@ export default function Dashboard() {
       plan: expData?.plan || 'gratuit',
       isVerified: expData?.is_verified || false,
     })
-
     setLoading(false)
   }
 
-  useEffect(() => {
-    loadData()
-  }, [searchParams]) // ← se recharge quand ?refresh=true arrive depuis paiement-success
+  useEffect(() => { loadData() }, [searchParams])
 
   const candidaturesAPayer = candidatures.filter(c => c.status === 'validated')
 
@@ -157,20 +141,12 @@ export default function Dashboard() {
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          candidatureId: candidature.id,
-          eventTitle: candidature.events?.title || '',
-          amount: candidature.events?.price_per_spot || 0,
-          exposantEmail: profile?.email || '',
-          exposantNom: profile?.full_name || '',
-        }),
+        body: JSON.stringify({ candidatureId: candidature.id, eventTitle: candidature.events?.title || '', amount: candidature.events?.price_per_spot || 0, exposantEmail: profile?.email || '', exposantNom: profile?.full_name || '' }),
       })
       const { url, error } = await res.json()
       if (error) throw new Error(error)
       if (url) window.location.href = url
-    } catch (err: any) {
-      alert('Erreur paiement : ' + err.message)
-    }
+    } catch (err: any) { alert('Erreur paiement : ' + err.message) }
     setPayingId(null)
   }
 
@@ -183,23 +159,17 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#EEF2F7', fontFamily: "'Inter', system-ui, sans-serif" }}>
-
       <Sidebar profile={profile} />
-
       <div style={{ marginLeft: 220, flex: 1, display: 'flex', flexDirection: 'column' }}>
-
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>
-            Tableau de bord — <span style={{ color: '#64748B', fontWeight: 400 }}>Exposant</span>
-          </p>
+          <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Tableau de bord — <span style={{ color: '#64748B', fontWeight: 400 }}>Exposant</span></p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22C55E', display: 'inline-block', animation: 'pulse-live 2s infinite' }} />
               <span style={{ fontSize: 11, fontWeight: 700, color: '#22C55E', letterSpacing: '0.05em' }}>LIVE</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#64748B' }}>
-              <MapPin size={12} style={{ color: '#4F46E5' }} />
-              Bouches-du-Rhône, PACA
+              <MapPin size={12} style={{ color: '#4F46E5' }} /> Bouches-du-Rhône, PACA
             </div>
             <div style={{ position: 'relative' }}>
               <button style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 8, padding: '5px 8px', cursor: 'pointer' }}>
@@ -223,7 +193,6 @@ export default function Dashboard() {
         <main style={{ padding: '24px 28px', flex: 1 }}>
           <motion.div variants={stagger} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-            {/* BANNER PAIEMENT */}
             {candidaturesAPayer.length > 0 && (
               <motion.div variants={fadeUp}>
                 {candidaturesAPayer.map(c => (
@@ -244,17 +213,13 @@ export default function Dashboard() {
                     </div>
                     <button onClick={() => handlePayer(c)} disabled={payingId === c.id}
                       style={{ background: 'white', color: '#4F46E5', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0, opacity: payingId === c.id ? 0.8 : 1 }}>
-                      {payingId === c.id
-                        ? <><Loader size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</>
-                        : <><CreditCard size={14} /> Payer {(c.events?.price_per_spot || 0) + 2} €</>
-                      }
+                      {payingId === c.id ? <><Loader size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</> : <><CreditCard size={14} /> Payer {(c.events?.price_per_spot || 0) + 2} €</>}
                     </button>
                   </div>
                 ))}
               </motion.div>
             )}
 
-            {/* STATS */}
             <motion.div variants={fadeUp} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
               {[
                 { label: 'Candidatures envoyées', value: stats.total || 0, spark: [0, 1, 1, 2, 1, 2, stats.total || 0], color: '#4F46E5' },
@@ -270,19 +235,15 @@ export default function Dashboard() {
               ))}
             </motion.div>
 
-            {/* SPLIT */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-                {/* CAROUSEL */}
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '16px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <p style={{ fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Marchés suggérés à proximité</p>
                       <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>Basé sur votre zone PACA</p>
                     </div>
-                    <button onClick={() => router.push('/dashboard/evenements')}
-                      style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#4F46E5', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
+                    <button onClick={() => router.push('/dashboard/evenements')} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#4F46E5', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
                       Voir tout <ArrowUpRight size={13} />
                     </button>
                   </div>
@@ -293,8 +254,7 @@ export default function Dashboard() {
                       {nearbyEvents.slice(0, 5).map((event: any, i: number) => {
                         const gradients = ['linear-gradient(135deg, #4F46E5, #7C3AED)', 'linear-gradient(135deg, #0EA5E9, #4F46E5)', 'linear-gradient(135deg, #16A34A, #0EA5E9)', 'linear-gradient(135deg, #EA580C, #DC2626)', 'linear-gradient(135deg, #7C3AED, #EC4899)']
                         return (
-                          <div key={event.id}
-                            onClick={() => router.push(`/dashboard/candidature?eventId=${event.id}&eventName=${encodeURIComponent(event.title)}&eventDate=${encodeURIComponent(new Date(event.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(event.location_name || '')}`)}
+                          <div key={event.id} onClick={() => router.push(`/dashboard/candidature?eventId=${event.id}&eventName=${encodeURIComponent(event.title)}&eventDate=${encodeURIComponent(new Date(event.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(event.location_name || '')}`)}
                             style={{ flexShrink: 0, width: 190, borderRadius: 12, overflow: 'hidden', border: '1px solid #E2E8F0', cursor: 'pointer', transition: 'all 0.2s', background: 'white' }}
                             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(79,70,229,0.15)'; e.currentTarget.style.borderColor = '#C7D2FE' }}
                             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#E2E8F0' }}>
@@ -322,7 +282,6 @@ export default function Dashboard() {
                   )}
                 </motion.div>
 
-                {/* SUIVI CANDIDATURES */}
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px 20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Suivi de mes dossiers en cours</p>
@@ -361,7 +320,6 @@ export default function Dashboard() {
                 </motion.div>
               </div>
 
-              {/* RIGHT */}
               <motion.div variants={fadeUp} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {stats.plan !== 'pro' && (
                   <div style={{ background: '#0F172A', borderRadius: 12, padding: '14px 16px' }}>
@@ -372,12 +330,9 @@ export default function Dashboard() {
                         <p style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5 }}>Candidatures illimitées, alertes instantanées, événements exclusifs</p>
                       </div>
                     </div>
-                    <button style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '8px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                      Upgrader maintenant →
-                    </button>
+                    <button style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '8px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Upgrader maintenant →</button>
                   </div>
                 )}
-
                 <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Mon plan</p>
@@ -386,36 +341,27 @@ export default function Dashboard() {
                   <p style={{ fontSize: 22, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>{stats.plan === 'pro' ? 'Pro' : 'Gratuit'}</p>
                   <p style={{ fontSize: 12, color: '#94A3B8' }}>{stats.plan === 'pro' ? 'Candidatures illimitées' : '1 candidature / mois'}</p>
                 </div>
-
                 <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px' }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Calendrier</p>
                   <MiniCalendar />
                 </div>
-
                 <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px' }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Mon dossier exposant</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-                    {[
-                      { label: 'Extrait Kbis', status: true },
-                      { label: 'Attestation RC Pro', status: true },
-                      { label: 'Vérification SIREN', status: stats.isVerified },
-                    ].map((doc, i) => (
+                    {[{ label: 'Extrait Kbis', status: true }, { label: 'Attestation RC Pro', status: true }, { label: 'Vérification SIREN', status: stats.isVerified }].map((doc, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 12, color: '#475569' }}>{doc.label}</span>
                         <span style={{ fontSize: 11, fontWeight: 600, color: doc.status ? '#16A34A' : '#F59E0B' }}>{doc.status ? '✓ Fourni' : '⏳ Manquant'}</span>
                       </div>
                     ))}
                   </div>
-                  <button onClick={() => router.push('/dashboard/profil')}
-                    style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 9, padding: '10px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginBottom: 8 }}>
+                  <button onClick={() => router.push('/dashboard/profil')} style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 9, padding: '10px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginBottom: 8 }}>
                     <Camera size={14} /> Numériser un document
                   </button>
-                  <button onClick={() => router.push('/dashboard/profil')}
-                    style={{ width: '100%', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '8px 0', fontSize: 12, fontWeight: 500, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <button onClick={() => router.push('/dashboard/profil')} style={{ width: '100%', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '8px 0', fontSize: 12, fontWeight: 500, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                     Gérer mon dossier <ChevronRight size={13} />
                   </button>
                 </div>
-
                 {stats.isVerified && (
                   <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <Shield size={15} style={{ color: '#16A34A', flexShrink: 0, marginTop: 1 }} />
@@ -432,5 +378,18 @@ export default function Dashboard() {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 28, height: 28, border: '2px solid #4F46E5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   )
 }
