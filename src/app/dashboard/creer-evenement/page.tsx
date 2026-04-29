@@ -100,18 +100,22 @@ export default function CreerEvenement() {
 
     let imageUrl = null
     if (imageFile) {
-      const ext = imageFile.name.split('.').pop()
-      const path = `events/${user.id}/${Date.now()}.${ext}`
-      const { data, error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(path, imageFile, { upsert: true })
-      if (!uploadError && data) {
-        const { data: urlData } = supabase.storage
-          .from('documents')
-          .getPublicUrl(data.path)
-        imageUrl = urlData.publicUrl
-      }
-    }
+  console.log('Image file:', imageFile.name, imageFile.size)
+  const ext = imageFile.name.split('.').pop()
+  const path = `events/${user.id}/${Date.now()}.${ext}`
+  console.log('Upload path:', path)
+  const { data, error: uploadError } = await supabase.storage
+    .from('images')
+    .upload(path, imageFile, { upsert: true })
+  console.log('Upload result:', data, uploadError)
+  if (!uploadError && data) {
+    const { data: urlData } = supabase.storage
+      .from('images')
+      .getPublicUrl(data.path)
+    imageUrl = urlData.publicUrl
+    console.log('Image URL:', imageUrl)
+  }
+}
 
     const { error } = await supabase.from('events').insert({
       organisateur_id: user.id,
