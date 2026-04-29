@@ -124,6 +124,11 @@ function CandidatureForm() {
             </div>
           ))}
         </div>
+        <button
+          onClick={() => router.push(`/dashboard/partage?eventName=${encodeURIComponent(eventName)}&eventDate=${encodeURIComponent(eventDate)}&eventLocation=${encodeURIComponent(eventLocation)}`)}
+          style={{ width: '100%', background: 'linear-gradient(135deg, #E1306C, #833AB4)', color: 'white', border: 'none', borderRadius: 10, padding: '12px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          📸 Préparer mon post Instagram
+        </button>
         <button onClick={() => router.push('/dashboard')}
           style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 10, padding: '12px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
           Retour au tableau de bord
