@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { motion } from 'framer-motion'
 import { openFacturePDF } from '@/lib/generateFacture'
-import { CheckCircle, FileText, ArrowLeft, Loader } from 'lucide-react'
+import { CheckCircle, FileText, ArrowLeft, Loader, MapPin } from 'lucide-react'
 
 function PaiementSuccessContent() {
   const [loading, setLoading] = useState(true)
@@ -20,8 +20,6 @@ function PaiementSuccessContent() {
 
   useEffect(() => {
     const getData = async () => {
-      console.log('✅ candidatureId reçu:', candidatureId)
-
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth'); return }
 
@@ -30,20 +28,15 @@ function PaiementSuccessContent() {
       setProfile(profileData)
 
       if (candidatureId) {
-        // Mettre à jour le statut en "paid"
         const { error: updateErr } = await supabase
           .from('applications')
           .update({ status: 'paid' })
           .eq('id', candidatureId)
 
         if (updateErr) {
-          console.error('❌ Erreur update statut:', updateErr)
           setUpdateError(updateErr.message)
-        } else {
-          console.log('✅ Statut mis à jour en paid')
         }
 
-        // Charger les données complètes
         const { data: app } = await supabase
           .from('applications')
           .select(`*, profiles:exposant_id(full_name, email), events:event_id(title, start_date, location_name, price_per_spot)`)
@@ -51,7 +44,6 @@ function PaiementSuccessContent() {
           .single()
 
         if (app) {
-          // Envoyer email de confirmation (app est disponible ici)
           await fetch('/api/send-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -75,8 +67,6 @@ function PaiementSuccessContent() {
             .from('exposant_data').select('*').eq('user_id', user.id).single()
           setCandidature({ ...app, exposant_data: expData })
         }
-      } else {
-        console.error('❌ candidature_id manquant dans l\'URL')
       }
 
       setLoading(false)
@@ -97,6 +87,7 @@ function PaiementSuccessContent() {
         ? new Date(candidature.events.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
         : '',
       eventLocation: candidature.events?.location_name || '',
+      emplacement: candidature.spot_label || '',
       redevanceAOT: candidature.events?.price_per_spot || 0,
       fraisPlateforme: 2,
     })
@@ -145,13 +136,17 @@ function PaiementSuccessContent() {
               { label: 'Événement', value: candidature.events?.title },
               { label: 'Date', value: candidature.events?.start_date ? new Date(candidature.events.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—' },
               { label: 'Lieu', value: candidature.events?.location_name },
+              ...(candidature.spot_label ? [{ label: 'Emplacement', value: `Case ${candidature.spot_label}` }] : []),
               { label: 'Redevance AOT', value: `${candidature.events?.price_per_spot || 0} €` },
               { label: 'Frais de service', value: '2 €' },
               { label: 'Total TTC', value: `${(candidature.events?.price_per_spot || 0) + 2} €` },
             ].map((item, i, arr) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingBottom: i < arr.length - 1 ? 8 : 0, marginBottom: i < arr.length - 1 ? 8 : 0, borderBottom: i < arr.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
                 <span style={{ color: '#64748B' }}>{item.label}</span>
-                <span style={{ fontWeight: i === arr.length - 1 ? 700 : 500, color: i === arr.length - 1 ? '#4F46E5' : '#0F172A' }}>{item.value}</span>
+                <span style={{ fontWeight: i === arr.length - 1 ? 700 : 500, color: i === arr.length - 1 ? '#4F46E5' : item.label === 'Emplacement' ? '#4F46E5' : '#0F172A', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {item.label === 'Emplacement' && <MapPin size={10} style={{ color: '#4F46E5' }} />}
+                  {item.value}
+                </span>
               </div>
             ))}
           </div>
