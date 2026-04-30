@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, Map, FileText, Receipt, Settings, LogOut, Grid, CalendarCheck, QrCode, Users
+  LayoutDashboard, Map, FileText, Receipt, Settings, LogOut, Grid, CalendarCheck, QrCode, Users, MapPin
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
@@ -10,6 +10,7 @@ const NAV_EXPOSANT = [
   { icon: <LayoutDashboard size={15} />, label: 'Dashboard', path: '/dashboard' },
   { icon: <CalendarCheck size={15} />, label: 'Mes marchés', path: '/dashboard/mes-marches' },
   { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/evenements' },
+  { icon: <MapPin size={15} />, label: 'Mon emplacement', path: '/dashboard/mon-emplacement' },
   { icon: <FileText size={15} />, label: 'Documents', path: '/dashboard/profil' },
   { icon: <Receipt size={15} />, label: 'Factures', path: '/dashboard/factures' },
   { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard/parametres' },
@@ -19,6 +20,7 @@ const NAV_ORGANISATEUR = [
   { icon: <LayoutDashboard size={15} />, label: 'Dashboard', path: '/dashboard' },
   { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/creer-evenement' },
   { icon: <FileText size={15} />, label: 'Candidatures', path: '/dashboard/candidatures' },
+  { icon: <MapPin size={15} />, label: 'Attribution', path: '/dashboard/organisateur/attribution' },
   { icon: <Grid size={15} />, label: 'Terrain', path: '/dashboard/terrain' },
   { icon: <QrCode size={15} />, label: 'Scanner', path: '/dashboard/organisateur/scanner' },
   { icon: <Receipt size={15} />, label: 'Trésorerie', path: '/dashboard/tresorerie' },
