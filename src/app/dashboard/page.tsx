@@ -162,7 +162,12 @@ function DashboardContent() {
       <Sidebar profile={profile} />
       <div style={{ marginLeft: 220, flex: 1, display: 'flex', flexDirection: 'column' }}>
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Tableau de bord — <span style={{ color: '#64748B', fontWeight: 400 }}>Exposant</span></p>
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>
+              Salut {profile?.full_name?.split(' ')[0]} t'es prêt à tout casser ?
+            </p>
+            <p style={{ fontSize: 11, color: '#94A3B8' }}>Tableau de bord — Exposant</p>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22C55E', display: 'inline-block', animation: 'pulse-live 2s infinite' }} />
