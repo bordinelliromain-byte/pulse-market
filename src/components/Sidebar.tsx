@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, Map, FileText, Receipt, Settings, LogOut, Grid, CalendarCheck, QrCode
+  LayoutDashboard, Map, FileText, Receipt, Settings, LogOut, Grid, CalendarCheck, QrCode, Users
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
@@ -22,6 +22,7 @@ const NAV_ORGANISATEUR = [
   { icon: <Grid size={15} />, label: 'Terrain', path: '/dashboard/terrain' },
   { icon: <QrCode size={15} />, label: 'Scanner', path: '/dashboard/organisateur/scanner' },
   { icon: <Receipt size={15} />, label: 'Trésorerie', path: '/dashboard/tresorerie' },
+  { icon: <Users size={15} />, label: 'Placiers', path: '/dashboard/organisateur/placiers' },
   { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard/parametres' },
 ]
 
