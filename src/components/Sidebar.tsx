@@ -2,12 +2,13 @@
 
 import { useRouter, usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, Map, FileText, Receipt, Settings, LogOut, Grid
+  LayoutDashboard, Map, FileText, Receipt, Settings, LogOut, Grid, CalendarCheck
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 const NAV_EXPOSANT = [
   { icon: <LayoutDashboard size={15} />, label: 'Dashboard', path: '/dashboard' },
+  { icon: <CalendarCheck size={15} />, label: 'Mes marchés', path: '/dashboard/mes-marches' },
   { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/evenements' },
   { icon: <FileText size={15} />, label: 'Documents', path: '/dashboard/profil' },
   { icon: <Receipt size={15} />, label: 'Factures', path: '/dashboard/factures' },
