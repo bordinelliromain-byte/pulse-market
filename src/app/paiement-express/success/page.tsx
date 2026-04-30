@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { CheckCircle, FileText } from 'lucide-react'
 import { openFacturePDF } from '@/lib/generateFacture'
@@ -11,6 +11,28 @@ function ExpressSuccessContent() {
   const nom = searchParams.get('nom') || ''
   const eventTitle = searchParams.get('event') || ''
   const montant = parseFloat(searchParams.get('montant') || '0')
+
+  useEffect(() => {
+    // Envoyer email de confirmation au forain
+    if (email && nom) {
+      fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'paiement_confirme',
+          to: email,
+          data: {
+            exposantNom: nom,
+            eventTitle,
+            eventDate: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+            eventLocation: '',
+            redevanceAOT: montant,
+            fraisPlateforme: 0,
+          }
+        })
+      }).catch(err => console.error('Email error:', err))
+    }
+  }, [])
 
   const handleFacture = () => {
     openFacturePDF({

@@ -30,6 +30,7 @@ function PaiementSuccessContent() {
       setProfile(profileData)
 
       if (candidatureId) {
+        // Mettre à jour le statut en "paid"
         const { error: updateErr } = await supabase
           .from('applications')
           .update({ status: 'paid' })
@@ -42,6 +43,7 @@ function PaiementSuccessContent() {
           console.log('✅ Statut mis à jour en paid')
         }
 
+        // Charger les données complètes
         const { data: app } = await supabase
           .from('applications')
           .select(`*, profiles:exposant_id(full_name, email), events:event_id(title, start_date, location_name, price_per_spot)`)
@@ -49,6 +51,26 @@ function PaiementSuccessContent() {
           .single()
 
         if (app) {
+          // Envoyer email de confirmation (app est disponible ici)
+          await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'paiement_confirme',
+              to: profileData?.email,
+              data: {
+                exposantNom: profileData?.full_name || '',
+                eventTitle: app.events?.title || '',
+                eventDate: app.events?.start_date
+                  ? new Date(app.events.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+                  : '',
+                eventLocation: app.events?.location_name || '',
+                redevanceAOT: app.events?.price_per_spot || 0,
+                fraisPlateforme: 2,
+              }
+            })
+          })
+
           const { data: expData } = await supabase
             .from('exposant_data').select('*').eq('user_id', user.id).single()
           setCandidature({ ...app, exposant_data: expData })
@@ -147,7 +169,7 @@ function PaiementSuccessContent() {
         </div>
 
         <p style={{ fontSize: 11, color: '#CBD5E1', marginTop: 20, lineHeight: 1.6 }}>
-          Un email de confirmation vous a été envoyé à <strong>{profile?.email}</strong>
+          Un email de confirmation a été envoyé à <strong>{profile?.email}</strong>
         </p>
       </motion.div>
     </div>
