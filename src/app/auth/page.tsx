@@ -9,13 +9,13 @@ import { ArrowRight, Store, Building2, Eye, EyeOff, ShieldCheck } from 'lucide-r
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
-}
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+} as const
 
 const stagger = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.06 } },
-}
+} as const
 
 function AuthForm() {
   const searchParams = useSearchParams()
@@ -35,9 +35,25 @@ function AuthForm() {
   const handleSignIn = async () => {
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) setError(error.message)
-    else router.push('/dashboard')
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+      return
+    }
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .single()
+
+    if (profileData?.role === 'placier') {
+      router.push('/dashboard/placier')
+    } else if (profileData?.role === 'organisateur') {
+      router.push('/dashboard/organisateur')
+    } else {
+      router.push('/dashboard')
+    }
     setLoading(false)
   }
 
@@ -103,12 +119,7 @@ function AuthForm() {
 
       {/* PANNEAU DROIT */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 24px' }}>
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          animate="visible"
-          style={{ width: '100%', maxWidth: 420 }}
-        >
+        <motion.div variants={stagger} initial="hidden" animate="visible" style={{ width: '100%', maxWidth: 420 }}>
           <motion.div variants={fadeUp} className="lg:hidden" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 32 }}>
             <div style={{ width: 28, height: 28, background: '#0F172A', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>PM</span>
@@ -121,78 +132,48 @@ function AuthForm() {
               {tab === 'signin' ? 'Connexion à votre espace' : 'Créer votre compte'}
             </h1>
             <p style={{ fontSize: 14, color: '#64748B' }}>
-              {tab === 'signin'
-                ? "Accédez à votre tableau de bord PlaceMarket."
-                : "Rejoignez la plateforme des marchés et festivals."}
+              {tab === 'signin' ? "Accédez à votre tableau de bord PlaceMarket." : "Rejoignez la plateforme des marchés et festivals."}
             </p>
           </motion.div>
 
-          {/* Tabs */}
           <motion.div variants={fadeUp} style={{ background: '#F1F5F9', borderRadius: 10, padding: 4, display: 'flex', marginBottom: 28 }}>
-            {[
-              { val: 'signin', label: 'Connexion' },
-              { val: 'signup', label: 'Inscription' },
-            ].map(t => (
-              <button
-                key={t.val}
-                onClick={() => { setTab(t.val as any); setError('') }}
-                style={{
-                  flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                  cursor: 'pointer', border: 'none',
-                  background: tab === t.val ? 'white' : 'transparent',
-                  color: tab === t.val ? '#0F172A' : '#94A3B8',
-                  boxShadow: tab === t.val ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                  transition: 'all 0.2s ease',
-                }}
-              >
+            {[{ val: 'signin', label: 'Connexion' }, { val: 'signup', label: 'Inscription' }].map(t => (
+              <button key={t.val} onClick={() => { setTab(t.val as any); setError('') }}
+                style={{ flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none', background: tab === t.val ? 'white' : 'transparent', color: tab === t.val ? '#0F172A' : '#94A3B8', boxShadow: tab === t.val ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', transition: 'all 0.2s ease' }}>
                 {t.label}
               </button>
             ))}
           </motion.div>
 
           <AnimatePresence mode="wait">
-            <motion.div
-              key={tab}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
-              style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
-            >
+            <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
               {tab === 'signup' && (
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6, letterSpacing: '0.02em' }}>NOM COMPLET</label>
-                  <input
-                    type="text" placeholder="Jean Dupont" value={fullName}
-                    onChange={e => setFullName(e.target.value)}
+                  <input type="text" placeholder="Jean Dupont" value={fullName} onChange={e => setFullName(e.target.value)}
                     style={{ width: '100%', padding: '10px 14px', border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 14, color: '#0F172A', background: 'white', outline: 'none', boxSizing: 'border-box' }}
                     onFocus={e => e.target.style.borderColor = '#4F46E5'}
-                    onBlur={e => e.target.style.borderColor = '#E2E8F0'}
-                  />
+                    onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
                 </div>
               )}
 
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6, letterSpacing: '0.02em' }}>ADRESSE EMAIL</label>
-                <input
-                  type="email" placeholder="vous@domaine.fr" value={email}
-                  onChange={e => setEmail(e.target.value)}
+                <input type="email" placeholder="vous@domaine.fr" value={email} onChange={e => setEmail(e.target.value)}
                   style={{ width: '100%', padding: '10px 14px', border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 14, color: '#0F172A', background: 'white', outline: 'none', boxSizing: 'border-box' }}
                   onFocus={e => e.target.style.borderColor = '#4F46E5'}
-                  onBlur={e => e.target.style.borderColor = '#E2E8F0'}
-                />
+                  onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
               </div>
 
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6, letterSpacing: '0.02em' }}>MOT DE PASSE</label>
                 <div style={{ position: 'relative' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={password}
-                    onChange={e => setPassword(e.target.value)}
+                  <input type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
                     style={{ width: '100%', padding: '10px 42px 10px 14px', border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 14, color: '#0F172A', background: 'white', outline: 'none', boxSizing: 'border-box' }}
                     onFocus={e => e.target.style.borderColor = '#4F46E5'}
-                    onBlur={e => e.target.style.borderColor = '#E2E8F0'}
-                  />
+                    onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
                     style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 0 }}>
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -209,13 +190,7 @@ function AuthForm() {
                       { val: 'organisateur', icon: <Building2 size={15} />, label: 'Organisateur', sub: 'Mairie, association' },
                     ].map(r => (
                       <button key={r.val} onClick={() => setRole(r.val as any)}
-                        style={{
-                          padding: '12px 14px',
-                          border: role === r.val ? '1.5px solid #4F46E5' : '1px solid #E2E8F0',
-                          borderRadius: 10,
-                          background: role === r.val ? '#EEF2FF' : 'white',
-                          cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
-                        }}>
+                        style={{ padding: '12px 14px', border: role === r.val ? '1.5px solid #4F46E5' : '1px solid #E2E8F0', borderRadius: 10, background: role === r.val ? '#EEF2FF' : 'white', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
                         <div style={{ color: role === r.val ? '#4F46E5' : '#64748B', marginBottom: 4 }}>{r.icon}</div>
                         <p style={{ fontSize: 13, fontWeight: 600, color: role === r.val ? '#4338CA' : '#0F172A' }}>{r.label}</p>
                         <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>{r.sub}</p>
@@ -231,21 +206,9 @@ function AuthForm() {
                 </div>
               )}
 
-              <button
-                onClick={tab === 'signin' ? handleSignIn : handleSignUp}
-                disabled={loading}
-                style={{
-                  width: '100%', padding: '12px 0',
-                  background: loading ? '#818CF8' : '#4F46E5',
-                  color: 'white', border: 'none', borderRadius: 10,
-                  fontSize: 14, fontWeight: 600,
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                }}
-              >
-                {loading ? 'Chargement...' : (
-                  <>{tab === 'signin' ? 'Accéder à mon espace' : 'Créer mon compte'}<ArrowRight size={15} /></>
-                )}
+              <button onClick={tab === 'signin' ? handleSignIn : handleSignUp} disabled={loading}
+                style={{ width: '100%', padding: '12px 0', background: loading ? '#818CF8' : '#4F46E5', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                {loading ? 'Chargement...' : (<>{tab === 'signin' ? 'Accéder à mon espace' : 'Créer mon compte'}<ArrowRight size={15} /></>)}
               </button>
 
               <p style={{ textAlign: 'center', fontSize: 13, color: '#94A3B8' }}>
