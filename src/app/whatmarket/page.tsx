@@ -53,6 +53,13 @@ const COVERS = [
   'https://images.unsplash.com/photo-1556742044-3c52d6e88c62?w=800&q=80',
 ]
 
+// NAV config — centralisé ici pour être utilisé partout
+const NAV = [
+  { label: 'Accueil', href: '/whatmarket', path: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10' },
+  { label: 'Carte', href: '/whatmarket/carte', path: 'M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16' },
+  { label: 'Pro', href: '/pro/ads/new', path: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' },
+]
+
 function SponsoredMarketCard({ market, onClick }: { market: Market; onClick: () => void }) {
   const cd = fmt_countdown(market.start_date)
   const occupied = market.total_spots - market.available_spots
@@ -200,38 +207,23 @@ function VedetteSlot() {
   )
 }
 
-// ── AD SLOT 3 — DRIVE-TO-STORE avec bouton Partager ───────────────────────
-
 function DriveToStoreSlot() {
   const handleShare = () => {
     if (navigator.share) {
-      navigator.share({
-        title: "Bons plans du marché — Whatmarket",
-        text: "Découvrez les bons plans des commerçants locaux au marché aujourd'hui !",
-        url: window.location.href,
-      })
+      navigator.share({ title: "Bons plans du marché — Whatmarket", text: "Découvrez les bons plans des commerçants locaux au marché aujourd'hui !", url: window.location.href })
     } else {
       navigator.clipboard?.writeText(window.location.href)
       alert('Lien copié !')
     }
   }
-
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.3 }} style={{ marginBottom: 20 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <p style={{ fontFamily: '"Playfair Display",Georgia,serif', fontSize: 16, fontWeight: 700, color: '#111827' }}>Expérience prolongée</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 9, color: '#9CA3AF', letterSpacing: '0.06em', fontWeight: 500 }}>SPONSORISÉ</span>
-          <button
-            onClick={handleShare}
-            style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F3F4F6', border: 'none', borderRadius: 100, padding: '4px 10px', cursor: 'pointer', transition: 'background 0.2s' }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#E5E7EB')}
-            onMouseLeave={e => (e.currentTarget.style.background = '#F3F4F6')}
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-            </svg>
+          <button onClick={handleShare} style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F3F4F6', border: 'none', borderRadius: 100, padding: '4px 10px', cursor: 'pointer' }} onMouseEnter={e => (e.currentTarget.style.background='#E5E7EB')} onMouseLeave={e => (e.currentTarget.style.background='#F3F4F6')}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             <span style={{ fontSize: 10, fontWeight: 600, color: '#374151' }}>Partager</span>
           </button>
         </div>
@@ -337,7 +329,6 @@ export default function WhatmarketHome() {
   const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle')
   const [selected, setSelected] = useState<Market | null>(null)
   const [filter, setFilter] = useState<'bientot'|'proche'|'tous'>('bientot')
-  const [activeNav, setActiveNav] = useState(0)
   const [showSponsored] = useState(true)
 
   const loadMarkets = useCallback(async (lat?: number, lng?: number) => {
@@ -376,12 +367,6 @@ export default function WhatmarketHome() {
     return 0
   })
 
-  const NAV = [
-    { label: 'Accueil', path: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10' },
-    { label: 'Carte', path: 'M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16' },
-    { label: 'Favoris', path: 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z' },
-  ]
-
   return (
     <>
       <style>{`
@@ -395,6 +380,8 @@ export default function WhatmarketHome() {
         .pulse-ring{animation:pulse-ring 1.8s ease infinite}
       `}</style>
       <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: '#F9F8F6', position: 'relative', fontFamily: '"DM Sans",system-ui,sans-serif' }}>
+
+        {/* HEADER */}
         <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(249,248,246,0.94)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '52px 20px 14px', borderBottom: '0.5px solid rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div>
@@ -422,6 +409,8 @@ export default function WhatmarketHome() {
             ))}
           </div>
         </div>
+
+        {/* CONTENT */}
         <div style={{ padding: '16px 16px 100px' }}>
           <AnimatePresence>
             {geoStatus==='idle' && (
@@ -446,18 +435,26 @@ export default function WhatmarketHome() {
           </AnimatePresence>
           {!loading && sorted.map((m,i) => <MarketCard key={m.id} market={m} index={i} onClick={() => setSelected(m)} />)}
         </div>
+
+        {/* BOTTOM NAV — liens <a> qui naviguent vraiment */}
         <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, zIndex: 30, background: 'rgba(249,248,246,0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderTop: '0.5px solid rgba(0,0,0,0.07)', padding: '10px 32px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-            {NAV.map((item,i) => (
-              <button key={i} onClick={() => setActiveNav(i)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, color: activeNav===i?'#111827':'#C4C2BC', transition: 'color 0.2s', padding: '2px 16px', fontFamily: '"DM Sans",sans-serif' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={item.path}/></svg>
-                <span style={{ fontSize: 10, fontWeight: activeNav===i?600:400 }}>{item.label}</span>
-                {activeNav===i && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#111827' }} />}
-              </button>
-            ))}
+            {NAV.map((item, i) => {
+              const isActive = i === 0
+              return (
+                <a key={i} href={item.href}
+                  style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, color: isActive ? '#111827' : '#C4C2BC', transition: 'color 0.2s', padding: '2px 16px' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d={item.path} />
+                  </svg>
+                  <span style={{ fontSize: 10, fontWeight: isActive ? 600 : 400, fontFamily: '"DM Sans",sans-serif' }}>{item.label}</span>
+                  {isActive && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#111827' }} />}
+                </a>
+              )
+            })}
           </div>
         </div>
+
         <AnimatePresence>
           {selected && <MarketDrawer market={selected} onClose={() => setSelected(null)} />}
         </AnimatePresence>
