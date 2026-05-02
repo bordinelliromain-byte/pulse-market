@@ -22,11 +22,11 @@ function PlacierSignupContent() {
 
   const token = searchParams.get('token')
   const email = searchParams.get('email')
+  const nom = searchParams.get('nom')
 
   useEffect(() => {
     const verifyToken = async () => {
       if (!token || !email) { setLoading(false); return }
-
       const { data: inv } = await supabase
         .from('placier_invitations')
         .select('*')
@@ -34,10 +34,10 @@ function PlacierSignupContent() {
         .eq('email', email)
         .eq('used', false)
         .single()
-
       if (inv) {
         setInvitation(inv)
         setTokenValid(true)
+        if (nom) setFullName(decodeURIComponent(nom))
       }
       setLoading(false)
     }
@@ -48,9 +48,7 @@ function PlacierSignupContent() {
     if (!fullName || !password || !email || !token) return
     setSubmitting(true)
     setError('')
-
     try {
-      // Créer le compte
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email!,
         password,
@@ -59,15 +57,16 @@ function PlacierSignupContent() {
       if (authError) throw authError
 
       if (authData.user) {
-        // Créer le profil avec rôle placier
+        // Créer profil avec rôle placier ET mairie_id
         await supabase.from('profiles').upsert({
           id: authData.user.id,
           email,
           full_name: fullName,
           role: 'placier',
+          mairie_id: invitation.mairie_id,
         })
 
-        // Marquer l'invitation comme utilisée
+        // Marquer invitation comme utilisée
         await supabase.from('placier_invitations')
           .update({ used: true })
           .eq('token', token)
@@ -95,7 +94,6 @@ function PlacierSignupContent() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         style={{ background: '#1E293B', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: '40px 36px', maxWidth: 420, width: '100%' }}>
 
-        {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
           <div style={{ width: 36, height: 36, background: '#4F46E5', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ color: 'white', fontSize: 13, fontWeight: 800 }}>PM</span>
@@ -116,7 +114,7 @@ function PlacierSignupContent() {
             <div style={{ width: 64, height: 64, background: 'rgba(34,197,94,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <CheckCircle size={32} style={{ color: '#22C55E' }} />
             </div>
-            <p style={{ fontSize: 18, fontWeight: 700, color: 'white', marginBottom: 8 }}>Compte créé !</p>
+            <p style={{ fontSize: 18, fontWeight: 700, color: 'white', marginBottom: 8 }}>Compte créé ! 🎉</p>
             <p style={{ fontSize: 13, color: '#64748B' }}>Redirection vers votre espace placier...</p>
           </div>
         ) : (
