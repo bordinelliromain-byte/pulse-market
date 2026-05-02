@@ -172,6 +172,20 @@ export async function POST(req: NextRequest) {
   `
 }
 
+// ── À AJOUTER dans src/app/api/send-email/route.ts ──
+// Avant le : const { data: emailData, error } = await resend.emails.send(...)
+
+if (type === 'boost_confirmation') {
+  const { generateBoostEmailHTML } = await import('@/lib/sendBoostEmail')
+  subject = `${data.nom.split(' ')[0]}, votre pub est en ligne sur Whatmarket ! 🚀`
+  html = generateBoostEmailHTML({
+    nom: data.nom,
+    offre: data.offre,
+    eventTitle: data.eventTitle,
+    eventId: data.eventId,
+  })
+}
+
     const { data: emailData, error } = await resend.emails.send({
       from: 'PlaceMarket <onboarding@resend.dev>',
       to,
