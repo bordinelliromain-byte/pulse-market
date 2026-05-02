@@ -9,7 +9,7 @@ import Sidebar from '@/components/Sidebar'
 import {
   ArrowLeft, Upload, CheckCircle, AlertCircle,
   Shield, Building2, Ruler, Zap, Camera, Save, Loader,
-  Star, Trophy, Award
+  Star, Trophy, Award, ScanLine, AlertTriangle, Clock
 } from 'lucide-react'
 
 const fadeUp: Variants = {
@@ -48,6 +48,74 @@ function SirenStatus({ status }: { status: 'idle' | 'loading' | 'valid' | 'inval
   )
 }
 
+// ── COMPOSANT RÉSULTAT OCR ─────────────────────────────────────────────────
+
+function OcrResult({ result }: { result: any }) {
+  if (!result) return null
+
+  const badgeColor = (({
+    platinum: '#0EA5E9',
+    verifie: '#16A34A',
+    partiel: '#F59E0B',
+    incomplet: '#DC2626',
+  }) as Record<string, string>)[String(result.badge)] || '#64748B'
+
+  const badgeBg = (({
+    platinum: '#F0F9FF',
+    verifie: '#F0FDF4',
+    partiel: '#FFFBEB',
+    incomplet: '#FEF2F2',
+  }) as Record<string, string>)[String(result.badge)] || '#F8FAFC'
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      style={{ background: badgeBg, border: `1px solid ${badgeColor}30`, borderRadius: 10, padding: '12px 14px', marginTop: 10 }}>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: badgeColor }}>{result.badgeLabel}</span>
+        <span style={{ fontSize: 11, color: '#64748B' }}>{result.score}/{result.total} checks</span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {Object.entries(result.checks).map(([key, ok]: [string, any]) => {
+          const labels: Record<string, string> = {
+            readable: 'Document lisible',
+            sirenMatch: 'SIREN correspond',
+            nameMatch: 'Raison sociale correspond',
+            notExpired: 'Document valide',
+            crossValid: 'Cross-validation OK',
+          }
+          return (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+              {ok
+                ? <CheckCircle size={11} style={{ color: '#16A34A', flexShrink: 0 }} />
+                : <AlertTriangle size={11} style={{ color: '#DC2626', flexShrink: 0 }} />
+              }
+              <span style={{ color: ok ? '#475569' : '#DC2626' }}>{labels[key as string] || key}</span>
+            </div>
+          )
+        })}
+      </div>
+
+      {result.extractedSiren && (
+        <p style={{ fontSize: 11, color: '#64748B', marginTop: 8 }}>
+          SIREN extrait : <strong style={{ color: '#0F172A' }}>{result.extractedSiren}</strong>
+        </p>
+      )}
+
+      {result.daysUntilExpiry !== null && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 11, color: result.daysUntilExpiry < 30 ? '#DC2626' : result.daysUntilExpiry < 90 ? '#F59E0B' : '#16A34A' }}>
+          <Clock size={11} />
+          {result.daysUntilExpiry < 0
+            ? `⚠️ Document expiré depuis ${Math.abs(result.daysUntilExpiry)} jours`
+            : `Expire dans ${result.daysUntilExpiry} jours`
+          }
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
 export default function ProfilExposant() {
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -69,6 +137,12 @@ export default function ProfilExposant() {
   const [assuranceFile, setAssuranceFile] = useState<File | null>(null)
   const [kbisUrl, setKbisUrl] = useState('')
   const [assuranceUrl, setAssuranceUrl] = useState('')
+
+  // OCR states
+  const [kbisVerifying, setKbisVerifying] = useState(false)
+  const [assuranceVerifying, setAssuranceVerifying] = useState(false)
+  const [kbisOcrResult, setKbisOcrResult] = useState<any>(null)
+  const [assuranceOcrResult, setAssuranceOcrResult] = useState<any>(null)
 
   const router = useRouter()
   const supabase = createClient()
@@ -112,10 +186,24 @@ export default function ProfilExposant() {
     { label: 'SIREN vérifié', icon: <Shield size={11} />, ok: isVerified || sirenStatus === 'valid', color: '#4F46E5' },
     { label: 'Kbis fourni', icon: <CheckCircle size={11} />, ok: !!kbisUrl, color: '#16A34A' },
     { label: 'RC Pro fourni', icon: <CheckCircle size={11} />, ok: !!assuranceUrl, color: '#16A34A' },
+    { label: 'Dossier vérifié IA', icon: <ScanLine size={11} />, ok: kbisOcrResult?.badge === 'verifie' || kbisOcrResult?.badge === 'platinum', color: '#0EA5E9' },
     { label: 'Premier marché', icon: <Trophy size={11} />, ok: marchesCount >= 1, color: '#F59E0B' },
-    { label: '5 marchés', icon: <Star size={11} />, ok: marchesCount >= 5, color: '#F59E0B' },
     { label: 'Forain confirmé', icon: <Award size={11} />, ok: marchesCount >= 10, color: '#EA580C' },
   ]
+
+  // Score global dossier
+  const globalScore = (() => {
+    const kbisScore = kbisOcrResult?.score || 0
+    const kbisTotal = kbisOcrResult?.total || 1
+    const assuranceScore = assuranceOcrResult?.score || 0
+    const assuranceTotal = assuranceOcrResult?.total || 1
+    if (!kbisOcrResult && !assuranceOcrResult) return null
+    const total = ((kbisScore / kbisTotal) + (assuranceScore / assuranceTotal)) / 2
+    if (total >= 0.9) return { label: '💎 Dossier Platinum', color: '#0EA5E9' }
+    if (total >= 0.7) return { label: '✅ Dossier Vérifié', color: '#16A34A' }
+    if (total >= 0.5) return { label: '⚠️ Dossier Partiel', color: '#F59E0B' }
+    return { label: '❌ Dossier Incomplet', color: '#DC2626' }
+  })()
 
   const verifySiren = async () => {
     if (!siren) return
@@ -131,6 +219,29 @@ export default function ProfilExposant() {
         if (user) { await supabase.from('exposant_data').upsert({ user_id: user.id, is_verified: true }); setIsVerified(true) }
       }
     } catch { clearTimeout(timer); setSirenStatus('invalid') }
+  }
+
+  const verifyDocument = async (file: File, type: 'kbis' | 'assurance') => {
+    const setVerifying = type === 'kbis' ? setKbisVerifying : setAssuranceVerifying
+    const setResult = type === 'kbis' ? setKbisOcrResult : setAssuranceOcrResult
+    const otherResult = type === 'kbis' ? assuranceOcrResult : kbisOcrResult
+
+    setVerifying(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', type)
+      formData.append('siren', siren)
+      formData.append('businessName', businessName)
+      if (otherResult?.extractedText) {
+        formData.append('otherDocText', otherResult.extractedText)
+      }
+
+      const res = await fetch('/api/verify-document', { method: 'POST', body: formData })
+      const data = await res.json()
+      setResult(data)
+    } catch (err) { console.error(err) }
+    setVerifying(false)
   }
 
   const uploadFile = async (file: File, path: string) => {
@@ -162,7 +273,14 @@ export default function ProfilExposant() {
       let finalKbisUrl = kbisUrl, finalAssuranceUrl = assuranceUrl
       if (kbisFile) finalKbisUrl = await uploadFile(kbisFile, `${user.id}/kbis.pdf`)
       if (assuranceFile) finalAssuranceUrl = await uploadFile(assuranceFile, `${user.id}/assurance.pdf`)
-      const { error } = await supabase.from('exposant_data').upsert({ user_id: user.id, business_name: businessName, siren, stand_width: parseFloat(standWidth), stand_length: parseFloat(standLength), needs_electricity: needsElectricity, description, kbis_url: finalKbisUrl, assurance_url: finalAssuranceUrl })
+      const { error } = await supabase.from('exposant_data').upsert({
+        user_id: user.id, business_name: businessName, siren,
+        stand_width: parseFloat(standWidth), stand_length: parseFloat(standLength),
+        needs_electricity: needsElectricity, description,
+        kbis_url: finalKbisUrl, assurance_url: finalAssuranceUrl,
+        kbis_badge: kbisOcrResult?.badge || null,
+        assurance_expiry: assuranceOcrResult?.expiryDate || null,
+      })
       if (error) throw error
       setMessage({ type: 'success', text: 'Dossier sauvegardé avec succès' })
     } catch (err: any) { setMessage({ type: 'error', text: err.message }) }
@@ -208,33 +326,29 @@ export default function ProfilExposant() {
               </motion.div>
             )}
 
-            {/* ── HERO PROFIL ── */}
+            {/* HERO PROFIL */}
             <motion.div variants={fadeUp} style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', borderRadius: 16, padding: '28px', display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-
-              {/* Avatar avec upload */}
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid rgba(255,255,255,0.15)', overflow: 'hidden' }}>
-                  {avatarUrl
-                    ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ fontSize: 28, fontWeight: 800, color: 'white' }}>{initials}</span>
-                  }
+                  {avatarUrl ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 28, fontWeight: 800, color: 'white' }}>{initials}</span>}
                 </div>
                 <label style={{ position: 'absolute', bottom: -2, right: -2, width: 26, height: 26, background: '#4F46E5', borderRadius: '50%', border: '2px solid #0F172A', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {avatarUploading
-                    ? <Loader size={11} style={{ color: 'white', animation: 'spin 0.8s linear infinite' }} />
-                    : <Camera size={11} style={{ color: 'white' }} />
-                  }
+                  {avatarUploading ? <Loader size={11} style={{ color: 'white', animation: 'spin 0.8s linear infinite' }} /> : <Camera size={11} style={{ color: 'white' }} />}
                   <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
                 </label>
               </div>
 
-              {/* Infos + niveau */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
                   <p style={{ fontSize: 20, fontWeight: 800, color: 'white' }}>{businessName || profile?.full_name}</p>
                   <span style={{ fontSize: 11, fontWeight: 700, background: level.bg, color: level.color, padding: '3px 10px', borderRadius: 100, border: `1px solid ${level.border}` }}>
                     Niveau {level.label}
                   </span>
+                  {globalScore && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: globalScore.color, background: `${globalScore.color}15`, padding: '3px 10px', borderRadius: 100, border: `1px solid ${globalScore.color}30` }}>
+                      {globalScore.label}
+                    </span>
+                  )}
                 </div>
                 <p style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>{profile?.email}</p>
 
@@ -242,7 +356,6 @@ export default function ProfilExposant() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: '#64748B' }}>{marchesCount} marché{marchesCount > 1 ? 's' : ''} participé{marchesCount > 1 ? 's' : ''}</span>
                     {level.next && <span style={{ fontSize: 11, color: '#64748B' }}>{level.next} pour niveau suivant</span>}
-                    {!level.next && <span style={{ fontSize: 11, color: level.color, fontWeight: 600 }}>Niveau max atteint 🎉</span>}
                   </div>
                   <div style={{ height: 5, background: 'rgba(255,255,255,0.08)', borderRadius: 100, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${level.color}, ${level.color}99)`, borderRadius: 100, transition: 'width 0.6s ease' }} />
@@ -264,7 +377,6 @@ export default function ProfilExposant() {
                 </div>
               </div>
 
-              {/* Badges */}
               <div style={{ flexShrink: 0, minWidth: 160 }}>
                 <p style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Badges</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -280,10 +392,11 @@ export default function ProfilExposant() {
               </div>
             </motion.div>
 
-            {/* ── FORMULAIRE ── */}
+            {/* FORMULAIRE */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, alignItems: 'start' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
+                {/* Infos entreprise */}
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 30, height: 30, background: '#EEF2FF', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -326,6 +439,7 @@ export default function ProfilExposant() {
                   </div>
                 </motion.div>
 
+                {/* Stand */}
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 30, height: 30, background: '#EEF2FF', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -372,18 +486,84 @@ export default function ProfilExposant() {
                     </div>
                   </div>
                 </motion.div>
+
+                {/* Documents avec OCR */}
+                <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
+                  <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 30, height: 30, background: '#EEF2FF', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <ScanLine size={15} style={{ color: '#4F46E5' }} />
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Documents légaux — Vérification IA</p>
+                      <p style={{ fontSize: 11, color: '#94A3B8' }}>Upload → l'IA vérifie et valide automatiquement</p>
+                    </div>
+                  </div>
+                  <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                    {/* Kbis */}
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>Extrait Kbis</label>
+                      {kbisUrl && !kbisFile && <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#16A34A', marginBottom: 8, background: '#F0FDF4', padding: '5px 9px', borderRadius: 6 }}><CheckCircle size={11} /> Document déjà fourni</div>}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <label style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px', border: `1.5px dashed ${kbisFile ? '#4F46E5' : '#E2E8F0'}`, borderRadius: 9, cursor: 'pointer', fontSize: 12, color: kbisFile ? '#4F46E5' : '#64748B', background: kbisFile ? '#EEF2FF' : 'transparent' }}>
+                          <Upload size={13} /> {kbisFile ? kbisFile.name : 'Déposer un PDF'}
+                          <input type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={e => {
+                            const f = e.target.files?.[0] || null
+                            setKbisFile(f)
+                            setKbisOcrResult(null)
+                          }} />
+                        </label>
+                        {kbisFile && (
+                          <button onClick={() => verifyDocument(kbisFile, 'kbis')} disabled={kbisVerifying}
+                            style={{ background: kbisVerifying ? '#64748B' : '#0EA5E9', color: 'white', border: 'none', borderRadius: 9, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                            {kbisVerifying ? <Loader size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> : <ScanLine size={12} />}
+                            {kbisVerifying ? 'Analyse...' : 'Vérifier IA'}
+                          </button>
+                        )}
+                      </div>
+                      <OcrResult result={kbisOcrResult} />
+                    </div>
+
+                    {/* RC Pro */}
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>Attestation RC Pro</label>
+                      {assuranceUrl && !assuranceFile && <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#16A34A', marginBottom: 8, background: '#F0FDF4', padding: '5px 9px', borderRadius: 6 }}><CheckCircle size={11} /> Document déjà fourni</div>}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <label style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px', border: `1.5px dashed ${assuranceFile ? '#4F46E5' : '#E2E8F0'}`, borderRadius: 9, cursor: 'pointer', fontSize: 12, color: assuranceFile ? '#4F46E5' : '#64748B', background: assuranceFile ? '#EEF2FF' : 'transparent' }}>
+                          <Upload size={13} /> {assuranceFile ? assuranceFile.name : 'Déposer un PDF'}
+                          <input type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={e => {
+                            const f = e.target.files?.[0] || null
+                            setAssuranceFile(f)
+                            setAssuranceOcrResult(null)
+                          }} />
+                        </label>
+                        {assuranceFile && (
+                          <button onClick={() => verifyDocument(assuranceFile, 'assurance')} disabled={assuranceVerifying}
+                            style={{ background: assuranceVerifying ? '#64748B' : '#0EA5E9', color: 'white', border: 'none', borderRadius: 9, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                            {assuranceVerifying ? <Loader size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> : <ScanLine size={12} />}
+                            {assuranceVerifying ? 'Analyse...' : 'Vérifier IA'}
+                          </button>
+                        )}
+                      </div>
+                      <OcrResult result={assuranceOcrResult} />
+                    </div>
+                  </div>
+                </motion.div>
               </div>
 
+              {/* DROITE */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <motion.div variants={fadeUp} style={{ background: '#0F172A', borderRadius: 12, padding: '16px' }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Statut du dossier</p>
                   {[
-                    { label: 'Kbis / Immatriculation', ok: !!kbisUrl },
-                    { label: 'Attestation RC Pro', ok: !!assuranceUrl },
+                    { label: 'Kbis / Immatriculation', ok: !!kbisUrl || !!kbisFile },
+                    { label: 'Kbis vérifié IA', ok: kbisOcrResult?.badge === 'verifie' || kbisOcrResult?.badge === 'platinum' },
+                    { label: 'Attestation RC Pro', ok: !!assuranceUrl || !!assuranceFile },
+                    { label: 'RC Pro valide', ok: assuranceOcrResult?.checks?.notExpired === true },
                     { label: 'SIREN vérifié INSEE', ok: isVerified || sirenStatus === 'valid' },
                     { label: 'Infos stand renseignées', ok: !!(standWidth && standLength) },
                   ].map((item, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: i < 3 ? 10 : 0, marginBottom: i < 3 ? 10 : 0, borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: i < 5 ? 10 : 0, marginBottom: i < 5 ? 10 : 0, borderBottom: i < 5 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
                       <span style={{ fontSize: 12, color: '#64748B' }}>{item.label}</span>
                       <span style={{ fontSize: 11, fontWeight: 600, color: item.ok ? '#4ADE80' : '#F59E0B' }}>{item.ok ? '✓ OK' : '⏳ Manquant'}</span>
                     </div>
@@ -397,7 +577,7 @@ export default function ProfilExposant() {
                     <span style={{ background: 'rgba(255,255,255,0.15)', color: 'white', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100 }}>20€/mois</span>
                   </div>
                   <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, marginBottom: 14 }}>
-                    Déverrouillez les candidatures illimitées, les alertes en temps réel et l'accès aux marchés exclusifs.
+                    Candidatures illimitées, alertes en temps réel et accès aux marchés exclusifs.
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 16 }}>
                     {['Candidatures illimitées', 'Badge Pro visible mairies', 'Alertes géolocalisées SMS', 'Marchés exclusifs Pro'].map((f, i) => (
@@ -409,40 +589,6 @@ export default function ProfilExposant() {
                   <button style={{ width: '100%', background: 'white', color: '#4F46E5', border: 'none', borderRadius: 9, padding: '12px 0', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                     Upgrader maintenant →
                   </button>
-                </motion.div>
-
-                <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
-                  <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9' }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Documents légaux</p>
-                    <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>Kbis certifié & attestation RC Pro</p>
-                  </div>
-                  <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>Extrait Kbis</label>
-                      {kbisUrl && <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#16A34A', marginBottom: 6, background: '#F0FDF4', padding: '5px 9px', borderRadius: 6 }}><CheckCircle size={11} /> Document déjà fourni</div>}
-                      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px', border: '1.5px dashed #E2E8F0', borderRadius: 9, cursor: 'pointer', fontSize: 12, color: '#64748B' }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#4F46E5'; e.currentTarget.style.color = '#4F46E5' }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.color = '#64748B' }}>
-                        <Upload size={13} /> {kbisFile ? kbisFile.name : 'Déposer un PDF'}
-                        <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => setKbisFile(e.target.files?.[0] || null)} />
-                      </label>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>Attestation RC Pro</label>
-                      {assuranceUrl && <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#16A34A', marginBottom: 6, background: '#F0FDF4', padding: '5px 9px', borderRadius: 6 }}><CheckCircle size={11} /> Document déjà fourni</div>}
-                      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px', border: '1.5px dashed #E2E8F0', borderRadius: 9, cursor: 'pointer', fontSize: 12, color: '#64748B' }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#4F46E5'; e.currentTarget.style.color = '#4F46E5' }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.color = '#64748B' }}>
-                        <Upload size={13} /> {assuranceFile ? assuranceFile.name : 'Déposer un PDF'}
-                        <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => setAssuranceFile(e.target.files?.[0] || null)} />
-                      </label>
-                    </div>
-                    <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 12 }}>
-                      <button style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 9, padding: '10px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-                        <Camera size={14} /> Numériser un document
-                      </button>
-                    </div>
-                  </div>
                 </motion.div>
               </div>
             </div>
