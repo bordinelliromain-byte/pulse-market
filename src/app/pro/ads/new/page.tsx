@@ -15,6 +15,15 @@ type AdData = {
   eventTitle: string
 }
 
+type EventWithSlots = {
+  id: string
+  title: string
+  start_date: string
+  location_name: string
+  slots_taken: number
+  is_full: boolean
+}
+
 function StepBar({ current }: { current: Step }) {
   const steps = ['Photo', 'Texte', 'Marché', 'Paiement']
   return (
@@ -122,51 +131,113 @@ function Step2({ data, onChange, onNext, onBack }: { data: AdData; onChange: (d:
 }
 
 function Step3({ data, onChange, onNext, onBack }: { data: AdData; onChange: (d: Partial<AdData>) => void; onNext: () => void; onBack: () => void }) {
-  const [events, setEvents] = useState<any[]>([])
+  const [events, setEvents] = useState<EventWithSlots[]>([])
   const [loading, setLoading] = useState(true)
+
   useEffect(() => {
     const load = async () => {
       try {
         const { createClient } = await import('@/lib/supabase')
         const supabase = createClient()
         const today = new Date().toISOString().split('T')[0]
-        const { data: evs } = await supabase.from('events').select('id, title, start_date, location_name').eq('status', 'published').gte('start_date', today).order('start_date', { ascending: true }).limit(10)
-        setEvents(evs || [])
+
+        // Récupère les marchés
+        const { data: evs } = await supabase
+          .from('events')
+          .select('id, title, start_date, location_name')
+          .eq('status', 'published')
+          .gte('start_date', today)
+          .order('start_date', { ascending: true })
+          .limit(10)
+
+        if (!evs) { setLoading(false); return }
+
+        // Pour chaque marché, compte les pubs actives
+        const enriched = await Promise.all(evs.map(async (ev) => {
+          const { count } = await supabase
+            .from('boost_ads')
+            .select('*', { count: 'exact', head: true })
+            .eq('event_id', ev.id)
+            .eq('status', 'active')
+
+          const slots_taken = count || 0
+          return { ...ev, slots_taken, is_full: slots_taken >= 3 }
+        }))
+
+        setEvents(enriched)
       } catch (err) { console.error(err) }
       setLoading(false)
     }
     load()
   }, [])
+
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
       <p style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: 22, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Choisir le marché</p>
       <p style={{ fontSize: 14, color: '#6B7280', marginBottom: 24, lineHeight: 1.6 }}>Votre pub sera visible par tous les visiteurs de ce marché dans Whatmarket.</p>
+
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[1, 2, 3].map(i => <div key={i} style={{ height: 72, borderRadius: 14, background: '#F3F4F6' }} />)}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
-          {events.map(ev => (
-            <div key={ev.id} onClick={() => onChange({ eventId: ev.id, eventTitle: ev.title })}
-              style={{ borderRadius: 14, padding: '14px 16px', border: `1.5px solid ${data.eventId === ev.id ? '#4F46E5' : '#E5E7EB'}`, background: data.eventId === ev.id ? '#EEF2FF' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.2s' }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: data.eventId === ev.id ? '#4F46E5' : '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={data.eventId === ev.id ? 'white' : '#9CA3AF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: data.eventId === ev.id ? '#4F46E5' : '#111827', marginBottom: 2 }}>{ev.title}</p>
-                <p style={{ fontSize: 12, color: '#9CA3AF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{new Date(ev.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} · {ev.location_name}</p>
-              </div>
-              {data.eventId === ev.id && (
-                <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          {events.map(ev => {
+            const isSelected = data.eventId === ev.id
+            const isFull = ev.is_full
+
+            return (
+              <div key={ev.id}
+                onClick={() => !isFull && onChange({ eventId: ev.id, eventTitle: ev.title })}
+                style={{
+                  borderRadius: 14, padding: '14px 16px',
+                  border: `1.5px solid ${isSelected ? '#4F46E5' : isFull ? '#F3F4F6' : '#E5E7EB'}`,
+                  background: isSelected ? '#EEF2FF' : isFull ? '#F9FAFB' : 'white',
+                  cursor: isFull ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.2s',
+                  opacity: isFull ? 0.6 : 1,
+                }}>
+
+                {/* Icône */}
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: isSelected ? '#4F46E5' : isFull ? '#F3F4F6' : '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isSelected ? 'white' : '#9CA3AF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {/* Infos */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: isSelected ? '#4F46E5' : isFull ? '#9CA3AF' : '#111827' }}>{ev.title}</p>
+                    {isFull && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', background: '#FEF2F2', padding: '1px 7px', borderRadius: 100, flexShrink: 0 }}>COMPLET</span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: 12, color: '#9CA3AF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {new Date(ev.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} · {ev.location_name}
+                  </p>
+                  {/* Slots indicator */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 5 }}>
+                    {[0, 1, 2].map(i => (
+                      <div key={i} style={{ width: 16, height: 4, borderRadius: 2, background: i < ev.slots_taken ? '#EF4444' : '#E5E7EB' }} />
+                    ))}
+                    <span style={{ fontSize: 10, color: '#9CA3AF', marginLeft: 2 }}>
+                      {isFull ? 'Aucune place disponible' : `${3 - ev.slots_taken} place${3 - ev.slots_taken > 1 ? 's' : ''} restante${3 - ev.slots_taken > 1 ? 's' : ''}`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Check */}
+                {isSelected && !isFull && (
+                  <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                )}
+              </div>
+            )
+          })}
           {events.length === 0 && <div style={{ textAlign: 'center', padding: '32px 0', color: '#9CA3AF', fontSize: 13 }}>Aucun marché disponible</div>}
         </div>
       )}
+
       <div style={{ display: 'flex', gap: 10 }}>
         <button onClick={onBack} style={{ flex: 1, background: '#F9FAFB', color: '#374151', border: '1px solid #E5E7EB', borderRadius: 14, padding: '14px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: '"DM Sans", sans-serif' }}>← Retour</button>
         <button onClick={onNext} disabled={!data.eventId} style={{ flex: 2, background: data.eventId ? '#111827' : '#F3F4F6', color: data.eventId ? 'white' : '#9CA3AF', border: 'none', borderRadius: 14, padding: '14px', fontSize: 14, fontWeight: 700, cursor: data.eventId ? 'pointer' : 'not-allowed', fontFamily: '"DM Sans", sans-serif', transition: 'all 0.2s' }}>Continuer →</button>
@@ -184,19 +255,11 @@ function Step4({ data, onBack }: { data: AdData; onBack: () => void }) {
     if (!email) return
     setPaying(true)
     setError('')
-
     try {
       const res = await fetch('/api/create-boost-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nom: data.nom,
-          offre: data.offre,
-          detail: data.detail,
-          eventId: data.eventId,
-          eventTitle: data.eventTitle,
-          email,
-        })
+        body: JSON.stringify({ nom: data.nom, offre: data.offre, detail: data.detail, eventId: data.eventId, eventTitle: data.eventTitle, email })
       })
       const { url, error: stripeError } = await res.json()
       if (stripeError) throw new Error(stripeError)
@@ -211,8 +274,6 @@ function Step4({ data, onBack }: { data: AdData; onBack: () => void }) {
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
       <p style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: 22, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Finaliser la publication</p>
       <p style={{ fontSize: 14, color: '#6B7280', marginBottom: 24, lineHeight: 1.6 }}>Votre pub sera visible dans Whatmarket dès validation du paiement.</p>
-
-      {/* Récap */}
       <div style={{ borderRadius: 18, overflow: 'hidden', background: '#111827', display: 'flex', alignItems: 'stretch', marginBottom: 20 }}>
         <div style={{ width: 90, flexShrink: 0 }}>
           {data.photoPreview ? <img src={data.photoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : <div style={{ width: '100%', height: '100%', minHeight: 80, background: '#1F2937' }} />}
@@ -223,8 +284,6 @@ function Step4({ data, onBack }: { data: AdData; onBack: () => void }) {
           <p style={{ fontSize: 11, color: '#9CA3AF' }}>{data.eventTitle}</p>
         </div>
       </div>
-
-      {/* Prix */}
       <div style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 14, padding: '14px 18px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <p style={{ fontSize: 13, fontWeight: 600, color: '#4338CA' }}>Publication sponsorisée</p>
@@ -232,8 +291,6 @@ function Step4({ data, onBack }: { data: AdData; onBack: () => void }) {
         </div>
         <p style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: 24, fontWeight: 700, color: '#4338CA' }}>20€</p>
       </div>
-
-      {/* Email */}
       <div style={{ marginBottom: 16 }}>
         <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 7 }}>Email de confirmation</label>
         <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="votre@email.fr"
@@ -241,15 +298,7 @@ function Step4({ data, onBack }: { data: AdData; onBack: () => void }) {
           onFocus={e => { e.target.style.borderColor = '#4F46E5'; e.target.style.background = 'white' }}
           onBlur={e => { e.target.style.borderColor = '#E5E7EB'; e.target.style.background = '#FAFAFA' }} />
       </div>
-
-      {/* Erreur */}
-      {error && (
-        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#DC2626' }}>
-          {error}
-        </div>
-      )}
-
-      {/* Trust */}
+      {error && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#DC2626' }}>{error}</div>}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
         {[{ icon: '🔒', text: 'Paiement sécurisé Stripe' }, { icon: '⚡', text: 'Publication immédiate' }, { icon: '📧', text: 'Confirmation par email' }].map((t, i) => (
           <div key={i} style={{ flex: 1, textAlign: 'center' }}>
@@ -258,15 +307,11 @@ function Step4({ data, onBack }: { data: AdData; onBack: () => void }) {
           </div>
         ))}
       </div>
-
       <div style={{ display: 'flex', gap: 10 }}>
         <button onClick={onBack} style={{ flex: 1, background: '#F9FAFB', color: '#374151', border: '1px solid #E5E7EB', borderRadius: 14, padding: '14px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: '"DM Sans", sans-serif' }}>← Retour</button>
         <button onClick={handlePay} disabled={!email || paying}
           style={{ flex: 2, background: !email ? '#F3F4F6' : 'linear-gradient(135deg, #4F46E5, #7C3AED)', color: !email ? '#9CA3AF' : 'white', border: 'none', borderRadius: 14, padding: '14px', fontSize: 14, fontWeight: 700, cursor: !email ? 'not-allowed' : 'pointer', fontFamily: '"DM Sans", sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.2s' }}>
-          {paying
-            ? <><div style={{ width: 15, height: 15, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Redirection vers Stripe...</>
-            : '🔒 Payer 20€ et Publier'
-          }
+          {paying ? <><div style={{ width: 15, height: 15, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Redirection vers Stripe...</> : '🔒 Payer 20€ et Publier'}
         </button>
       </div>
     </motion.div>
@@ -298,7 +343,6 @@ export default function BoostMyBusiness() {
           <span style={{ fontSize: 13, color: '#6B7280' }}>Boost My Business</span>
           <div style={{ marginLeft: 'auto', background: '#FEF3C7', color: '#92400E', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100 }}>🚀 Pro</div>
         </div>
-
         <div style={{ maxWidth: 480, margin: '0 auto', padding: '32px 20px 60px' }}>
           {step === 1 && (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 32, textAlign: 'center' }}>
