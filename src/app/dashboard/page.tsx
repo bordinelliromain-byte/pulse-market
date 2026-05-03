@@ -326,6 +326,25 @@ function DashboardContent() {
               </div>
 
               <motion.div variants={fadeUp} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                {/* ── BOOST MY BUSINESS ── */}
+                <div
+                  style={{ background: 'linear-gradient(135deg, #F59E0B, #EF4444)', borderRadius: 12, padding: '14px 16px', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' }}
+                  onClick={() => router.push('dashboard/boost')}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(245,158,11,0.35)' }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 10 }}>
+                    <span style={{ fontSize: 22, flexShrink: 0 }}>🚀</span>
+                    <div>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: 'white', marginBottom: 2 }}>Booster ma visibilité</p>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.5 }}>Apparaissez en tête sur Whatmarket lors du prochain marché — 20€</p>
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'white' }}>Mettre ma pub en ligne →</span>
+                  </div>
+                </div>
+
                 {stats.plan !== 'pro' && (
                   <div style={{ background: '#0F172A', borderRadius: 12, padding: '14px 16px' }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 10 }}>
@@ -338,6 +357,7 @@ function DashboardContent() {
                     <button style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '8px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Upgrader maintenant →</button>
                   </div>
                 )}
+
                 <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Mon plan</p>
@@ -346,10 +366,12 @@ function DashboardContent() {
                   <p style={{ fontSize: 22, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>{stats.plan === 'pro' ? 'Pro' : 'Gratuit'}</p>
                   <p style={{ fontSize: 12, color: '#94A3B8' }}>{stats.plan === 'pro' ? 'Candidatures illimitées' : '1 candidature / mois'}</p>
                 </div>
+
                 <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px' }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Calendrier</p>
                   <MiniCalendar />
                 </div>
+
                 <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px' }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Mon dossier exposant</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
@@ -367,6 +389,7 @@ function DashboardContent() {
                     Gérer mon dossier <ChevronRight size={13} />
                   </button>
                 </div>
+
                 {stats.isVerified && (
                   <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <Shield size={15} style={{ color: '#16A34A', flexShrink: 0, marginTop: 1 }} />

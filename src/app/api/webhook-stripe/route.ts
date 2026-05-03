@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     const meta = session.metadata || {}
     const email = meta.email || session.customer_email || ''
 
-    // ── Enregistrer la pub boost en DB ────────────────────────────────────
+    // ── Boost commerçant "Expérience prolongée" ───────────────────────────
     if (meta.type === 'boost') {
       try {
         const supabase = getSupabase()
@@ -45,10 +45,9 @@ export async function POST(req: NextRequest) {
           status: 'active',
         })
       } catch (err) {
-        console.error('DB insert error:', err)
+        console.error('DB boost insert error:', err)
       }
 
-      // ── Envoyer l'email de confirmation ───────────────────────────────
       try {
         await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
           method: 'POST',
@@ -67,7 +66,48 @@ export async function POST(req: NextRequest) {
           })
         })
       } catch (err) {
-        console.error('Email send error:', err)
+        console.error('Email boost error:', err)
+      }
+    }
+
+    // ── Boost exposant "À ne pas manquer" ─────────────────────────────────
+    if (meta.type === 'exposant_boost') {
+      try {
+        const supabase = getSupabase()
+        await supabase.from('exposant_boosts').insert({
+          event_id: meta.eventId,
+          exposant_id: meta.exposantId || null,
+          nom: meta.nom,
+          offre: meta.offre,
+          stand: meta.stand || '',
+          email,
+          stripe_session_id: session.id,
+          amount: (session.amount_total || 0) / 100,
+          status: 'active',
+        })
+      } catch (err) {
+        console.error('DB exposant boost error:', err)
+      }
+
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'boost_confirmation',
+            to: email,
+            data: {
+              nom: meta.nom,
+              offre: meta.offre,
+              eventTitle: meta.eventTitle,
+              eventId: meta.eventId,
+              amount: (session.amount_total || 0) / 100,
+              stripeSessionId: session.id,
+            }
+          })
+        })
+      } catch (err) {
+        console.error('Email exposant boost error:', err)
       }
     }
 
@@ -79,7 +119,7 @@ export async function POST(req: NextRequest) {
           .update({ status: 'paid', stripe_session_id: session.id })
           .eq('id', meta.candidatureId)
       } catch (err) {
-        console.error('DB update error:', err)
+        console.error('DB AOT update error:', err)
       }
     }
   }
