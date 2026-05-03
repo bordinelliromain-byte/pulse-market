@@ -177,13 +177,41 @@ export async function POST(req: NextRequest) {
 
 if (type === 'boost_confirmation') {
   const { generateBoostEmailHTML } = await import('@/lib/sendBoostEmail')
-  subject = `${data.nom.split(' ')[0]}, votre pub est en ligne sur Whatmarket ! 🚀`
+  const { generateBoostInvoice } = await import('@/lib/generateBoostInvoice')
+
+  subject = `${data.nom} — Votre pub est en ligne sur Whatmarket ! 🚀`
   html = generateBoostEmailHTML({
     nom: data.nom,
     offre: data.offre,
     eventTitle: data.eventTitle,
     eventId: data.eventId,
   })
+
+  // Générer la facture PDF
+  const pdfBytes = await generateBoostInvoice({
+    nom: data.nom,
+    offre: data.offre,
+    eventTitle: data.eventTitle,
+    email: to,
+    amount: data.amount || 20,
+    stripeSessionId: data.stripeSessionId || '',
+  })
+
+  const pdfBase64 = Buffer.from(pdfBytes).toString('base64')
+
+  const { data: emailData, error } = await resend.emails.send({
+    from: 'Whatmarket <onboarding@resend.dev>',
+    to,
+    subject,
+    html,
+    attachments: [{
+      filename: `facture-whatmarket-${data.nom.replace(/\s/g, '-').toLowerCase()}.pdf`,
+      content: pdfBase64,
+    }]
+  })
+
+  if (error) throw error
+  return NextResponse.json({ success: true, id: emailData?.id })
 }
 
     const { data: emailData, error } = await resend.emails.send({
