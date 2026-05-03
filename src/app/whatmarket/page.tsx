@@ -183,7 +183,7 @@ function SponsoredMarketCard({ market, onClick }: { market: Market; onClick: () 
       <div style={{ background: 'linear-gradient(135deg,#4F46E5 0%,#7C3AED 40%,#D97706 100%)', borderRadius: 26, padding: 1.5 }}>
         <div style={{ borderRadius: 24.5, overflow: 'hidden', background: 'white' }}>
           <div style={{ position: 'relative', height: 220 }}>
-            <img src={market.cover_image!} alt={market.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={market.cover_image || COVERS[0]} alt={market.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top,rgba(0,0,0,0.65) 0%,transparent 55%)' }} />
             <div style={{ position: 'absolute', top: 14, left: 14, right: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'linear-gradient(135deg,#4F46E5,#D97706)', borderRadius: 100, padding: '5px 12px' }}>
@@ -373,7 +373,7 @@ export default function WhatmarketHome() {
   const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle')
   const [selected, setSelected] = useState<Market | null>(null)
   const [filter, setFilter] = useState<'bientot'|'proche'|'tous'>('bientot')
-  const [showSponsored] = useState(true)
+  const [sponsoredMarket, setSponsoredMarket] = useState<Market | null>(null)
 
   const loadMarkets = useCallback(async (lat?: number, lng?: number) => {
     setLoading(true)
@@ -389,6 +389,25 @@ export default function WhatmarketHome() {
         return { ...ev, exposants_count: count||0, distance: lat&&lng&&ev.latitude&&ev.longitude?haversine(lat,lng,ev.latitude,ev.longitude):undefined }
       }))
       setMarkets(enriched)
+
+      // Charger le marché sponsorisé depuis mairie_boosts
+      try {
+        const now = new Date().toISOString()
+        const { data: boostData } = await supabase
+          .from('mairie_boosts')
+          .select('event_id')
+          .eq('status', 'active')
+          .gt('expires_at', now)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (boostData?.event_id) {
+          const boosted = enriched.find((m: any) => m.id === boostData.event_id)
+          if (boosted) setSponsoredMarket({ ...boosted, sponsored: true })
+        }
+      } catch (err) { /* pas de marché sponsorisé */ }
+
     } catch(err) { console.error(err) }
     setLoading(false)
   }, [])
@@ -471,7 +490,7 @@ export default function WhatmarketHome() {
             <div key={i} style={{ height: 252, borderRadius: 24, marginBottom: 14, background: 'linear-gradient(90deg,#EFEDE8 0%,#E5E3DE 40%,#EFEDE8 100%)', backgroundSize: '300% 100%', animation: 'shimmer 1.5s ease infinite' }} />
           ))}
           <AnimatePresence>
-            {!loading && showSponsored && <SponsoredMarketCard market={MOCK_SPONSORED_MARKET} onClick={() => setSelected(MOCK_SPONSORED_MARKET)} />}
+            {!loading && sponsoredMarket && <SponsoredMarketCard market={sponsoredMarket} onClick={() => setSelected(sponsoredMarket)} />}
           </AnimatePresence>
           {!loading && sorted.map((m,i) => <MarketCard key={m.id} market={m} index={i} onClick={() => setSelected(m)} />)}
         </div>

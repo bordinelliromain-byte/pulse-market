@@ -113,6 +113,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
+// ── Boost marché mairie ─────────────────────────────────────────
+if (meta.type === 'mairie_boost') {
+  try {
+    const supabase = getSupabase()
+    await supabase.from('mairie_boosts').insert({
+      event_id: meta.eventId,
+      organisateur_id: meta.organisateurId || null,
+      email,
+      stripe_session_id: session.id,
+      amount: (session.amount_total || 0) / 100,
+      status: 'active',
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    })
+  } catch (err) {
+    console.error('DB mairie boost error:', err)
+  }
+}
+    
+
     // ── Paiement exposant classique (AOT) ─────────────────────────────────
     if (meta.candidatureId) {
       try {

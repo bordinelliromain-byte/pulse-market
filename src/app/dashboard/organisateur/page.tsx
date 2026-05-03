@@ -13,16 +13,12 @@ import {
   MapPin, Calendar, Shield, Activity
 } from 'lucide-react'
 
-// ─── TYPES ──────────────────────────────────────────────────────────────────
-
 interface Toast {
   id: string
   type: 'success' | 'error' | 'warning' | 'info'
   title: string
   message?: string
 }
-
-// ─── TOAST SYSTEM ────────────────────────────────────────────────────────────
 
 function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) {
   return (
@@ -61,8 +57,6 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
   )
 }
 
-// ─── SPARKLINE ───────────────────────────────────────────────────────────────
-
 function Sparkline({ values, color = '#4F46E5' }: { values: number[]; color?: string }) {
   const max = Math.max(...values, 1)
   const w = 80, h = 28
@@ -75,8 +69,6 @@ function Sparkline({ values, color = '#4F46E5' }: { values: number[]; color?: st
   )
 }
 
-// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
-
 export default function DashboardOrganisateur() {
   const [profile, setProfile] = useState<any>(null)
   const [events, setEvents] = useState<any[]>([])
@@ -84,11 +76,11 @@ export default function DashboardOrganisateur() {
   const [loading, setLoading] = useState(true)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [boostingId, setBoostingId] = useState<string | null>(null)
 
   const router = useRouter()
   const supabase = createClient()
 
-  // Toast system
   const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
     const id = Math.random().toString(36).slice(2)
     setToasts(prev => [...prev, { ...toast, id }])
@@ -128,6 +120,18 @@ export default function DashboardOrganisateur() {
         setCandidatures(appsWithData)
       }
       setLoading(false)
+
+      // Détecter retour après paiement boost mairie
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('boost') === 'success') {
+        const eventName = params.get('event') || 'votre marché'
+        addToast({
+          type: 'success',
+          title: '🚀 Marché boosté !',
+          message: `${decodeURIComponent(eventName)} est en position 1 sur Whatmarket pendant 7 jours.`
+        })
+        window.history.replaceState({}, '', '/dashboard/organisateur')
+      }
     }
     getData()
   }, [])
@@ -148,7 +152,32 @@ export default function DashboardOrganisateur() {
     setUpdatingId(null)
   }
 
-  // ── Computed stats ──────────────────────────────────────────────────────────
+  const handleBoost = async (event: any) => {
+    setBoostingId(event.id)
+    try {
+      const res = await fetch('/api/create-mairie-boost-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId: event.id,
+          eventTitle: event.title,
+          email: profile?.email || '',
+          organisateurId: profile?.id || '',
+        })
+      })
+      const { url, error } = await res.json()
+      if (error) {
+        addToast({ type: 'error', title: 'Erreur', message: error })
+        setBoostingId(null)
+        return
+      }
+      window.location.href = url
+    } catch (err) {
+      addToast({ type: 'error', title: 'Erreur', message: 'Impossible de créer le paiement' })
+      setBoostingId(null)
+    }
+  }
+
   const pending = candidatures.filter(c => c.status === 'pending')
   const validated = candidatures.filter(c => c.status === 'validated' || c.status === 'paid')
   const docsIncomplete = candidatures.filter(c => c.status === 'pending' && (!c.exposant_data?.kbis_url || !c.exposant_data?.assurance_url))
@@ -156,7 +185,6 @@ export default function DashboardOrganisateur() {
   const nextEvent = events.find(e => new Date(e.start_date) > new Date())
   const nextEventApps = nextEvent ? candidatures.filter(c => c.event_id === nextEvent.id && (c.status === 'validated' || c.status === 'paid')) : []
   const nextEventFree = nextEvent ? (nextEvent.total_spots - nextEventApps.length) : 0
-
   const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 
   if (loading) return (
@@ -175,8 +203,6 @@ export default function DashboardOrganisateur() {
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       <div style={{ marginLeft: 220, flex: 1 }}>
-
-        {/* ── TOP BAR ──────────────────────────────────────────────────────── */}
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <div>
             <p style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>Tableau de bord</p>
@@ -207,7 +233,7 @@ export default function DashboardOrganisateur() {
 
         <main style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-          {/* ── COMMAND CENTER ──────────────────────────────────────────────── */}
+          {/* ── COMMAND CENTER ── */}
           <section>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <Activity size={14} style={{ color: '#4F46E5' }} />
@@ -216,7 +242,6 @@ export default function DashboardOrganisateur() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
 
-              {/* CARD 1 — URGENT */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
                 style={{ background: docsIncomplete.length > 0 ? '#FEF2F2' : 'white', border: `1px solid ${docsIncomplete.length > 0 ? '#FECACA' : '#E2E8F0'}`, borderRadius: 14, padding: '20px 22px', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: docsIncomplete.length > 0 ? '#DC2626' : '#E2E8F0', borderRadius: '14px 14px 0 0' }} />
@@ -227,31 +252,20 @@ export default function DashboardOrganisateur() {
                   <div>
                     <p style={{ fontSize: 11, fontWeight: 700, color: docsIncomplete.length > 0 ? '#DC2626' : '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Urgent</p>
                     <p style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', lineHeight: 1.3 }}>
-                      {docsIncomplete.length > 0
-                        ? `${docsIncomplete.length} dossier${docsIncomplete.length > 1 ? 's' : ''} incomplet${docsIncomplete.length > 1 ? 's' : ''}`
-                        : 'Aucune action requise'}
+                      {docsIncomplete.length > 0 ? `${docsIncomplete.length} dossier${docsIncomplete.length > 1 ? 's' : ''} incomplet${docsIncomplete.length > 1 ? 's' : ''}` : 'Aucune action requise'}
                     </p>
                     <p style={{ fontSize: 12, color: '#64748B', marginTop: 4, lineHeight: 1.5 }}>
-                      {docsIncomplete.length > 0
-                        ? `Documents manquants — relance automatique possible`
-                        : 'Tous les dossiers sont complets'}
+                      {docsIncomplete.length > 0 ? 'Documents manquants — relance automatique possible' : 'Tous les dossiers sont complets'}
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    if (docsIncomplete.length > 0) {
-                      router.push('/dashboard/candidatures')
-                      addToast({ type: 'info', title: 'Filtrage appliqué', message: 'Affichage des dossiers incomplets uniquement.' })
-                    }
-                  }}
+                <button onClick={() => { if (docsIncomplete.length > 0) { router.push('/dashboard/candidatures'); addToast({ type: 'info', title: 'Filtrage appliqué', message: 'Affichage des dossiers incomplets uniquement.' }) } }}
                   style={{ width: '100%', background: docsIncomplete.length > 0 ? '#DC2626' : '#F8FAFC', color: docsIncomplete.length > 0 ? 'white' : '#94A3B8', border: 'none', borderRadius: 9, padding: '9px 0', fontSize: 12, fontWeight: 600, cursor: docsIncomplete.length > 0 ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
                   <RefreshCw size={12} />
                   {docsIncomplete.length > 0 ? 'Relancer les exposants' : 'Tout est à jour'}
                 </button>
               </motion.div>
 
-              {/* CARD 2 — LOGISTIQUE */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}
                 style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 14, padding: '20px 22px', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: nextEvent ? '#4F46E5' : '#E2E8F0', borderRadius: '14px 14px 0 0' }} />
@@ -261,25 +275,19 @@ export default function DashboardOrganisateur() {
                   </div>
                   <div>
                     <p style={{ fontSize: 11, fontWeight: 700, color: '#4F46E5', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Prochain événement</p>
-                    <p style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', lineHeight: 1.3 }}>
-                      {nextEvent ? nextEvent.title : 'Aucun événement prévu'}
-                    </p>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', lineHeight: 1.3 }}>{nextEvent ? nextEvent.title : 'Aucun événement prévu'}</p>
                     <p style={{ fontSize: 12, color: '#64748B', marginTop: 4, lineHeight: 1.5 }}>
-                      {nextEvent
-                        ? `${formatDate(nextEvent.start_date)} — ${nextEventFree} place${nextEventFree > 1 ? 's' : ''} restante${nextEventFree > 1 ? 's' : ''}`
-                        : 'Créez un événement pour commencer'}
+                      {nextEvent ? `${formatDate(nextEvent.start_date)} — ${nextEventFree} place${nextEventFree > 1 ? 's' : ''} restante${nextEventFree > 1 ? 's' : ''}` : 'Créez un événement pour commencer'}
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => nextEvent ? router.push('/dashboard/candidatures') : router.push('/dashboard/creer-evenement')}
+                <button onClick={() => nextEvent ? router.push('/dashboard/candidatures') : router.push('/dashboard/creer-evenement')}
                   style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 9, padding: '9px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
                   <Map size={12} />
                   {nextEvent ? 'Voir les candidatures' : 'Créer un événement'}
                 </button>
               </motion.div>
 
-              {/* CARD 3 — FINANCE */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
                 style={{ background: revenueEstimated > 0 ? '#F0FDF4' : 'white', border: `1px solid ${revenueEstimated > 0 ? '#BBF7D0' : '#E2E8F0'}`, borderRadius: 14, padding: '20px 22px', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: revenueEstimated > 0 ? '#16A34A' : '#E2E8F0', borderRadius: '14px 14px 0 0' }} />
@@ -289,18 +297,13 @@ export default function DashboardOrganisateur() {
                   </div>
                   <div>
                     <p style={{ fontSize: 11, fontWeight: 700, color: revenueEstimated > 0 ? '#16A34A' : '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Finance</p>
-                    <p style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', lineHeight: 1.3 }}>
-                      {revenueEstimated > 0 ? `${revenueEstimated} € à encaisser` : 'Aucune recette en attente'}
-                    </p>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', lineHeight: 1.3 }}>{revenueEstimated > 0 ? `${revenueEstimated} € à encaisser` : 'Aucune recette en attente'}</p>
                     <p style={{ fontSize: 12, color: '#64748B', marginTop: 4, lineHeight: 1.5 }}>
-                      {validated.length > 0
-                        ? `${validated.length} exposant${validated.length > 1 ? 's' : ''} validé${validated.length > 1 ? 's' : ''} · Paiement Stripe bientôt`
-                        : 'Validez des dossiers pour générer des recettes'}
+                      {validated.length > 0 ? `${validated.length} exposant${validated.length > 1 ? 's' : ''} validé${validated.length > 1 ? 's' : ''} · Paiement Stripe bientôt` : 'Validez des dossiers pour générer des recettes'}
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => router.push('/dashboard/tresorerie')}
+                <button onClick={() => router.push('/dashboard/tresorerie')}
                   style={{ width: '100%', background: revenueEstimated > 0 ? '#16A34A' : '#F8FAFC', color: revenueEstimated > 0 ? 'white' : '#94A3B8', border: 'none', borderRadius: 9, padding: '9px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
                   <TrendingUp size={12} />
                   Voir la trésorerie
@@ -310,7 +313,7 @@ export default function DashboardOrganisateur() {
             </div>
           </section>
 
-          {/* ── KPI STATS ────────────────────────────────────────────────────── */}
+          {/* ── KPI STATS ── */}
           <section>
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
               style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
@@ -332,7 +335,7 @@ export default function DashboardOrganisateur() {
             </motion.div>
           </section>
 
-          {/* ── FLUX EN TEMPS RÉEL ───────────────────────────────────────────── */}
+          {/* ── FLUX EN TEMPS RÉEL ── */}
           <section>
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}
               style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
@@ -366,14 +369,9 @@ export default function DashboardOrganisateur() {
                           style={{ padding: '14px 22px', borderBottom: i < Math.min(pending.length, 5) - 1 ? '1px solid #F8FAFC' : 'none', display: 'flex', alignItems: 'center', gap: 14, transition: 'background 0.1s' }}
                           onMouseEnter={e => e.currentTarget.style.background = '#FAFAFA'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-
-                          {/* Avatar */}
                           <div style={{ width: 36, height: 36, borderRadius: '50%', background: `${['#EEF2FF', '#F0FDF4', '#FEF3C7', '#FEF2F2', '#F0F9FF'][i % 5]}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1.5px solid ${['#C7D2FE', '#BBF7D0', '#FDE68A', '#FECACA', '#BAE6FD'][i % 5]}` }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: ['#4F46E5', '#16A34A', '#F59E0B', '#DC2626', '#0EA5E9'][i % 5] }}>
-                              {name.charAt(0).toUpperCase()}
-                            </span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: ['#4F46E5', '#16A34A', '#F59E0B', '#DC2626', '#0EA5E9'][i % 5] }}>{name.charAt(0).toUpperCase()}</span>
                           </div>
-
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
                               <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</p>
@@ -384,17 +382,12 @@ export default function DashboardOrganisateur() {
                             </div>
                             <p style={{ fontSize: 11, color: '#94A3B8' }}>{c.events?.title} · {c.events?.location_name?.split(',')[0]}</p>
                           </div>
-
                           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                            <button
-                              onClick={() => handleValidate(c.id, name)}
-                              disabled={updatingId === c.id}
+                            <button onClick={() => handleValidate(c.id, name)} disabled={updatingId === c.id}
                               style={{ background: '#16A34A', color: 'white', border: 'none', borderRadius: 7, padding: '6px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', opacity: updatingId === c.id ? 0.6 : 1, transition: 'all 0.15s' }}>
                               Approuver
                             </button>
-                            <button
-                              onClick={() => handleReject(c.id, name)}
-                              disabled={updatingId === c.id}
+                            <button onClick={() => handleReject(c.id, name)} disabled={updatingId === c.id}
                               style={{ background: '#F8FAFC', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 7, padding: '6px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', opacity: updatingId === c.id ? 0.6 : 1 }}>
                               Refuser
                             </button>
@@ -417,7 +410,7 @@ export default function DashboardOrganisateur() {
               {/* Sidebar droite */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-                {/* Mes événements */}
+                {/* Mes marchés avec bouton boost */}
                 <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 14, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>Mes marchés</p>
@@ -437,12 +430,11 @@ export default function DashboardOrganisateur() {
                       const pct = event.total_spots > 0 ? Math.round((eventValidated.length / event.total_spots) * 100) : 0
                       return (
                         <div key={event.id}
-                          onClick={() => router.push('/dashboard/candidatures')}
-                          style={{ padding: '12px 18px', borderBottom: i < Math.min(events.length, 4) - 1 ? '1px solid #F8FAFC' : 'none', cursor: 'pointer', transition: 'background 0.1s' }}
+                          style={{ padding: '12px 18px', borderBottom: i < Math.min(events.length, 4) - 1 ? '1px solid #F8FAFC' : 'none', transition: 'background 0.1s' }}
                           onMouseEnter={e => e.currentTarget.style.background = '#FAFAFA'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => router.push('/dashboard/candidatures')}>
                               <p style={{ fontSize: 12, fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.title}</p>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                                 <Calendar size={9} style={{ color: '#94A3B8' }} />
@@ -451,10 +443,21 @@ export default function DashboardOrganisateur() {
                             </div>
                             <span style={{ fontSize: 11, fontWeight: 700, color: pct >= 80 ? '#DC2626' : pct >= 50 ? '#F59E0B' : '#16A34A', flexShrink: 0, marginLeft: 8 }}>{pct}%</span>
                           </div>
-                          <div style={{ height: 3, background: '#F1F5F9', borderRadius: 100, overflow: 'hidden' }}>
+                          <div style={{ height: 3, background: '#F1F5F9', borderRadius: 100, overflow: 'hidden', marginBottom: 8 }}>
                             <div style={{ height: '100%', width: `${pct}%`, background: pct >= 80 ? '#DC2626' : pct >= 50 ? '#F59E0B' : '#4F46E5', borderRadius: 100, transition: 'width 0.5s' }} />
                           </div>
-                          <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 5 }}>{eventValidated.length}/{event.total_spots} emplacements</p>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <p style={{ fontSize: 10, color: '#94A3B8' }}>{eventValidated.length}/{event.total_spots} emplacements</p>
+                            <button
+                              onClick={e => { e.stopPropagation(); handleBoost(event) }}
+                              disabled={boostingId === event.id}
+                              style={{ display: 'flex', alignItems: 'center', gap: 4, background: boostingId === event.id ? '#F3F4F6' : 'linear-gradient(135deg,#F59E0B,#EF4444)', color: boostingId === event.id ? '#9CA3AF' : 'white', border: 'none', borderRadius: 6, padding: '4px 9px', fontSize: 10, fontWeight: 700, cursor: boostingId === event.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s' }}>
+                              {boostingId === event.id
+                                ? <><div style={{ width: 8, height: 8, border: '1.5px solid rgba(0,0,0,0.15)', borderTopColor: '#9CA3AF', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Chargement</>
+                                : <>🚀 Booster — 200€</>
+                              }
+                            </button>
+                          </div>
                         </div>
                       )
                     })
