@@ -5,7 +5,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(req: NextRequest) {
   try {
-    const { nom, offre, detail, eventId, eventTitle, email } = await req.json()
+    const { nom, offre, detail, adresse, photoUrl, eventId, eventTitle, email } = await req.json()
 
     if (!nom || !eventId || !email) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
@@ -15,23 +15,23 @@ export async function POST(req: NextRequest) {
       payment_method_types: ['card'],
       mode: 'payment',
       customer_email: email,
-      line_items: [
-        {
-          price_data: {
-            currency: 'eur',
-            product_data: {
-              name: `Boost My Business — ${eventTitle}`,
-              description: `${nom} · ${offre}`,
-            },
-            unit_amount: 2000, // 20€ en centimes
+      line_items: [{
+        price_data: {
+          currency: 'eur',
+          product_data: {
+            name: `Boost My Business — ${eventTitle}`,
+            description: `${nom} · ${offre}`,
           },
-          quantity: 1,
+          unit_amount: 2000,
         },
-      ],
+        quantity: 1,
+      }],
       metadata: {
         nom,
         offre,
         detail: detail || '',
+        adresse: adresse || '',
+        photoUrl: photoUrl || '',
         eventId,
         eventTitle,
         email,

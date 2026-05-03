@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
           nom: meta.nom,
           offre: meta.offre,
           detail: meta.detail || '',
+          adresse: meta.adresse || '',
+          photo_url: meta.photoUrl || '',
           email,
           stripe_session_id: session.id,
           amount: (session.amount_total || 0) / 100,

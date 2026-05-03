@@ -9,6 +9,8 @@ type Market = {
   total_spots: number; available_spots: number; exposants_count?: number; distance?: number; sponsored?: boolean
 }
 type GeoStatus = 'idle' | 'requesting' | 'ok' | 'denied'
+type VedetteData = { nom: string; offre: string; stand: string } | null
+type BonPlan = { nom: string; offre: string; detail: string; adresse: string; photo_url: string; emoji: string; couleur: string; textColor: string }
 
 const MOCK_SPONSORED_MARKET: Market = {
   id: 'sponsored-1', title: "Marché Provençal d'Aubagne",
@@ -20,16 +22,12 @@ const MOCK_SPONSORED_MARKET: Market = {
   exposants_count: 42, distance: 0.8, sponsored: true,
 }
 
-const MOCK_VEDETTE = {
-  nom: 'Rôtisserie Santini', specialite: 'Poulet rôti fermier',
-  promo: 'Demi-poulet + frites pour 2 personnes : 18€ ce samedi',
-  photo: 'https://images.unsplash.com/photo-1501200291289-c5a76c232e5f?w=200&q=80', stand: 'Stand A4',
-}
-
-const MOCK_BONS_PLANS = [
-  { nom: 'Le Café du Port', offre: '1 expresso offert', detail: "Sur présentation de Whatmarket", emoji: '☕', couleur: '#FEF3C7', textColor: '#92400E' },
-  { nom: 'Brasserie du Cours', offre: "-10% sur l'addition", detail: "Midi uniquement, hors boissons", emoji: '🍽️', couleur: '#EFF6FF', textColor: '#1E40AF' },
-  { nom: 'La Cave Provençale', offre: 'Dégustation gratuite', detail: "Vins locaux sélectionnés", emoji: '🍷', couleur: '#FDF2F8', textColor: '#831843' },
+const EMOJIS = ['☕', '🍽️', '🍷', '🥖', '🧀', '🌸', '🎨', '🍦']
+const COLORS = [
+  { couleur: '#FEF3C7', textColor: '#92400E' },
+  { couleur: '#EFF6FF', textColor: '#1E40AF' },
+  { couleur: '#FDF2F8', textColor: '#831843' },
+  { couleur: '#F0FDF4', textColor: '#065F46' },
 ]
 
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -52,13 +50,129 @@ const COVERS = [
   'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80',
   'https://images.unsplash.com/photo-1556742044-3c52d6e88c62?w=800&q=80',
 ]
-
-// NAV config — centralisé ici pour être utilisé partout
 const NAV = [
   { label: 'Accueil', href: '/whatmarket', path: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10' },
   { label: 'Carte', href: '/whatmarket/carte', path: 'M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16' },
   { label: 'Pro', href: '/pro/ads/new', path: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' },
 ]
+
+function VedetteSlot({ marketId }: { marketId: string }) {
+  const [vedette, setVedette] = useState<VedetteData>(null)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase')
+        const supabase = createClient()
+        const { data } = await supabase.from('exposant_boosts').select('nom, offre, stand')
+          .eq('event_id', marketId).eq('status', 'active').order('created_at', { ascending: false }).limit(1).single()
+        if (data) setVedette(data)
+      } catch (err) {}
+      setLoading(false)
+    }
+    load()
+  }, [marketId])
+
+  if (loading || !vedette) return null
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }} style={{ marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <p style={{ fontFamily: '"Playfair Display",Georgia,serif', fontSize: 16, fontWeight: 700, color: '#111827' }}>À ne pas manquer</p>
+        <span style={{ fontSize: 9, color: '#9CA3AF', letterSpacing: '0.06em', fontWeight: 500 }}>PARTENAIRE</span>
+      </div>
+      <div style={{ borderRadius: 18, overflow: 'hidden', background: 'linear-gradient(135deg,#1A1A2E 0%,#16213E 100%)', display: 'flex', alignItems: 'stretch', minHeight: 72 }}>
+        <div style={{ flex: 1, padding: '14px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <span style={{ fontSize: 18 }}>⭐</span>
+            <p style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>{vedette.nom}</p>
+          </div>
+          <p style={{ fontSize: 11, color: '#C7C5C0', lineHeight: 1.5, marginBottom: vedette.stand ? 10 : 0 }}>{vedette.offre}</p>
+          {vedette.stand && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.1)', borderRadius: 100, padding: '4px 10px' }}>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>{vedette.stand}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+function DriveToStoreSlot({ marketId }: { marketId: string }) {
+  const [bonsPlans, setBonsPlans] = useState<BonPlan[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase')
+        const supabase = createClient()
+        const { data } = await supabase.from('boost_ads')
+          .select('nom, offre, detail, adresse, photo_url')
+          .eq('event_id', marketId).eq('status', 'active')
+          .order('created_at', { ascending: false }).limit(3)
+        if (data && data.length > 0) {
+          setBonsPlans(data.map((item: any, i: number) => ({
+            nom: item.nom, offre: item.offre, detail: item.detail || '',
+            adresse: item.adresse || '', photo_url: item.photo_url || '',
+            emoji: EMOJIS[i % EMOJIS.length], ...COLORS[i % COLORS.length],
+          })))
+        }
+      } catch (err) {}
+      setLoading(false)
+    }
+    load()
+  }, [marketId])
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({ title: "Bons plans du marché — Whatmarket", text: "Découvrez les bons plans des commerçants locaux au marché aujourd'hui !", url: window.location.href })
+    } else { navigator.clipboard?.writeText(window.location.href); alert('Lien copié !') }
+  }
+
+  if (loading || bonsPlans.length === 0) return null
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.3 }} style={{ marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <p style={{ fontFamily: '"Playfair Display",Georgia,serif', fontSize: 16, fontWeight: 700, color: '#111827' }}>Expérience prolongée</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 9, color: '#9CA3AF', letterSpacing: '0.06em', fontWeight: 500 }}>SPONSORISÉ</span>
+          <button onClick={handleShare} style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F3F4F6', border: 'none', borderRadius: 100, padding: '4px 10px', cursor: 'pointer' }}
+            onMouseEnter={e => (e.currentTarget.style.background='#E5E7EB')} onMouseLeave={e => (e.currentTarget.style.background='#F3F4F6')}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <span style={{ fontSize: 10, fontWeight: 600, color: '#374151' }}>Partager</span>
+          </button>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {bonsPlans.map((plan, i) => (
+          <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, delay: 0.35+i*0.08 }}
+            style={{ background: plan.couleur, borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* Photo réelle ou emoji */}
+            {plan.photo_url
+              ? <img src={plan.photo_url} alt={plan.nom} style={{ width: 52, height: 52, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
+              : <span style={{ fontSize: 26, flexShrink: 0, lineHeight: 1 }}>{plan.emoji}</span>
+            }
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: plan.textColor }}>{plan.nom}</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: plan.textColor, opacity: 0.9 }}>{plan.offre}</p>
+              {plan.detail && <p style={{ fontSize: 11, color: plan.textColor, opacity: 0.65 }}>{plan.detail}</p>}
+            </div>
+            {/* Bouton Voir → Google Maps */}
+            <a href={plan.adresse ? `https://www.google.com/maps/search/${encodeURIComponent(plan.adresse)}` : '#'}
+              target="_blank" rel="noopener noreferrer"
+              style={{ flexShrink: 0, background: 'rgba(0,0,0,0.08)', borderRadius: 10, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: plan.textColor }}>Voir</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={plan.textColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  )
+}
 
 function SponsoredMarketCard({ market, onClick }: { market: Market; onClick: () => void }) {
   const cd = fmt_countdown(market.start_date)
@@ -179,76 +293,6 @@ function MarketCard({ market, index, onClick }: { market: Market; index: number;
   )
 }
 
-function VedetteSlot() {
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }} style={{ marginBottom: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <p style={{ fontFamily: '"Playfair Display",Georgia,serif', fontSize: 16, fontWeight: 700, color: '#111827' }}>À ne pas manquer</p>
-        <span style={{ fontSize: 9, color: '#9CA3AF', letterSpacing: '0.06em', fontWeight: 500 }}>PARTENAIRE</span>
-      </div>
-      <div style={{ borderRadius: 18, overflow: 'hidden', background: 'linear-gradient(135deg,#1A1A2E 0%,#16213E 100%)', display: 'flex', alignItems: 'stretch' }}>
-        <div style={{ width: 90, flexShrink: 0, position: 'relative' }}>
-          <img src={MOCK_VEDETTE.photo} alt={MOCK_VEDETTE.nom} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right,transparent 60%,rgba(26,26,46,0.8) 100%)' }} />
-        </div>
-        <div style={{ flex: 1, padding: '14px 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-            <span style={{ fontSize: 18 }}>🍗</span>
-            <p style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>{MOCK_VEDETTE.nom}</p>
-          </div>
-          <p style={{ fontSize: 11, color: '#C7C5C0', lineHeight: 1.5, marginBottom: 10 }}>{MOCK_VEDETTE.promo}</p>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.1)', borderRadius: 100, padding: '4px 10px' }}>
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>{MOCK_VEDETTE.stand}</span>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  )
-}
-
-function DriveToStoreSlot() {
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({ title: "Bons plans du marché — Whatmarket", text: "Découvrez les bons plans des commerçants locaux au marché aujourd'hui !", url: window.location.href })
-    } else {
-      navigator.clipboard?.writeText(window.location.href)
-      alert('Lien copié !')
-    }
-  }
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.3 }} style={{ marginBottom: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <p style={{ fontFamily: '"Playfair Display",Georgia,serif', fontSize: 16, fontWeight: 700, color: '#111827' }}>Expérience prolongée</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 9, color: '#9CA3AF', letterSpacing: '0.06em', fontWeight: 500 }}>SPONSORISÉ</span>
-          <button onClick={handleShare} style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F3F4F6', border: 'none', borderRadius: 100, padding: '4px 10px', cursor: 'pointer' }} onMouseEnter={e => (e.currentTarget.style.background='#E5E7EB')} onMouseLeave={e => (e.currentTarget.style.background='#F3F4F6')}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            <span style={{ fontSize: 10, fontWeight: 600, color: '#374151' }}>Partager</span>
-          </button>
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {MOCK_BONS_PLANS.map((plan, i) => (
-          <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, delay: 0.35+i*0.08 }}
-            style={{ background: plan.couleur, borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 26, flexShrink: 0, lineHeight: 1 }}>{plan.emoji}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: plan.textColor }}>{plan.nom}</p>
-              <p style={{ fontSize: 12, fontWeight: 600, color: plan.textColor, opacity: 0.9 }}>{plan.offre}</p>
-              <p style={{ fontSize: 11, color: plan.textColor, opacity: 0.65 }}>{plan.detail}</p>
-            </div>
-            <div style={{ flexShrink: 0, background: 'rgba(0,0,0,0.08)', borderRadius: 10, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: plan.textColor }}>Voir</span>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={plan.textColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-    </motion.div>
-  )
-}
-
 function MarketDrawer({ market, onClose }: { market: Market; onClose: () => void }) {
   const cd = fmt_countdown(market.start_date)
   const cover = market.cover_image || COVERS[0]
@@ -309,9 +353,9 @@ function MarketDrawer({ market, onClose }: { market: Market; onClose: () => void
               </div>
             ))}
           </div>
-          <VedetteSlot />
+          <VedetteSlot marketId={market.id} />
           {market.description && <p style={{ fontSize: 14, color: '#4B5563', lineHeight: 1.75, marginBottom: 20 }}>{market.description}</p>}
-          <DriveToStoreSlot />
+          <DriveToStoreSlot marketId={market.id} />
           <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, background: '#111827', color: 'white', borderRadius: 18, padding: '19px', fontSize: 16, fontWeight: 700, textDecoration: 'none', letterSpacing: '-0.01em', fontFamily: '"DM Sans",sans-serif' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
@@ -356,8 +400,7 @@ export default function WhatmarketHome() {
     setGeoStatus('requesting')
     navigator.geolocation.getCurrentPosition(
       ({ coords: { latitude: lat, longitude: lng } }) => { setGeoStatus('ok'); loadMarkets(lat,lng) },
-      () => { setGeoStatus('denied') },
-      { timeout: 8000 }
+      () => { setGeoStatus('denied') }, { timeout: 8000 }
     )
   }
 
@@ -380,8 +423,6 @@ export default function WhatmarketHome() {
         .pulse-ring{animation:pulse-ring 1.8s ease infinite}
       `}</style>
       <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: '#F9F8F6', position: 'relative', fontFamily: '"DM Sans",system-ui,sans-serif' }}>
-
-        {/* HEADER */}
         <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(249,248,246,0.94)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '52px 20px 14px', borderBottom: '0.5px solid rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div>
@@ -410,7 +451,6 @@ export default function WhatmarketHome() {
           </div>
         </div>
 
-        {/* CONTENT */}
         <div style={{ padding: '16px 16px 100px' }}>
           <AnimatePresence>
             {geoStatus==='idle' && (
@@ -436,7 +476,6 @@ export default function WhatmarketHome() {
           {!loading && sorted.map((m,i) => <MarketCard key={m.id} market={m} index={i} onClick={() => setSelected(m)} />)}
         </div>
 
-        {/* BOTTOM NAV — liens <a> qui naviguent vraiment */}
         <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, zIndex: 30, background: 'rgba(249,248,246,0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderTop: '0.5px solid rgba(0,0,0,0.07)', padding: '10px 32px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-around' }}>
             {NAV.map((item, i) => {
@@ -444,9 +483,7 @@ export default function WhatmarketHome() {
               return (
                 <a key={i} href={item.href}
                   style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, color: isActive ? '#111827' : '#C4C2BC', transition: 'color 0.2s', padding: '2px 16px' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d={item.path} />
-                  </svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={item.path} /></svg>
                   <span style={{ fontSize: 10, fontWeight: isActive ? 600 : 400, fontFamily: '"DM Sans",sans-serif' }}>{item.label}</span>
                   {isActive && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#111827' }} />}
                 </a>
