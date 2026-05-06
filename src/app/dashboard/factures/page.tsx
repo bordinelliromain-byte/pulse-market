@@ -144,7 +144,7 @@ export default function Factures() {
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = 'factures-placemarket.csv'; a.click()
+    a.href = url; a.download = 'factures-PulseMarket.csv'; a.click()
   }
 
   const openFacture = (type: string, data: any) => {

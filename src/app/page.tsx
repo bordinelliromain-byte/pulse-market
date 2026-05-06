@@ -164,7 +164,7 @@ export default function Landing() {
             <div style={{ width: 28, height: 28, background: '#0F172A', borderRadius: 7 }} className="flex items-center justify-center">
               <span style={{ color: 'white', fontSize: 12, fontWeight: 700 }}>PM</span>
             </div>
-            <span style={{ fontWeight: 600, fontSize: 15 }}>PlaceMarket</span>
+            <span style={{ fontWeight: 600, fontSize: 15 }}>PulseMarket</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: '#64748B' }}>
             <a href="#workflow" className="hover:text-slate-900 transition-colors">Fonctionnement</a>
@@ -200,7 +200,7 @@ export default function Landing() {
               La numérisation des marchés du terroir français
             </motion.h1>
             <motion.p variants={fadeUp} style={{ fontSize: 18, color: '#64748B', maxWidth: 560, lineHeight: 1.7 }} className="mb-10">
-              PlaceMarket automatise la gestion des Autorisations d'Occupation Temporaire (AOT), la certification des dossiers exposants via OCR, et l'interfaçage avec l'API SIRENE de l'INSEE.
+              PulseMarket automatise la gestion des Autorisations d'Occupation Temporaire (AOT), la certification des dossiers exposants via OCR, et l'interfaçage avec l'API SIRENE de l'INSEE.
             </motion.p>
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-3">
               <button
@@ -332,7 +332,7 @@ export default function Landing() {
                 Génération automatique des arrêtés municipaux
               </h3>
               <p style={{ color: '#94A3B8', fontSize: 14, lineHeight: 1.7, maxWidth: 420 }}>
-                À chaque validation de candidature, PlaceMarket génère un projet d'arrêté municipal pré-rempli avec : coordonnées de l'exposant, numéro SIREN vérifié, surface d'occupation, coordonnées GPS de l'emplacement et montant de la redevance AOT calculée automatiquement.
+                À chaque validation de candidature, PulseMarket génère un projet d'arrêté municipal pré-rempli avec : coordonnées de l'exposant, numéro SIREN vérifié, surface d'occupation, coordonnées GPS de l'emplacement et montant de la redevance AOT calculée automatiquement.
               </p>
               <div style={{ marginTop: 24, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {['PDF signable', 'Coordonnées GPS', 'Redevance AOT auto', 'Archivage 10 ans'].map((tag) => (
@@ -556,7 +556,7 @@ export default function Landing() {
               Prêt à numériser vos marchés ?
             </motion.h2>
             <motion.p variants={fadeUp} style={{ color: '#64748B', fontSize: 16, marginBottom: 32, lineHeight: 1.7 }}>
-              Rejoignez les premiers organisateurs et exposants qui font confiance à PlaceMarket pour gérer leurs AOT, certifier leurs dossiers et simplifier leur quotidien.
+              Rejoignez les premiers organisateurs et exposants qui font confiance à PulseMarket pour gérer leurs AOT, certifier leurs dossiers et simplifier leur quotidien.
             </motion.p>
             <motion.button
               variants={fadeUp}
@@ -577,13 +577,13 @@ export default function Landing() {
             <div style={{ width: 24, height: 24, background: '#0F172A', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ color: 'white', fontSize: 10, fontWeight: 700 }}>PM</span>
             </div>
-            <span style={{ fontWeight: 600, fontSize: 14 }}>PlaceMarket</span>
+            <span style={{ fontWeight: 600, fontSize: 14 }}>PulseMarket</span>
           </div>
-          <p style={{ fontSize: 13, color: '#94A3B8' }}>© 2026 PlaceMarket SAS — Tous droits réservés</p>
+          <p style={{ fontSize: 13, color: '#94A3B8' }}>© 2026 PulseMarket SAS — Tous droits réservés</p>
           <div className="flex gap-6" style={{ fontSize: 13, color: '#94A3B8' }}>
             <a href="#" className="hover:text-slate-900 transition-colors">Mentions légales</a>
             <a href="#" className="hover:text-slate-900 transition-colors">CGU</a>
-            <a href="#" className="hover:text-slate-900 transition-colors">contact@placemarket.fr</a>
+            <a href="#" className="hover:text-slate-900 transition-colors">contact@PulseMarket.fr</a>
           </div>
         </div>
       </footer>

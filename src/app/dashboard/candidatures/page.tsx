@@ -245,7 +245,7 @@ export default function Candidatures() {
             <div style={{ width: 28, height: 28, background: '#4F46E5', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>PM</span>
             </div>
-            <span style={{ color: 'white', fontWeight: 600, fontSize: 14 }}>PlaceMarket</span>
+            <span style={{ color: 'white', fontWeight: 600, fontSize: 14 }}>PulseMarket</span>
           </div>
         </div>
         <nav style={{ flex: 1, padding: '12px 10px' }}>

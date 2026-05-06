@@ -97,11 +97,11 @@ export default function Tresorerie() {
       </tr>
     `).join('')
 
-    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Rapport financier ${mois} — PlaceMarket</title>
+    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Rapport financier ${mois} — PulseMarket</title>
     <style>* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #0F172A; background: white; padding: 48px; } @media print { body { padding: 24px; } .no-print { display: none !important; } }</style>
     </head><body>
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; padding-bottom: 24px; border-bottom: 2px solid #E2E8F0;">
-      <div><div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;"><div style="width: 32px; height: 32px; background: #4F46E5; border-radius: 8px; display: flex; align-items: center; justify-content: center;"><span style="color: white; font-size: 12px; font-weight: 800;">PM</span></div><span style="font-size: 18px; font-weight: 700; color: #0F172A;">PlaceMarket</span></div><p style="font-size: 13px; color: #64748B;">Plateforme de gestion des marchés municipaux</p></div>
+      <div><div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;"><div style="width: 32px; height: 32px; background: #4F46E5; border-radius: 8px; display: flex; align-items: center; justify-content: center;"><span style="color: white; font-size: 12px; font-weight: 800;">PM</span></div><span style="font-size: 18px; font-weight: 700; color: #0F172A;">PulseMarket</span></div><p style="font-size: 13px; color: #64748B;">Plateforme de gestion des marchés municipaux</p></div>
       <div style="text-align: right;"><p style="font-size: 22px; font-weight: 800; color: #0F172A; margin-bottom: 4px;">Rapport financier</p><p style="font-size: 15px; color: #4F46E5; font-weight: 600; text-transform: capitalize;">${mois}</p><p style="font-size: 12px; color: #94A3B8; margin-top: 6px;">Généré le ${now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p><p style="font-size: 11px; color: #CBD5E1; margin-top: 3px; font-family: monospace;">${ref}</p></div>
     </div>
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 36px;">
@@ -118,9 +118,9 @@ export default function Tresorerie() {
     <div style="margin-top: 48px; padding-top: 20px; border-top: 1px solid #E2E8F0;">
       <div style="background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px;">
         <p style="font-size: 12px; font-weight: 700; color: #4338CA; margin-bottom: 6px;">Mention légale de conformité</p>
-        <p style="font-size: 12px; color: #4F46E5; line-height: 1.7;">Certifié conforme aux transactions enregistrées sur la plateforme PlaceMarket. Ce document récapitule l'ensemble des redevances d'occupation du domaine public (AOT) collectées pour la période indiquée.</p>
+        <p style="font-size: 12px; color: #4F46E5; line-height: 1.7;">Certifié conforme aux transactions enregistrées sur la plateforme PulseMarket. Ce document récapitule l'ensemble des redevances d'occupation du domaine public (AOT) collectées pour la période indiquée.</p>
       </div>
-      <p style="font-size: 11px; color: #CBD5E1; text-align: center;">PlaceMarket SAS · placemarket.fr · ${now.toLocaleDateString('fr-FR')} · Réf : ${ref}</p>
+      <p style="font-size: 11px; color: #CBD5E1; text-align: center;">PulseMarket SAS · PulseMarket.fr · ${now.toLocaleDateString('fr-FR')} · Réf : ${ref}</p>
     </div>
     <div class="no-print" style="margin-top: 32px; text-align: center;">
       <button onclick="window.print()" style="background: #4F46E5; color: white; border: none; border-radius: 10px; padding: 12px 32px; font-size: 14px; font-weight: 600; cursor: pointer; margin-right: 12px;">Imprimer / Enregistrer en PDF</button>
@@ -269,7 +269,7 @@ export default function Tresorerie() {
               const blob = new Blob([`ID;Événement;Statut;Montant\n${csv}`], { type: 'text/csv' })
               const url = URL.createObjectURL(blob)
               const a = document.createElement('a')
-              a.href = url; a.download = 'tresorerie-placemarket.csv'; a.click()
+              a.href = url; a.download = 'tresorerie-PulseMarket.csv'; a.click()
             }} style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
               <Download size={13} /> Exporter CSV
             </button>

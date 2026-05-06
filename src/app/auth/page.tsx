@@ -88,7 +88,7 @@ function AuthForm() {
           <div style={{ width: 32, height: 32, background: '#4F46E5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ color: 'white', fontSize: 13, fontWeight: 700 }}>PM</span>
           </div>
-          <span style={{ color: 'white', fontWeight: 600, fontSize: 16 }}>PlaceMarket</span>
+          <span style={{ color: 'white', fontWeight: 600, fontSize: 16 }}>PulseMarket</span>
         </div>
 
         <div>
@@ -114,7 +114,7 @@ function AuthForm() {
           </div>
         </div>
 
-        <p style={{ color: '#334155', fontSize: 12 }}>© 2026 PlaceMarket SAS — Données hébergées en France</p>
+        <p style={{ color: '#334155', fontSize: 12 }}>© 2026 PulseMarket SAS — Données hébergées en France</p>
       </motion.div>
 
       {/* PANNEAU DROIT */}
@@ -124,7 +124,7 @@ function AuthForm() {
             <div style={{ width: 28, height: 28, background: '#0F172A', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>PM</span>
             </div>
-            <span style={{ fontWeight: 600, fontSize: 15, color: '#0F172A' }}>PlaceMarket</span>
+            <span style={{ fontWeight: 600, fontSize: 15, color: '#0F172A' }}>PulseMarket</span>
           </motion.div>
 
           <motion.div variants={fadeUp} style={{ marginBottom: 32 }}>
@@ -132,7 +132,7 @@ function AuthForm() {
               {tab === 'signin' ? 'Connexion à votre espace' : 'Créer votre compte'}
             </h1>
             <p style={{ fontSize: 14, color: '#64748B' }}>
-              {tab === 'signin' ? "Accédez à votre tableau de bord PlaceMarket." : "Rejoignez la plateforme des marchés et festivals."}
+              {tab === 'signin' ? "Accédez à votre tableau de bord PulseMarket." : "Rejoignez la plateforme des marchés et festivals."}
             </p>
           </motion.div>
 

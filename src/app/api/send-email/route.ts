@@ -62,15 +62,15 @@ export async function POST(req: NextRequest) {
 
               <p style="font-size:13px;color:#64748B;line-height:1.7;margin:0;">
                 À très bientôt sur le marché !<br>
-                <strong style="color:#0F172A;">L'équipe PlaceMarket</strong>
+                <strong style="color:#0F172A;">L'équipe PulseMarket</strong>
               </p>
             </div>
 
             <!-- Footer -->
             <div style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:20px 32px;text-align:center;">
               <p style="font-size:11px;color:#94A3B8;margin:0;">
-                PlaceMarket · Plateforme de gestion des marchés municipaux<br>
-                <a href="https://placemarket-rose.vercel.app" style="color:#4F46E5;text-decoration:none;">placemarket.fr</a>
+                PulseMarket · Plateforme de gestion des marchés municipaux<br>
+                <a href="https://PulseMarket-rose.vercel.app" style="color:#4F46E5;text-decoration:none;">PulseMarket.fr</a>
               </p>
             </div>
           </div>
@@ -99,15 +99,15 @@ export async function POST(req: NextRequest) {
               <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:16px;margin-bottom:24px;">
                 <p style="font-size:13px;color:#C2410C;margin:0;font-weight:600;">⚡ Action requise</p>
                 <p style="font-size:13px;color:#EA580C;margin:8px 0 0;line-height:1.6;">
-                  Connectez-vous sur PlaceMarket pour procéder au paiement et confirmer définitivement votre place.
+                  Connectez-vous sur PulseMarket pour procéder au paiement et confirmer définitivement votre place.
                 </p>
               </div>
-              <a href="https://placemarket-rose.vercel.app/dashboard" style="display:block;background:#4F46E5;color:white;text-decoration:none;text-align:center;padding:14px;border-radius:10px;font-weight:700;font-size:14px;">
+              <a href="https://PulseMarket-rose.vercel.app/dashboard" style="display:block;background:#4F46E5;color:white;text-decoration:none;text-align:center;padding:14px;border-radius:10px;font-weight:700;font-size:14px;">
                 Payer ma place →
               </a>
             </div>
             <div style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:20px 32px;text-align:center;">
-              <p style="font-size:11px;color:#94A3B8;margin:0;">PlaceMarket · <a href="https://placemarket-rose.vercel.app" style="color:#4F46E5;text-decoration:none;">placemarket.fr</a></p>
+              <p style="font-size:11px;color:#94A3B8;margin:0;">PulseMarket · <a href="https://PulseMarket-rose.vercel.app" style="color:#4F46E5;text-decoration:none;">PulseMarket.fr</a></p>
             </div>
           </div>
         </body>
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (type === 'bienvenue') {
-      subject = `Bienvenue sur PlaceMarket 👋`
+      subject = `Bienvenue sur PulseMarket 👋`
       html = `
         <!DOCTYPE html>
         <html>
@@ -127,19 +127,19 @@ export async function POST(req: NextRequest) {
               <div style="width:48px;height:48px;background:#4F46E5;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
                 <span style="color:white;font-size:18px;font-weight:800;">PM</span>
               </div>
-              <h1 style="color:white;font-size:22px;font-weight:800;margin:0 0 6px;">Bienvenue sur PlaceMarket !</h1>
+              <h1 style="color:white;font-size:22px;font-weight:800;margin:0 0 6px;">Bienvenue sur PulseMarket !</h1>
             </div>
             <div style="padding:32px;">
               <p style="font-size:15px;color:#0F172A;margin:0 0 16px;">Bonjour <strong>${data.nom}</strong>,</p>
               <p style="font-size:14px;color:#64748B;line-height:1.7;margin:0 0 24px;">
                 Votre compte exposant a bien été créé. Vous pouvez dès maintenant compléter votre dossier et postuler aux marchés de votre région.
               </p>
-              <a href="https://placemarket-rose.vercel.app/dashboard" style="display:block;background:#4F46E5;color:white;text-decoration:none;text-align:center;padding:14px;border-radius:10px;font-weight:700;font-size:14px;">
+              <a href="https://PulseMarket-rose.vercel.app/dashboard" style="display:block;background:#4F46E5;color:white;text-decoration:none;text-align:center;padding:14px;border-radius:10px;font-weight:700;font-size:14px;">
                 Accéder à mon espace →
               </a>
             </div>
             <div style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:20px 32px;text-align:center;">
-              <p style="font-size:11px;color:#94A3B8;margin:0;">PlaceMarket · <a href="https://placemarket-rose.vercel.app" style="color:#4F46E5;text-decoration:none;">placemarket.fr</a></p>
+              <p style="font-size:11px;color:#94A3B8;margin:0;">PulseMarket · <a href="https://PulseMarket-rose.vercel.app" style="color:#4F46E5;text-decoration:none;">PulseMarket.fr</a></p>
             </div>
           </div>
         </body>
@@ -215,7 +215,7 @@ if (type === 'boost_confirmation') {
 }
 
     const { data: emailData, error } = await resend.emails.send({
-      from: 'PlaceMarket <onboarding@resend.dev>',
+      from: 'PulseMarket <onboarding@resend.dev>',
       to,
       subject,
       html,

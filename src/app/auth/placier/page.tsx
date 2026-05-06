@@ -98,7 +98,7 @@ function PlacierSignupContent() {
           <div style={{ width: 36, height: 36, background: '#4F46E5', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ color: 'white', fontSize: 13, fontWeight: 800 }}>PM</span>
           </div>
-          <span style={{ color: 'white', fontWeight: 700, fontSize: 16 }}>PlaceMarket</span>
+          <span style={{ color: 'white', fontWeight: 700, fontSize: 16 }}>PulseMarket</span>
         </div>
 
         {!tokenValid ? (

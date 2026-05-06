@@ -176,7 +176,7 @@ export default function GestionPlaciers() {
               </div>
               <div style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 10, padding: '12px 14px', marginBottom: 20 }}>
                 <p style={{ fontSize: 12, color: '#4338CA', lineHeight: 1.6 }}>
-                  📱 Le placier recevra un lien pour créer son compte et se connecter directement sur son téléphone via placemarket.fr
+                  📱 Le placier recevra un lien pour créer son compte et se connecter directement sur son téléphone via PulseMarket.fr
                 </p>
               </div>
               <button onClick={handleInvite} disabled={!inviteEmail || !inviteNom || inviteSending}

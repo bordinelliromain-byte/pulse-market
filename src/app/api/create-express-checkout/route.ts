@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
           price_data: {
             currency: 'eur',
             product_data: {
-              name: `Place marché — ${eventTitle || 'Marché PlaceMarket'}`,
+              name: `Place marché — ${eventTitle || 'Marché PulseMarket'}`,
               description: `Forain : ${nom} · Paiement express placier`,
             },
             unit_amount: Math.round(parseFloat(montant) * 100),

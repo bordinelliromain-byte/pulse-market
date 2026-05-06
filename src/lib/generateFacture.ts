@@ -1,5 +1,5 @@
 // lib/generateFacture.ts
-// Générateur de facture PDF pour PlaceMarket
+// Générateur de facture PDF pour PulseMarket
 
 export interface FactureData {
   // Candidature
@@ -247,9 +247,9 @@ export function generateFactureHTML(data: FactureData): string {
       <div>
         <div class="logo-wrap">
           <div class="logo-box"><span class="logo-text">PM</span></div>
-          <span class="brand-name">PlaceMarket</span>
+          <span class="brand-name">PulseMarket</span>
         </div>
-        <div class="brand-sub">Plateforme de gestion des marchés · placemarket.fr</div>
+        <div class="brand-sub">Plateforme de gestion des marchés · PulseMarket.fr</div>
         ${data.mairieNom ? `<div style="margin-top: 8px; font-size: 12px; color: #475569; font-weight: 600;">Pour le compte de : ${data.mairieNom}</div>` : ''}
       </div>
       <div class="facture-title">
@@ -266,12 +266,12 @@ export function generateFactureHTML(data: FactureData): string {
     <div class="parties">
       <div>
         <div class="partie-label">Émetteur</div>
-        <div class="partie-name">PlaceMarket SAS</div>
+        <div class="partie-name">PulseMarket SAS</div>
         <div class="partie-detail">
           Plateforme numérique de gestion AOT<br>
           SIRET : 000 000 000 00000<br>
-          contact@placemarket.fr<br>
-          placemarket.fr
+          contact@PulseMarket.fr<br>
+          PulseMarket.fr
         </div>
       </div>
       <div>
@@ -327,7 +327,7 @@ export function generateFactureHTML(data: FactureData): string {
           </tr>
           <tr>
             <td>
-              <div class="td-desc">Frais de service plateforme PlaceMarket</div>
+              <div class="td-desc">Frais de service plateforme PulseMarket</div>
               <div class="td-sub">Gestion de candidature · Vérification dossier · Mise en relation</div>
             </td>
             <td class="right td-amount">1</td>
@@ -359,7 +359,7 @@ export function generateFactureHTML(data: FactureData): string {
       <div class="legal">
         <div class="legal-title">Mention légale de conformité</div>
         <div class="legal-text">
-          Certifié conforme aux transactions enregistrées sur la plateforme PlaceMarket. Cette facture atteste du paiement de la redevance AOT et des frais de service pour la participation au marché mentionné ci-dessus. Réf. candidature : ${data.candidatureId.slice(0, 12).toUpperCase()}
+          Certifié conforme aux transactions enregistrées sur la plateforme PulseMarket. Cette facture atteste du paiement de la redevance AOT et des frais de service pour la participation au marché mentionné ci-dessus. Réf. candidature : ${data.candidatureId.slice(0, 12).toUpperCase()}
         </div>
       </div>
       <div class="qr-section">
@@ -371,7 +371,7 @@ export function generateFactureHTML(data: FactureData): string {
 
     <!-- REF BAR -->
     <div class="ref-bar">
-      <span>PlaceMarket SAS · SIRET 000 000 000 00000 · TVA FR00000000000</span>
+      <span>PulseMarket SAS · SIRET 000 000 000 00000 · TVA FR00000000000</span>
       <span>${factureNum} · ${dateEmission}</span>
     </div>
 

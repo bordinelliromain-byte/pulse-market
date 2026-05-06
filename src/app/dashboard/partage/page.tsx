@@ -24,7 +24,7 @@ function PartageContent() {
   const router = useRouter()
   const supabase = createClient()
 
-  const legende = `🎪 Je serai présent(e) au ${eventName} !\n📅 ${eventDate}\n📍 ${eventLocation}\n\nVenez me rendre visite et découvrir mes produits !\n\n#PlaceMarket #Marché #${eventLocation?.split(',')[0]?.trim() || 'PACA'} #Artisan #Local`
+  const legende = `🎪 Je serai présent(e) au ${eventName} !\n📅 ${eventDate}\n📍 ${eventLocation}\n\nVenez me rendre visite et découvrir mes produits !\n\n#PulseMarket #Marché #${eventLocation?.split(',')[0]?.trim() || 'PACA'} #Artisan #Local`
 
   useEffect(() => {
     const getData = async () => {
@@ -55,7 +55,7 @@ function PartageContent() {
         useCORS: true,
       })
       const link = document.createElement('a')
-      link.download = `placemarket-${eventName.replace(/\s+/g, '-').toLowerCase()}.png`
+      link.download = `PulseMarket-${eventName.replace(/\s+/g, '-').toLowerCase()}.png`
       link.href = canvas.toDataURL('image/png')
       link.click()
     } catch (err) {
@@ -121,13 +121,13 @@ function PartageContent() {
             {/* Contenu */}
             <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 32 }}>
 
-              {/* Top — Logo PlaceMarket */}
+              {/* Top — Logo PulseMarket */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', borderRadius: 10, padding: '6px 12px' }}>
                   <div style={{ width: 20, height: 20, background: 'white', borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <span style={{ fontSize: 9, fontWeight: 800, color: '#4F46E5' }}>PM</span>
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'white' }}>PlaceMarket</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'white' }}>PulseMarket</span>
                 </div>
                 <div style={{ background: '#16A34A', borderRadius: 100, padding: '4px 12px', display: 'flex', alignItems: 'center', gap: 4 }}>
                   <CheckCircle size={11} style={{ color: 'white' }} />
@@ -169,7 +169,7 @@ function PartageContent() {
                   </div>
                 )}
                 <div style={{ marginTop: 4, display: 'flex', gap: 6 }}>
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.1)', padding: '3px 8px', borderRadius: 100 }}>#PlaceMarket</span>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.1)', padding: '3px 8px', borderRadius: 100 }}>#PulseMarket</span>
                   <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.1)', padding: '3px 8px', borderRadius: 100 }}>#Marché</span>
                   <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.1)', padding: '3px 8px', borderRadius: 100 }}>#Local</span>
                 </div>

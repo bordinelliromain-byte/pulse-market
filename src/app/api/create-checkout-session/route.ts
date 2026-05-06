@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
           price_data: {
             currency: 'eur',
             product_data: {
-              name: 'Frais de service PlaceMarket',
+              name: 'Frais de service PulseMarket',
               description: 'Gestion candidature + vérification dossier',
             },
             unit_amount: 200, // 2€ en centimes

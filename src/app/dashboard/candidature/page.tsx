@@ -154,7 +154,7 @@ function CandidatureForm() {
           <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Candidature — {eventName}</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#16A34A', background: '#F0FDF4', padding: '4px 10px', borderRadius: 100, border: '1px solid #BBF7D0' }}>
-          <Shield size={12} /> Garantie PlaceMarket
+          <Shield size={12} /> Garantie PulseMarket
         </div>
       </header>
 
@@ -369,7 +369,7 @@ function CandidatureForm() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 10, padding: '12px 14px' }}>
                       <Shield size={16} style={{ color: '#4F46E5', flexShrink: 0 }} />
                       <div>
-                        <p style={{ fontSize: 12, fontWeight: 600, color: '#4338CA' }}>Garantie PlaceMarket</p>
+                        <p style={{ fontSize: 12, fontWeight: 600, color: '#4338CA' }}>Garantie PulseMarket</p>
                         <p style={{ fontSize: 11, color: '#6366F1', lineHeight: 1.5 }}>Votre dossier est protégé. En cas de refus, aucune somme n'est débitée.</p>
                       </div>
                     </div>
@@ -459,7 +459,7 @@ function CandidatureForm() {
                 <Star size={11} style={{ color: '#FBBF24' }} />
                 <Star size={11} style={{ color: '#FBBF24' }} />
                 <Star size={11} style={{ color: '#FBBF24' }} />
-                <span style={{ marginLeft: 4 }}>Garantie PlaceMarket</span>
+                <span style={{ marginLeft: 4 }}>Garantie PulseMarket</span>
               </div>
             </div>
           </div>
