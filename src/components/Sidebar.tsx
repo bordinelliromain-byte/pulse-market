@@ -1,8 +1,9 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import {
-  LayoutDashboard, Map, FileText, Receipt, Settings, LogOut, Grid, CalendarCheck, QrCode, Users, MapPin
+  LayoutDashboard, Map, FileText, Receipt, Settings, LogOut, Grid, CalendarCheck, QrCode, Users, MapPin, Menu, X
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
@@ -36,6 +37,18 @@ export default function Sidebar({ profile }: SidebarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
+  const [open, setOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  // Ferme le menu quand on change de page
+  useEffect(() => { setOpen(false) }, [pathname])
 
   const NAV_ITEMS = profile?.role === 'organisateur' ? NAV_ORGANISATEUR : NAV_EXPOSANT
 
@@ -44,23 +57,37 @@ export default function Sidebar({ profile }: SidebarProps) {
     return pathname.startsWith(path)
   }
 
-  return (
-    <aside style={{ width: 220, background: '#020617', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 20 }}>
-      {/* Logo */}
-      <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+  const handleNav = (path: string) => {
+    router.push(path)
+    setOpen(false)
+  }
+
+  const SidebarContent = () => (
+    <aside style={{
+      width: 220, background: '#020617', display: 'flex', flexDirection: 'column',
+      position: 'fixed', top: 0, left: isMobile ? (open ? 0 : -240) : 0, bottom: 0,
+      zIndex: 40, transition: 'left 0.3s ease',
+    }}>
+      {/* Logo + close on mobile */}
+      <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 28, height: 28, background: '#4F46E5', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>PM</span>
           </div>
           <span style={{ color: 'white', fontWeight: 600, fontSize: 14 }}>PulseMarket</span>
         </div>
+        {isMobile && (
+          <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: 4 }}>
+            <X size={18} />
+          </button>
+        )}
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: '12px 10px' }}>
+      <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto' }}>
         <p style={{ fontSize: 10, fontWeight: 600, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '8px 10px', marginBottom: 4 }}>Navigation</p>
         {NAV_ITEMS.map((item) => (
-          <button key={item.label} onClick={() => router.push(item.path)}
+          <button key={item.label} onClick={() => handleNav(item.path)}
             style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 10,
               padding: '9px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
@@ -93,5 +120,39 @@ export default function Sidebar({ profile }: SidebarProps) {
         </button>
       </div>
     </aside>
+  )
+
+  return (
+    <>
+      {/* Hamburger mobile */}
+      {isMobile && (
+        <button
+          onClick={() => setOpen(true)}
+          style={{
+            position: 'fixed', top: 14, left: 16, zIndex: 50,
+            background: '#020617', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 8, padding: '7px 8px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+          <Menu size={18} color="white" />
+        </button>
+      )}
+
+      {/* Overlay mobile */}
+      {isMobile && open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            zIndex: 35, backdropFilter: 'blur(2px)',
+          }}
+        />
+      )}
+
+      <SidebarContent />
+
+      {/* Spacer desktop uniquement */}
+      {!isMobile && <div style={{ width: 220, flexShrink: 0 }} />}
+    </>
   )
 }
