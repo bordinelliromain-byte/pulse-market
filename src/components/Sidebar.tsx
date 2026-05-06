@@ -22,7 +22,6 @@ const NAV_ORGANISATEUR = [
   { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/creer-evenement' },
   { icon: <FileText size={15} />, label: 'Candidatures', path: '/dashboard/candidatures' },
   { icon: <MapPin size={15} />, label: 'Attribution', path: '/dashboard/organisateur/attribution' },
-  { icon: <Grid size={15} />, label: 'Terrain', path: '/dashboard/terrain' },
   { icon: <QrCode size={15} />, label: 'Scanner', path: '/dashboard/organisateur/scanner' },
   { icon: <Receipt size={15} />, label: 'Trésorerie', path: '/dashboard/tresorerie' },
   { icon: <Users size={15} />, label: 'Placiers', path: '/dashboard/organisateur/placiers' },
