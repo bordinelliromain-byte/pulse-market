@@ -146,8 +146,6 @@ export default function Sidebar({ profile }: SidebarProps) {
         </div>
       </aside>
 
-      {/* Spacer desktop */}
-      {!isMobile && <div style={{ width: 220, flexShrink: 0 }} />}
     </>
   )
 }
