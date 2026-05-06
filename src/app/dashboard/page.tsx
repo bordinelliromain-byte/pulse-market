@@ -17,10 +17,20 @@ const fadeUp: Variants = {
   hidden: { opacity: 0, y: 12 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
 }
-
 const stagger: Variants = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.06 } },
+}
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+  return isMobile
 }
 
 function Sparkline({ values, color = '#4F46E5' }: { values: number[]; color?: string }) {
@@ -38,9 +48,9 @@ function Sparkline({ values, color = '#4F46E5' }: { values: number[]; color?: st
 function CandidatureTimeline({ status }: { status: string }) {
   const steps = [
     { key: 'pending', label: 'Envoyé', icon: <Send size={12} /> },
-    { key: 'read', label: 'Lu par la mairie', icon: <Eye size={12} /> },
-    { key: 'validating', label: 'En validation', icon: <Clock size={12} /> },
-    { key: 'validated', label: 'Paiement reçu', icon: <CreditCard size={12} /> },
+    { key: 'read', label: 'Lu', icon: <Eye size={12} /> },
+    { key: 'validating', label: 'Validation', icon: <Clock size={12} /> },
+    { key: 'validated', label: 'Payé', icon: <CreditCard size={12} /> },
   ]
   const activeIndex = status === 'validated' || status === 'paid' ? 3 : status === 'pending' ? 1 : 0
   return (
@@ -108,6 +118,7 @@ function DashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
+  const isMobile = useIsMobile()
 
   const loadData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -160,22 +171,20 @@ function DashboardContent() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#EEF2F7', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <Sidebar profile={profile} />
-      <div style={{ marginLeft: 220, flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
+      <div style={{ marginLeft: isMobile ? 0 : 220, flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: isMobile ? '0 16px 0 56px' : '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <div>
             <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>
-              Salut {profile?.full_name?.split(' ')[0]} t'es prêt à tout casser ?
+              Salut {profile?.full_name?.split(' ')[0]} 👋
             </p>
             <p style={{ fontSize: 11, color: '#94A3B8' }}>Tableau de bord — Exposant</p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22C55E', display: 'inline-block', animation: 'pulse-live 2s infinite' }} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#22C55E', letterSpacing: '0.05em' }}>LIVE</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#64748B' }}>
-              <MapPin size={12} style={{ color: '#4F46E5' }} /> Bouches-du-Rhône, PACA
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 16 }}>
+            {!isMobile && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#64748B' }}>
+                <MapPin size={12} style={{ color: '#4F46E5' }} /> Bouches-du-Rhône
+              </div>
+            )}
             <div style={{ position: 'relative' }}>
               <button style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 8, padding: '5px 8px', cursor: 'pointer' }}>
                 <Bell size={14} style={{ color: '#64748B' }} />
@@ -195,29 +204,26 @@ function DashboardContent() {
           .hide-scrollbar::-webkit-scrollbar { display: none; }
         `}</style>
 
-        <main style={{ padding: '24px 28px', flex: 1 }}>
-          <motion.div variants={stagger} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <main style={{ padding: isMobile ? '16px 14px' : '24px 28px', flex: 1 }}>
+          <motion.div variants={stagger} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
             {candidaturesAPayer.length > 0 && (
               <motion.div variants={fadeUp}>
                 {candidaturesAPayer.map(c => (
-                  <div key={c.id} style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', borderRadius: 14, padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 12, boxShadow: '0 4px 24px rgba(79,70,229,0.25)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                      <div style={{ width: 42, height: 42, background: 'rgba(255,255,255,0.15)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <CheckCircle size={22} style={{ color: 'white' }} />
+                  <div key={c.id} style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', borderRadius: 14, padding: isMobile ? '14px' : '18px 22px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, boxShadow: '0 4px 24px rgba(79,70,229,0.25)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 38, height: 38, background: 'rgba(255,255,255,0.15)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <CheckCircle size={20} style={{ color: 'white' }} />
                       </div>
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                          <p style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>Candidature acceptée !</p>
-                          <span style={{ background: 'rgba(255,255,255,0.2)', color: 'white', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100 }}>ACTION REQUISE</span>
-                        </div>
-                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>
-                          La mairie a approuvé votre dossier pour <strong style={{ color: 'white' }}>{c.events?.title}</strong>. Procédez au paiement pour confirmer votre place.
+                        <p style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 2 }}>Candidature acceptée !</p>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>
+                          <strong style={{ color: 'white' }}>{c.events?.title}</strong> — payez pour confirmer.
                         </p>
                       </div>
                     </div>
                     <button onClick={() => handlePayer(c)} disabled={payingId === c.id}
-                      style={{ background: 'white', color: '#4F46E5', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0, opacity: payingId === c.id ? 0.8 : 1 }}>
+                      style={{ background: 'white', color: '#4F46E5', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 7, width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}>
                       {payingId === c.id ? <><Loader size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</> : <><CreditCard size={14} /> Payer {(c.events?.price_per_spot || 0) + 2} €</>}
                     </button>
                   </div>
@@ -225,29 +231,30 @@ function DashboardContent() {
               </motion.div>
             )}
 
-            <motion.div variants={fadeUp} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+            {/* KPIs */}
+            <motion.div variants={fadeUp} style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
               {[
-                { label: 'Candidatures envoyées', value: stats.total || 0, spark: [0, 1, 1, 2, 1, 2, stats.total || 0], color: '#4F46E5' },
-                { label: 'Candidatures validées', value: stats.validated || 0, spark: [0, 0, 1, 1, 1, 1, stats.validated || 0], color: '#16A34A' },
+                { label: 'Candidatures', value: stats.total || 0, spark: [0, 1, 1, 2, 1, 2, stats.total || 0], color: '#4F46E5' },
+                { label: 'Validées', value: stats.validated || 0, spark: [0, 0, 1, 1, 1, 1, stats.validated || 0], color: '#16A34A' },
                 { label: 'En attente', value: stats.pending || 0, spark: [0, 1, 0, 1, 1, 0, stats.pending || 0], color: '#F59E0B' },
                 { label: 'Places payées', value: stats.paid || 0, spark: [0, 0, 0, 1, 1, 1, stats.paid || 0], color: '#0EA5E9' },
               ].map((s, i) => (
-                <div key={i} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px 18px' }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>{s.label}</p>
-                  <p style={{ fontSize: 28, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>{s.value}</p>
+                <div key={i} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{s.label}</p>
+                  <p style={{ fontSize: 26, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>{s.value}</p>
                   <Sparkline values={s.spark} color={s.color} />
                 </div>
               ))}
             </motion.div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }}>
+            {/* Main grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 300px', gap: 16 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Marchés suggérés */}
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
-                  <div style={{ padding: '16px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <p style={{ fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Marchés suggérés à proximité</p>
-                      <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>Basé sur votre zone PACA</p>
-                    </div>
+                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Marchés à proximité</p>
                     <button onClick={() => router.push('/dashboard/evenements')} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#4F46E5', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
                       Voir tout <ArrowUpRight size={13} />
                     </button>
@@ -255,18 +262,15 @@ function DashboardContent() {
                   {nearbyEvents.length === 0 ? (
                     <div style={{ padding: '32px', textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>Aucun événement disponible</div>
                   ) : (
-                    <div className="hide-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 14, padding: '16px 20px', scrollbarWidth: 'none' }}>
+                    <div className="hide-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 12, padding: '14px 18px', scrollbarWidth: 'none' }}>
                       {nearbyEvents.filter(event => !candidatures.find(c => c.event_id === event.id && c.status === 'paid')).slice(0, 5).map((event: any, i: number) => {
                         const gradients = ['linear-gradient(135deg, #4F46E5, #7C3AED)', 'linear-gradient(135deg, #0EA5E9, #4F46E5)', 'linear-gradient(135deg, #16A34A, #0EA5E9)', 'linear-gradient(135deg, #EA580C, #DC2626)', 'linear-gradient(135deg, #7C3AED, #EC4899)']
                         return (
                           <div key={event.id} onClick={() => router.push(`/dashboard/candidature?eventId=${event.id}&eventName=${encodeURIComponent(event.title)}&eventDate=${encodeURIComponent(new Date(event.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(event.location_name || '')}`)}
-                            style={{ flexShrink: 0, width: 190, borderRadius: 12, overflow: 'hidden', border: '1px solid #E2E8F0', cursor: 'pointer', transition: 'all 0.2s', background: 'white' }}
-                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(79,70,229,0.15)'; e.currentTarget.style.borderColor = '#C7D2FE' }}
-                            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#E2E8F0' }}>
-                            <div style={{ height: 110, position: 'relative', overflow: 'hidden', background: gradients[i % gradients.length] }}>
+                            style={{ flexShrink: 0, width: 175, borderRadius: 12, overflow: 'hidden', border: '1px solid #E2E8F0', cursor: 'pointer', transition: 'all 0.2s', background: 'white' }}>
+                            <div style={{ height: 100, position: 'relative', overflow: 'hidden', background: gradients[i % gradients.length] }}>
                               {event.image_url && <img src={event.image_url} alt={event.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 60%)' }} />
-                              {event.is_exclusive && <span style={{ position: 'absolute', top: 7, left: 7, background: '#FBBF24', color: '#92400E', fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 100 }}>PRO</span>}
                               <div style={{ position: 'absolute', bottom: 6, left: 8, display: 'flex', alignItems: 'center', gap: 3 }}>
                                 <MapPin size={9} style={{ color: 'white' }} />
                                 <span style={{ fontSize: 9, color: 'white', fontWeight: 500 }}>{event.location_name?.split(',')[0]}</span>
@@ -274,7 +278,7 @@ function DashboardContent() {
                             </div>
                             <div style={{ padding: '10px 12px' }}>
                               <p style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', marginBottom: 4, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.title}</p>
-                              <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 8 }}>{new Date(event.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</p>
+                              <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 6 }}>{new Date(event.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</p>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ fontSize: 13, fontWeight: 800, color: '#4F46E5' }}>{event.price_per_spot === 0 ? 'Gratuit' : `${event.price_per_spot}€`}</span>
                                 <span style={{ fontSize: 10, color: '#94A3B8' }}>{event.available_spots} places</span>
@@ -287,30 +291,26 @@ function DashboardContent() {
                   )}
                 </motion.div>
 
-                <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '18px 20px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Suivi de mes dossiers en cours</p>
+                {/* Suivi dossiers */}
+                <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px 18px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Suivi de mes dossiers</p>
                     <span style={{ fontSize: 11, color: '#94A3B8' }}>{candidatures.length} dossier(s)</span>
                   </div>
                   {candidatures.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '24px 0', color: '#94A3B8', fontSize: 13 }}>Aucune candidature envoyée pour le moment</div>
+                    <div style={{ textAlign: 'center', padding: '24px 0', color: '#94A3B8', fontSize: 13 }}>Aucune candidature envoyée</div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                       {candidatures.slice(0, 4).map((c) => (
                         <div key={c.id}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                             <p style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>{c.events?.title || 'Événement'}</p>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               {c.status === 'validated' && (
                                 <button onClick={() => handlePayer(c)} disabled={payingId === c.id}
                                   style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#4F46E5', color: 'white', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                                   <CreditCard size={10} /> Payer
                                 </button>
-                              )}
-                              {c.status === 'paid' && (
-                                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: '#4F46E5', background: '#EEF2FF', padding: '2px 8px', borderRadius: 100 }}>
-                                  <CheckCircle size={9} /> Payé
-                                </span>
                               )}
                               <span style={{ fontSize: 10, fontWeight: 600, color: c.status === 'validated' ? '#16A34A' : c.status === 'paid' ? '#4F46E5' : '#F59E0B', background: c.status === 'validated' ? '#F0FDF4' : c.status === 'paid' ? '#EEF2FF' : '#FFFBEB', padding: '2px 8px', borderRadius: 100 }}>
                                 {c.status === 'validated' ? 'Accepté' : c.status === 'paid' ? 'Confirmé' : 'En attente'}
@@ -325,19 +325,16 @@ function DashboardContent() {
                 </motion.div>
               </div>
 
-              <motion.div variants={fadeUp} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Sidebar droite */}
+              <motion.div variants={fadeUp} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-                {/* ── BOOST MY BUSINESS ── */}
-                <div
-                  style={{ background: 'linear-gradient(135deg, #F59E0B, #EF4444)', borderRadius: 12, padding: '14px 16px', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' }}
-                  onClick={() => router.push('dashboard/boost')}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(245,158,11,0.35)' }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none' }}>
+                <div style={{ background: 'linear-gradient(135deg, #F59E0B, #EF4444)', borderRadius: 12, padding: '14px 16px', cursor: 'pointer' }}
+                  onClick={() => router.push('/dashboard/boost')}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 10 }}>
                     <span style={{ fontSize: 22, flexShrink: 0 }}>🚀</span>
                     <div>
                       <p style={{ fontSize: 12, fontWeight: 700, color: 'white', marginBottom: 2 }}>Booster ma visibilité</p>
-                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.5 }}>Apparaissez en tête sur Whatmarket lors du prochain marché — 20€</p>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', lineHeight: 1.5 }}>Apparaissez en tête sur Whatmarket — 20€</p>
                     </div>
                   </div>
                   <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -351,15 +348,15 @@ function DashboardContent() {
                       <Zap size={14} style={{ color: '#FBBF24', flexShrink: 0, marginTop: 1 }} />
                       <div>
                         <p style={{ fontSize: 12, fontWeight: 600, color: 'white', marginBottom: 2 }}>Passez en Pro — 20€/mois</p>
-                        <p style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5 }}>Candidatures illimitées, alertes instantanées, événements exclusifs</p>
+                        <p style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5 }}>Candidatures illimitées, alertes, événements exclusifs</p>
                       </div>
                     </div>
-                    <button style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '8px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Upgrader maintenant →</button>
+                    <button style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '8px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Upgrader →</button>
                   </div>
                 )}
 
-                <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Mon plan</p>
                     <Star size={14} style={{ color: stats.plan === 'pro' ? '#FBBF24' : '#CBD5E1' }} />
                   </div>
@@ -367,13 +364,15 @@ function DashboardContent() {
                   <p style={{ fontSize: 12, color: '#94A3B8' }}>{stats.plan === 'pro' ? 'Candidatures illimitées' : '1 candidature / mois'}</p>
                 </div>
 
-                <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px' }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Calendrier</p>
-                  <MiniCalendar />
-                </div>
+                {!isMobile && (
+                  <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Calendrier</p>
+                    <MiniCalendar />
+                  </div>
+                )}
 
-                <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px' }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Mon dossier exposant</p>
+                <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Mon dossier exposant</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                     {[{ label: 'Extrait Kbis', status: true }, { label: 'Attestation RC Pro', status: true }, { label: 'Vérification SIREN', status: stats.isVerified }].map((doc, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -391,7 +390,7 @@ function DashboardContent() {
                 </div>
 
                 {stats.isVerified && (
-                  <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <Shield size={15} style={{ color: '#16A34A', flexShrink: 0, marginTop: 1 }} />
                     <div>
                       <p style={{ fontSize: 12, fontWeight: 600, color: '#15803D', marginBottom: 2 }}>Dossier certifié INSEE</p>
