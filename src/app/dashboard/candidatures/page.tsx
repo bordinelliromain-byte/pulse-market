@@ -272,7 +272,7 @@ export default function Candidatures() {
         </div>
       </aside>
 
-      <div style={{ marginLeft: 220, flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div className="dash-wrap" style={{ marginLeft: 220, flex: 1, display: 'flex', flexDirection: 'column' }}>
 
         {/* TOP BAR */}
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
@@ -325,7 +325,7 @@ export default function Candidatures() {
                 </div>
               </div>
 
-              <main style={{ padding: '24px 28px' }}>
+              <main className="dash-main" style={{ padding: "24px 28px" }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
                   <button onClick={() => router.push('/dashboard/creer-evenement')}
                     style={{ border: '2px dashed #E2E8F0', borderRadius: 12, padding: '32px 20px', background: 'white', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'all 0.2s', minHeight: 200 }}

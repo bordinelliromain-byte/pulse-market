@@ -260,7 +260,7 @@ export default function Tresorerie() {
         )}
       </AnimatePresence>
 
-      <div style={{ marginLeft: 220, flex: 1 }}>
+      <div className="dash-wrap" style={{ marginLeft: 220, flex: 1 }}>
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Trésorerie</p>
           <div style={{ display: 'flex', gap: 10 }}>
@@ -282,7 +282,7 @@ export default function Tresorerie() {
 
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-        <main style={{ padding: '24px 28px' }}>
+        <main className="dash-main" style={{ padding: "24px 28px" }}>
           <motion.div variants={stagger} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
             {/* STATS */}

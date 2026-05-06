@@ -198,7 +198,7 @@ export default function CreerEvenement() {
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <Sidebar profile={profile} />
 
-      <div style={{ marginLeft: 220, flex: 1 }}>
+      <div className="dash-wrap" style={{ marginLeft: 220, flex: 1 }}>
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button onClick={() => router.push('/dashboard')}

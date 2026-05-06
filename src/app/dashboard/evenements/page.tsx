@@ -166,7 +166,7 @@ export default function Evenements() {
       <Sidebar profile={profile} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-      <div style={{ marginLeft: 220, flex: 1 }}>
+      <div className="dash-wrap" style={{ marginLeft: 220, flex: 1 }}>
 
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>
@@ -216,7 +216,7 @@ export default function Evenements() {
           )}
         </div>
 
-        <main style={{ padding: '24px 28px' }}>
+        <main className="dash-main" style={{ padding: "24px 28px" }}>
           {filteredEvents.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '80px 0' }}>
               <p style={{ fontSize: 15, fontWeight: 500, color: '#64748B' }}>Aucun événement disponible</p>

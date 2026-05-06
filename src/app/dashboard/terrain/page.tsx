@@ -252,7 +252,7 @@ export default function TerrainBuilder() {
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       </AnimatePresence>
 
-      <div style={{ marginLeft: 220, flex: 1 }}>
+      <div className="dash-wrap" style={{ marginLeft: 220, flex: 1 }}>
 
         {/* TOP BAR */}
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>

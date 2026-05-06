@@ -479,7 +479,7 @@ export default function Attribution() {
         )}
       </AnimatePresence>
 
-      <div style={{ marginLeft: 220, flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div className="dash-wrap" style={{ marginLeft: 220, flex: 1, display: 'flex', flexDirection: 'column' }}>
 
         {/* HEADER */}
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 24px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>

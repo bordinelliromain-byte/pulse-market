@@ -128,3 +128,17 @@
     @apply font-sans;
   }
 }
+
+@media (max-width: 768px) {
+  .dash-wrap { margin-left: 0 !important; min-width: 0; }
+  .dash-main { padding: 14px !important; }
+  .dash-header { padding-left: 56px !important; }
+  
+  .dash-wrap [style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .dash-wrap [style*="repeat(4"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}

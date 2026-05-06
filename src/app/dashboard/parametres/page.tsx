@@ -80,7 +80,7 @@ export default function Parametres() {
 
       <Sidebar profile={profile} />
 
-      <div style={{ marginLeft: 220, flex: 1 }}>
+      <div className="dash-wrap" style={{ marginLeft: 220, flex: 1 }}>
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Paramètres du compte</p>
           <button onClick={handleSave} disabled={saving}
