@@ -181,8 +181,13 @@ function AuthForm() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Mot de passe</label>
                   {tab === 'signin' && (
-                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#4F46E5', fontWeight: 500 }}>
-                      Mot de passe oublié ?
+                    <button onClick={async () => {
+                    if (!email) { setError('Entrez votre email d\'abord'); return }
+                    await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/auth/reset` })
+                    setError('')
+                    alert('Email de réinitialisation envoyé à ' + email)
+                    }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#4F46E5', fontWeight: 500 }}>
+                    Mot de passe oublié ?
                     </button>
                   )}
                 </div>
