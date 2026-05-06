@@ -10,7 +10,7 @@ import {
   ChevronRight, CheckCircle, Clock, Star,
   Bell, MapPin, ArrowUpRight,
   Shield, Zap, Camera, Send, Eye, CreditCard,
-  Loader
+  Loader, Rocket
 } from 'lucide-react'
 
 const fadeUp: Variants = {
@@ -108,6 +108,36 @@ function MiniCalendar() {
   )
 }
 
+// ── ÉTAT VIDE ─────────────────────────────────────────────────────────────
+function EmptyState({ onAction }: { onAction: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      style={{ textAlign: 'center', padding: '36px 24px' }}>
+      <div style={{ width: 64, height: 64, background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)', borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+        <Rocket size={28} style={{ color: '#4F46E5' }} />
+      </div>
+      <p style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>
+        Lancez-vous !
+      </p>
+      <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6, marginBottom: 20, maxWidth: 280, margin: '0 auto 20px' }}>
+        Vous n'avez encore envoyé aucune candidature. Des dizaines de marchés vous attendent en PACA.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <button onClick={onAction}
+          style={{ background: '#4F46E5', color: 'white', border: 'none', borderRadius: 10, padding: '11px 24px', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%' }}>
+          🗺️ Voir les marchés disponibles
+        </button>
+        <p style={{ fontSize: 11, color: '#94A3B8' }}>
+          Gratuit · Réponse sous 48h · Sans engagement
+        </p>
+      </div>
+    </motion.div>
+  )
+}
+
 function DashboardContent() {
   const [profile, setProfile] = useState<any>(null)
   const [nearbyEvents, setNearbyEvents] = useState<any[]>([])
@@ -168,6 +198,65 @@ function DashboardContent() {
     </div>
   )
 
+  // ── ONBOARDING — première connexion sans données ──────────────────────
+  const isNewUser = candidatures.length === 0 && nearbyEvents.length === 0 && !stats.isVerified
+
+  if (isNewUser) return (
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#EEF2F7', fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <Sidebar profile={profile} />
+      <div style={{ marginLeft: isMobile ? 0 : 220, flex: 1, minWidth: 0 }}>
+        <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: isMobile ? '0 16px 0 60px' : '0 28px', height: 52, display: 'flex', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>Salut {profile?.full_name?.split(' ')[0]} 👋</p>
+        </header>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <main style={{ padding: isMobile ? '20px 16px' : '40px 28px', maxWidth: 600, margin: '0 auto' }}>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+
+            {/* Welcome */}
+            <div style={{ background: 'linear-gradient(135deg, #0F172A, #1E293B)', borderRadius: 16, padding: isMobile ? '24px' : '32px', marginBottom: 20, textAlign: 'center' }}>
+              <div style={{ fontSize: 48, marginBottom: 14 }}>🎪</div>
+              <h1 style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: 'white', marginBottom: 10, letterSpacing: '-0.02em' }}>
+                Bienvenue sur PulseMarket !
+              </h1>
+              <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.7 }}>
+                Votre plateforme pour trouver et gérer vos participations aux marchés en PACA. Commençons par configurer votre profil.
+              </p>
+            </div>
+
+            {/* Étapes onboarding */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+              {[
+                { n: 1, label: 'Complétez votre profil exposant', sub: 'Ajoutez votre SIREN, Kbis et RC Pro', done: stats.isVerified, path: '/dashboard/profil', cta: 'Compléter mon profil', emoji: '📋' },
+                { n: 2, label: 'Explorez les marchés disponibles', sub: 'Des dizaines d\'événements en PACA', done: false, path: '/dashboard/evenements', cta: 'Voir les marchés', emoji: '🗺️' },
+                { n: 3, label: 'Envoyez votre première candidature', sub: 'Gratuit · Réponse sous 48h', done: false, path: '/dashboard/evenements', cta: 'Postuler maintenant', emoji: '🚀' },
+              ].map((step, i) => (
+                <div key={i} style={{ background: 'white', border: `1px solid ${step.done ? '#BBF7D0' : '#E2E8F0'}`, borderRadius: 12, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: step.done ? '#F0FDF4' : '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
+                    {step.done ? '✅' : step.emoji}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 2 }}>{step.label}</p>
+                    <p style={{ fontSize: 11, color: '#94A3B8' }}>{step.sub}</p>
+                  </div>
+                  {!step.done && (
+                    <button onClick={() => router.push(step.path)}
+                      style={{ background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      {step.cta}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <p style={{ textAlign: 'center', fontSize: 12, color: '#94A3B8' }}>
+              Besoin d'aide ? Contactez-nous à <span style={{ color: '#4F46E5' }}>contact@pulse-market.fr</span>
+            </p>
+          </motion.div>
+        </main>
+      </div>
+    </div>
+  )
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#EEF2F7', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <Sidebar profile={profile} />
@@ -178,11 +267,7 @@ function DashboardContent() {
             <p style={{ fontSize: 11, color: '#94A3B8' }}>Tableau de bord — Exposant</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 16 }}>
-            {!isMobile && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#64748B' }}>
-                <MapPin size={12} style={{ color: '#4F46E5' }} /> Bouches-du-Rhône
-              </div>
-            )}
+            {!isMobile && <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#64748B' }}><MapPin size={12} style={{ color: '#4F46E5' }} /> Bouches-du-Rhône</div>}
             <div style={{ position: 'relative' }}>
               <button style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 8, padding: '5px 8px', cursor: 'pointer' }}>
                 <Bell size={14} style={{ color: '#64748B' }} />
@@ -196,15 +281,11 @@ function DashboardContent() {
           </div>
         </header>
 
-        <style>{`
-          @keyframes spin { to { transform: rotate(360deg); } }
-          .hide-scrollbar::-webkit-scrollbar { display: none; }
-        `}</style>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } } .hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
 
         <main className="dash-main" style={{ padding: isMobile ? '16px 14px' : '24px 28px', flex: 1 }}>
           <motion.div variants={stagger} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-            {/* Alerte paiement */}
             {candidaturesAPayer.length > 0 && (
               <motion.div variants={fadeUp}>
                 {candidaturesAPayer.map(c => (
@@ -215,9 +296,7 @@ function DashboardContent() {
                       </div>
                       <div>
                         <p style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 2 }}>Candidature acceptée !</p>
-                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>
-                          <strong style={{ color: 'white' }}>{c.events?.title}</strong> — payez pour confirmer.
-                        </p>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}><strong style={{ color: 'white' }}>{c.events?.title}</strong> — payez pour confirmer.</p>
                       </div>
                     </div>
                     <button onClick={() => handlePayer(c)} disabled={payingId === c.id}
@@ -229,13 +308,12 @@ function DashboardContent() {
               </motion.div>
             )}
 
-            {/* KPIs */}
             <motion.div variants={fadeUp} style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
               {[
-                { label: 'Candidatures', value: stats.total || 0, spark: [0, 1, 1, 2, 1, 2, stats.total || 0], color: '#4F46E5' },
-                { label: 'Validées', value: stats.validated || 0, spark: [0, 0, 1, 1, 1, 1, stats.validated || 0], color: '#16A34A' },
-                { label: 'En attente', value: stats.pending || 0, spark: [0, 1, 0, 1, 1, 0, stats.pending || 0], color: '#F59E0B' },
-                { label: 'Places payées', value: stats.paid || 0, spark: [0, 0, 0, 1, 1, 1, stats.paid || 0], color: '#0EA5E9' },
+                { label: 'Candidatures', value: stats.total || 0, spark: [0,1,1,2,1,2,stats.total||0], color: '#4F46E5' },
+                { label: 'Validées', value: stats.validated || 0, spark: [0,0,1,1,1,1,stats.validated||0], color: '#16A34A' },
+                { label: 'En attente', value: stats.pending || 0, spark: [0,1,0,1,1,0,stats.pending||0], color: '#F59E0B' },
+                { label: 'Places payées', value: stats.paid || 0, spark: [0,0,0,1,1,1,stats.paid||0], color: '#0EA5E9' },
               ].map((s, i) => (
                 <div key={i} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
                   <p style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{s.label}</p>
@@ -245,11 +323,9 @@ function DashboardContent() {
               ))}
             </motion.div>
 
-            {/* Main grid */}
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 300px', gap: 16 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
 
-                {/* Marchés à proximité — scroll horizontal */}
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Marchés à proximité</p>
@@ -260,24 +336,21 @@ function DashboardContent() {
                   {nearbyEvents.length === 0 ? (
                     <div style={{ padding: '32px', textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>Aucun événement disponible</div>
                   ) : (
-                    // ✅ FIX 1 : touch scroll activé
                     <div className="hide-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 12, padding: '14px 18px', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
                       {nearbyEvents.filter(event => !candidatures.find(c => c.event_id === event.id && c.status === 'paid')).slice(0, 5).map((event: any, i: number) => {
                         const gradients = ['linear-gradient(135deg, #4F46E5, #7C3AED)', 'linear-gradient(135deg, #0EA5E9, #4F46E5)', 'linear-gradient(135deg, #16A34A, #0EA5E9)', 'linear-gradient(135deg, #EA580C, #DC2626)', 'linear-gradient(135deg, #7C3AED, #EC4899)']
                         return (
-                          <div key={event.id}
-                            onClick={() => router.push(`/dashboard/candidature?eventId=${event.id}&eventName=${encodeURIComponent(event.title)}&eventDate=${encodeURIComponent(new Date(event.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(event.location_name || '')}`)}
+                          <div key={event.id} onClick={() => router.push(`/dashboard/candidature?eventId=${event.id}&eventName=${encodeURIComponent(event.title)}&eventDate=${encodeURIComponent(new Date(event.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(event.location_name || '')}`)}
                             style={{ flexShrink: 0, width: 175, borderRadius: 12, overflow: 'hidden', border: '1px solid #E2E8F0', cursor: 'pointer', background: 'white' }}>
                             <div style={{ height: 100, position: 'relative', overflow: 'hidden', background: gradients[i % gradients.length] }}>
                               {event.image_url && <img src={event.image_url} alt={event.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 60%)' }} />
                               <div style={{ position: 'absolute', bottom: 6, left: 8, display: 'flex', alignItems: 'center', gap: 3 }}>
-                                <MapPin size={9} style={{ color: 'white' }} />
-                                <span style={{ fontSize: 9, color: 'white', fontWeight: 500 }}>{event.location_name?.split(',')[0]}</span>
+                                <MapPin size={9} style={{ color: 'white' }} /><span style={{ fontSize: 9, color: 'white', fontWeight: 500 }}>{event.location_name?.split(',')[0]}</span>
                               </div>
                             </div>
                             <div style={{ padding: '10px 12px' }}>
-                              <p style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', marginBottom: 4, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.title}</p>
+                              <p style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.title}</p>
                               <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 6 }}>{new Date(event.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</p>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ fontSize: 13, fontWeight: 800, color: '#4F46E5' }}>{event.price_per_spot === 0 ? 'Gratuit' : `${event.price_per_spot}€`}</span>
@@ -291,16 +364,17 @@ function DashboardContent() {
                   )}
                 </motion.div>
 
-                {/* Suivi dossiers — scroll horizontal sur la timeline */}
-                <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px 18px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                {/* Suivi dossiers avec état vide sympa */}
+                <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
+                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Suivi de mes dossiers</p>
                     <span style={{ fontSize: 11, color: '#94A3B8' }}>{candidatures.length} dossier(s)</span>
                   </div>
+
                   {candidatures.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '24px 0', color: '#94A3B8', fontSize: 13 }}>Aucune candidature envoyée</div>
+                    <EmptyState onAction={() => router.push('/dashboard/evenements')} />
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 18 }}>
                       {candidatures.slice(0, 4).map((c) => (
                         <div key={c.id}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -317,7 +391,6 @@ function DashboardContent() {
                               </span>
                             </div>
                           </div>
-                          {/* ✅ FIX 2 : scroll horizontal sur la timeline */}
                           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                             <CandidatureTimeline status={c.status} />
                           </div>
@@ -328,9 +401,7 @@ function DashboardContent() {
                 </motion.div>
               </div>
 
-              {/* ✅ FIX 3 : Sidebar droite — pleine largeur, pas de débordement */}
               <motion.div variants={fadeUp} style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-
                 <div style={{ background: 'linear-gradient(135deg, #F59E0B, #EF4444)', borderRadius: 12, padding: '14px 16px', cursor: 'pointer' }}
                   onClick={() => router.push('/dashboard/boost')}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 10 }}>
@@ -403,7 +474,6 @@ function DashboardContent() {
                 )}
               </motion.div>
             </div>
-
           </motion.div>
         </main>
       </div>
