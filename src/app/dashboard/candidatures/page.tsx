@@ -7,19 +7,26 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { openFacturePDF } from '@/lib/generateFacture'
 import Sidebar from '@/components/Sidebar'
 import {
-  FileText, Receipt, Settings,
-  LogOut, Search, CheckCircle, AlertCircle, Clock,
+  Search, CheckCircle, AlertCircle, Clock,
   XCircle, ChevronRight, X, Bell, MapPin,
   Shield, ThumbsUp, ThumbsDown, Plus, Calendar,
   Users, ArrowLeft, Zap, Ruler, User, ExternalLink,
-  CreditCard, CheckSquare, Square, Map
+  CreditCard, CheckSquare, Square, Loader, ScanLine,
+  AlertTriangle, UserCheck
 } from 'lucide-react'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
-  pending: { label: 'En attente', color: '#F59E0B', bg: '#FFFBEB', icon: <Clock size={11} /> },
-  validated: { label: 'Validé', color: '#16A34A', bg: '#F0FDF4', icon: <CheckCircle size={11} /> },
-  rejected: { label: 'Refusé', color: '#DC2626', bg: '#FEF2F2', icon: <XCircle size={11} /> },
-  paid: { label: 'Payé', color: '#4F46E5', bg: '#EEF2FF', icon: <CreditCard size={11} /> },
+  pending:   { label: 'En attente', color: '#F59E0B', bg: '#FFFBEB', icon: <Clock size={11} /> },
+  validated: { label: 'Validé',     color: '#16A34A', bg: '#F0FDF4', icon: <CheckCircle size={11} /> },
+  rejected:  { label: 'Refusé',     color: '#DC2626', bg: '#FEF2F2', icon: <XCircle size={11} /> },
+  paid:      { label: 'Payé',       color: '#4F46E5', bg: '#EEF2FF', icon: <CreditCard size={11} /> },
+}
+
+const VERIF_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  pending:         { label: '⏳ En attente',           color: '#F59E0B', bg: '#FFFBEB' },
+  auto_verified:   { label: '✅ Vérifié IA',            color: '#16A34A', bg: '#F0FDF4' },
+  manual_review:   { label: '👁 Revue manuelle requise', color: '#EA580C', bg: '#FFF7ED' },
+  rejected:        { label: '❌ Rejeté',                color: '#DC2626', bg: '#FEF2F2' },
 }
 
 function useIsMobile() {
@@ -38,6 +45,15 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: config.bg, color: config.color, fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 100, border: `1px solid ${config.color}22` }}>
       {config.icon} {config.label}
+    </span>
+  )
+}
+
+function VerifBadge({ status }: { status: string }) {
+  const config = VERIF_CONFIG[status] || VERIF_CONFIG.pending
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: config.bg, color: config.color, fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 100 }}>
+      {config.label}
     </span>
   )
 }
@@ -96,6 +112,7 @@ export default function Candidatures() {
   const [searchEvents, setSearchEvents] = useState('')
   const [searchCandidatures, setSearchCandidatures] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [verifFilter, setVerifFilter] = useState('all') // ✅ Filtre vérification
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [slideOver, setSlideOver] = useState<any | null>(null)
   const [updating, setUpdating] = useState<string | null>(null)
@@ -103,10 +120,33 @@ export default function Candidatures() {
   const [rejectReason, setRejectReason] = useState('')
   const [eventCandidatures, setEventCandidatures] = useState<{ [key: string]: number }>({})
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [signedUrls, setSignedUrls] = useState<{ kbis?: string; assurance?: string }>({})
+  const [signedUrlsLoading, setSignedUrlsLoading] = useState(false)
+  const [verifyingDossier, setVerifyingDossier] = useState(false)
 
   const router = useRouter()
   const supabase = createClient()
   const isMobile = useIsMobile()
+
+  // ✅ Signed URLs 5 min
+  const generateSignedUrls = async (exposantData: any) => {
+    setSignedUrls({}); setSignedUrlsLoading(true)
+    const urls: { kbis?: string; assurance?: string } = {}
+    try {
+      if (exposantData?.kbis_url) {
+        const { data } = await supabase.storage.from('documents').createSignedUrl(exposantData.kbis_url, 300)
+        if (data?.signedUrl) urls.kbis = data.signedUrl
+      }
+      if (exposantData?.assurance_url) {
+        const { data } = await supabase.storage.from('documents').createSignedUrl(exposantData.assurance_url, 300)
+        if (data?.signedUrl) urls.assurance = data.signedUrl
+      }
+    } catch (err) { console.error('Signed URL error:', err) }
+    setSignedUrls(urls); setSignedUrlsLoading(false)
+  }
+
+  const openSlideOver = (c: any) => { setSlideOver(c); generateSignedUrls(c.exposant_data) }
+  const closeSlideOver = () => { setSlideOver(null); setShowRejectInput(false); setSignedUrls({}) }
 
   useEffect(() => {
     const getData = async () => {
@@ -165,6 +205,41 @@ export default function Candidatures() {
     setUpdating(null); setShowRejectInput(false)
   }
 
+  // ✅ Validation manuelle du dossier
+  const handleManualVerify = async (exposantId: string) => {
+    setVerifyingDossier(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('exposant_data').update({
+      verification_status: 'auto_verified',
+      reviewed_by: user?.id,
+      reviewed_at: new Date().toISOString(),
+    }).eq('user_id', exposantId)
+    setAllCandidatures(prev => prev.map(c =>
+      c.exposant_id === exposantId
+        ? { ...c, exposant_data: { ...c.exposant_data, verification_status: 'auto_verified', reviewed_by: user?.id } }
+        : c
+    ))
+    if (slideOver?.exposant_id === exposantId) {
+      setSlideOver((prev: any) => ({ ...prev, exposant_data: { ...prev.exposant_data, verification_status: 'auto_verified' } }))
+    }
+    setToast({ message: '✅ Dossier validé manuellement', type: 'success' })
+    setVerifyingDossier(false)
+  }
+
+  // ✅ Marquer pour revue manuelle
+  const handleFlagReview = async (exposantId: string) => {
+    await supabase.from('exposant_data').update({ verification_status: 'manual_review' }).eq('user_id', exposantId)
+    setAllCandidatures(prev => prev.map(c =>
+      c.exposant_id === exposantId
+        ? { ...c, exposant_data: { ...c.exposant_data, verification_status: 'manual_review' } }
+        : c
+    ))
+    if (slideOver?.exposant_id === exposantId) {
+      setSlideOver((prev: any) => ({ ...prev, exposant_data: { ...prev.exposant_data, verification_status: 'manual_review' } }))
+    }
+    setToast({ message: '👁 Dossier marqué pour revue manuelle', type: 'error' })
+  }
+
   const handleBulkValidate = async () => { for (const id of selectedIds) await handleValidate(id); setSelectedIds([]) }
   const toggleSelect = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
 
@@ -179,9 +254,15 @@ export default function Candidatures() {
   const currentCandidatures = allCandidatures
     .filter(c => selectedEvent ? c.event_id === selectedEvent.id : true)
     .filter(c => statusFilter === 'all' ? true : c.status === statusFilter)
+    .filter(c => verifFilter === 'all' ? true : c.exposant_data?.verification_status === verifFilter)
     .filter(c => !searchCandidatures || c.profiles?.full_name?.toLowerCase().includes(searchCandidatures.toLowerCase()) || c.exposant_data?.business_name?.toLowerCase().includes(searchCandidatures.toLowerCase()))
 
   const pendingCount = currentCandidatures.filter(c => c.status === 'pending').length
+  // ✅ Compteur dossiers à vérifier manuellement
+  const manualReviewCount = allCandidatures.filter(c =>
+    (selectedEvent ? c.event_id === selectedEvent.id : true) &&
+    c.exposant_data?.verification_status === 'manual_review'
+  ).length
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -192,20 +273,15 @@ export default function Candidatures() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Inter', system-ui, sans-serif" }}>
-
       <AnimatePresence>{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}</AnimatePresence>
-
-      {/* ✅ Vrai composant Sidebar avec hamburger */}
       <Sidebar profile={profile} />
 
       <div style={{ marginLeft: isMobile ? 0 : 220, flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-
-        {/* Header */}
         <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: isMobile ? '0 14px 0 60px' : '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
             {selectedEvent && (
               <>
-                <button onClick={() => { setSelectedEvent(null); setStatusFilter('all'); setSearchCandidatures('') }}
+                <button onClick={() => { setSelectedEvent(null); setStatusFilter('all'); setVerifFilter('all'); setSearchCandidatures('') }}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontSize: 13, flexShrink: 0 }}>
                   <ArrowLeft size={14} /> {!isMobile && 'Événements'}
                 </button>
@@ -215,30 +291,18 @@ export default function Candidatures() {
             <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {selectedEvent ? selectedEvent.title : 'Mes événements'}
             </p>
-            {selectedEvent && pendingCount > 0 && (
-              <span style={{ background: '#FEF3C7', color: '#92400E', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, flexShrink: 0 }}>
-                {pendingCount}
-              </span>
-            )}
+            {selectedEvent && pendingCount > 0 && <span style={{ background: '#FEF3C7', color: '#92400E', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, flexShrink: 0 }}>{pendingCount}</span>}
+            {/* ✅ Badge revue manuelle */}
+            {selectedEvent && manualReviewCount > 0 && <span style={{ background: '#FFF7ED', color: '#EA580C', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, flexShrink: 0, border: '1px solid #FED7AA' }}>👁 {manualReviewCount}</span>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {!isMobile && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#22C55E' }}>LIVE</span>
-              </div>
-            )}
-            <button style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 8, padding: '5px 8px', cursor: 'pointer' }}>
-              <Bell size={14} style={{ color: '#64748B' }} />
-            </button>
+            {!isMobile && <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} /><span style={{ fontSize: 11, fontWeight: 700, color: '#22C55E' }}>LIVE</span></div>}
+            <button style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 8, padding: '5px 8px', cursor: 'pointer' }}><Bell size={14} style={{ color: '#64748B' }} /></button>
           </div>
         </header>
-
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
         <AnimatePresence mode="wait">
-
-          {/* Vue galerie événements */}
           {!selectedEvent && (
             <motion.div key="gallery" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}>
               <div style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: isMobile ? '10px 14px' : '10px 28px' }}>
@@ -250,28 +314,24 @@ export default function Candidatures() {
                     onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.background = '#F8FAFC' }} />
                 </div>
               </div>
-
               <main style={{ padding: isMobile ? '14px' : '24px 28px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap: isMobile ? 10 : 16 }}>
                   <button onClick={() => router.push('/dashboard/creer-evenement')}
                     style={{ border: '2px dashed #E2E8F0', borderRadius: 12, padding: isMobile ? '20px' : '32px 20px', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: isMobile ? 70 : 200 }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = '#4F46E5'; e.currentTarget.style.background = '#EEF2FF' }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.background = 'white' }}>
-                    <div style={{ width: 36, height: 36, background: '#EEF2FF', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Plus size={18} style={{ color: '#4F46E5' }} />
-                    </div>
+                    <div style={{ width: 36, height: 36, background: '#EEF2FF', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Plus size={18} style={{ color: '#4F46E5' }} /></div>
                     <div style={{ textAlign: isMobile ? 'left' : 'center' }}>
                       <p style={{ fontSize: 13, fontWeight: 600, color: '#4F46E5', marginBottom: 2 }}>Créer un événement</p>
                       <p style={{ fontSize: 11, color: '#94A3B8' }}>Publier un marché ou festival</p>
                     </div>
                   </button>
-
                   {filteredEvents.map((event, i) => {
                     const count = eventCandidatures[event.id] || 0
                     const pendingApp = allCandidatures.filter(c => c.event_id === event.id && c.status === 'pending').length
+                    const manualApp = allCandidatures.filter(c => c.event_id === event.id && c.exposant_data?.verification_status === 'manual_review').length
                     return (
-                      <motion.div key={event.id}
-                        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                      <motion.div key={event.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
                         onClick={() => setSelectedEvent(event)}
                         style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}>
                         {!isMobile && <EventCover event={event} />}
@@ -282,8 +342,9 @@ export default function Candidatures() {
                                 <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event.title}</p>
                                 <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>{formatShort(event.start_date)} · {count} candidature(s)</p>
                               </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                                 {pendingApp > 0 && <span style={{ background: '#FEF3C7', color: '#92400E', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 100 }}>{pendingApp}</span>}
+                                {manualApp > 0 && <span style={{ background: '#FFF7ED', color: '#EA580C', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 100 }}>👁</span>}
                                 <ChevronRight size={14} style={{ color: '#CBD5E1' }} />
                               </div>
                             </div>
@@ -291,11 +352,12 @@ export default function Candidatures() {
                             <>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                                 <h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', lineHeight: 1.3, flex: 1, paddingRight: 8 }}>{event.title}</h3>
-                                {pendingApp > 0 && <span style={{ background: '#FEF3C7', color: '#92400E', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 100, flexShrink: 0 }}>{pendingApp} à traiter</span>}
+                                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                                  {pendingApp > 0 && <span style={{ background: '#FEF3C7', color: '#92400E', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 100 }}>{pendingApp} à traiter</span>}
+                                  {manualApp > 0 && <span style={{ background: '#FFF7ED', color: '#EA580C', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 100 }}>👁 {manualApp}</span>}
+                                </div>
                               </div>
-                              <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <Calendar size={10} /> {formatShort(event.start_date)}
-                              </p>
+                              <p style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4 }}><Calendar size={10} /> {formatShort(event.start_date)}</p>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid #F8FAFC' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#64748B' }}>
                                   <Users size={12} style={{ color: '#4F46E5' }} />
@@ -306,9 +368,7 @@ export default function Candidatures() {
                                   if (!confirm(`Supprimer "${event.title}" ?`)) return
                                   await supabase.from('events').delete().eq('id', event.id)
                                   setEvents(prev => prev.filter(ev => ev.id !== event.id))
-                                }} style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 11, color: '#DC2626', fontWeight: 500 }}>
-                                  Supprimer
-                                </button>
+                                }} style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 11, color: '#DC2626', fontWeight: 500 }}>Supprimer</button>
                               </div>
                             </>
                           )}
@@ -321,29 +381,22 @@ export default function Candidatures() {
             </motion.div>
           )}
 
-          {/* Vue candidatures */}
           {selectedEvent && (
             <motion.div key="detail" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-
               {!isMobile && (
                 <div style={{ background: '#0F172A', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: 16 }}>
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 2 }}>{selectedEvent.title}</p>
                     <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#64748B' }}>
-                      <span>{formatDate(selectedEvent.start_date)}</span>
-                      <span>·</span>
-                      <span>{selectedEvent.location_name}</span>
-                      <span>·</span>
+                      <span>{formatDate(selectedEvent.start_date)}</span><span>·</span>
+                      <span>{selectedEvent.location_name}</span><span>·</span>
                       <span>{selectedEvent.available_spots}/{selectedEvent.total_spots} places</span>
                     </div>
                   </div>
-                  <span style={{ background: 'rgba(255,255,255,0.08)', color: '#94A3B8', fontSize: 11, padding: '4px 10px', borderRadius: 8 }}>
-                    {currentCandidatures.length} candidature(s)
-                  </span>
+                  <span style={{ background: 'rgba(255,255,255,0.08)', color: '#94A3B8', fontSize: 11, padding: '4px 10px', borderRadius: 8 }}>{currentCandidatures.length} candidature(s)</span>
                 </div>
               )}
 
-              {/* Filtres */}
               <div style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: isMobile ? '10px 14px' : '10px 28px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ position: 'relative' }}>
                   <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
@@ -352,13 +405,20 @@ export default function Candidatures() {
                     onFocus={e => { e.target.style.borderColor = '#4F46E5'; e.target.style.background = 'white' }}
                     onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.background = '#F8FAFC' }} />
                 </div>
-                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
-                  {[{ key: 'all', label: 'Tous' }, { key: 'pending', label: 'À vérifier' }, { key: 'validated', label: 'Validés' }, { key: 'rejected', label: 'Refusés' }].map(f => (
+                {/* ✅ Filtres statut candidature */}
+                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+                  {[{ key: 'all', label: 'Tous' }, { key: 'pending', label: 'À valider' }, { key: 'validated', label: 'Validés' }, { key: 'rejected', label: 'Refusés' }].map(f => (
                     <button key={f.key} onClick={() => setStatusFilter(f.key)}
                       style={{ padding: '5px 12px', borderRadius: 8, border: statusFilter === f.key ? '1.5px solid #4F46E5' : '1px solid #E2E8F0', background: statusFilter === f.key ? '#EEF2FF' : 'white', color: statusFilter === f.key ? '#4F46E5' : '#64748B', fontSize: 11, fontWeight: statusFilter === f.key ? 600 : 400, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
                       {f.label}
                     </button>
                   ))}
+                  <div style={{ width: 1, background: '#E2E8F0', margin: '0 4px', flexShrink: 0 }} />
+                  {/* ✅ Filtre vérification dossier */}
+                  <button onClick={() => setVerifFilter(verifFilter === 'manual_review' ? 'all' : 'manual_review')}
+                    style={{ padding: '5px 12px', borderRadius: 8, border: verifFilter === 'manual_review' ? '1.5px solid #EA580C' : '1px solid #E2E8F0', background: verifFilter === 'manual_review' ? '#FFF7ED' : 'white', color: verifFilter === 'manual_review' ? '#EA580C' : '#64748B', fontSize: 11, fontWeight: verifFilter === 'manual_review' ? 600 : 400, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    👁 À vérifier manuellement {manualReviewCount > 0 && `(${manualReviewCount})`}
+                  </button>
                 </div>
               </div>
 
@@ -369,18 +429,16 @@ export default function Candidatures() {
                     <p style={{ fontSize: 14, color: '#64748B' }}>Aucune candidature</p>
                   </div>
                 ) : isMobile ? (
-                  // ✅ Mobile : cards
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {currentCandidatures.map(c => (
-                      <div key={c.id} onClick={() => setSlideOver(c)}
-                        style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                      <div key={c.id} onClick={() => openSlideOver(c)}
+                        style={{ background: 'white', border: `1px solid ${c.exposant_data?.verification_status === 'manual_review' ? '#FED7AA' : '#E2E8F0'}`, borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
                         <Avatar name={c.profiles?.full_name || '?'} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {c.exposant_data?.business_name || c.profiles?.full_name}
-                          </p>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.exposant_data?.business_name || c.profiles?.full_name}</p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
                             <StatusBadge status={c.status} />
+                            {c.exposant_data?.verification_status === 'manual_review' && <span style={{ fontSize: 10, color: '#EA580C', fontWeight: 600 }}>👁 Revue requise</span>}
                           </div>
                         </div>
                         <ChevronRight size={14} style={{ color: '#CBD5E1', flexShrink: 0 }} />
@@ -388,7 +446,6 @@ export default function Candidatures() {
                     ))}
                   </div>
                 ) : (
-                  // Desktop : table
                   <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
@@ -399,7 +456,7 @@ export default function Candidatures() {
                               {selectedIds.length === currentCandidatures.length && currentCandidatures.length > 0 ? <CheckSquare size={15} style={{ color: '#4F46E5' }} /> : <Square size={15} />}
                             </button>
                           </th>
-                          {['Exposant', 'Activité', 'Stand', 'Reçu le', 'Documents', 'Statut', ''].map((h, i) => (
+                          {['Exposant', 'Activité', 'Stand', 'Reçu le', 'Documents', 'Vérification', 'Statut', ''].map((h, i) => (
                             <th key={i} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr>
@@ -407,12 +464,13 @@ export default function Candidatures() {
                       <tbody>
                         {currentCandidatures.map((c, i) => {
                           const isSelected = selectedIds.includes(c.id)
+                          const needsReview = c.exposant_data?.verification_status === 'manual_review'
                           return (
                             <tr key={c.id}
-                              style={{ borderBottom: i < currentCandidatures.length - 1 ? '1px solid #F8FAFC' : 'none', background: isSelected ? '#EEF2FF' : 'transparent', cursor: 'pointer', transition: 'background 0.1s' }}
-                              onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#FAFAFA' }}
-                              onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
-                              onClick={() => setSlideOver(c)}>
+                              style={{ borderBottom: i < currentCandidatures.length - 1 ? '1px solid #F8FAFC' : 'none', background: needsReview ? '#FFFBEB' : isSelected ? '#EEF2FF' : 'transparent', cursor: 'pointer', transition: 'background 0.1s' }}
+                              onMouseEnter={e => { if (!isSelected && !needsReview) e.currentTarget.style.background = '#FAFAFA' }}
+                              onMouseLeave={e => { e.currentTarget.style.background = needsReview ? '#FFFBEB' : isSelected ? '#EEF2FF' : 'transparent' }}
+                              onClick={() => openSlideOver(c)}>
                               <td style={{ padding: '12px 16px' }} onClick={e => { e.stopPropagation(); toggleSelect(c.id) }}>
                                 {isSelected ? <CheckSquare size={15} style={{ color: '#4F46E5' }} /> : <Square size={15} style={{ color: '#CBD5E1' }} />}
                               </td>
@@ -429,6 +487,7 @@ export default function Candidatures() {
                               <td style={{ padding: '12px 14px' }}><p style={{ fontSize: 12, color: '#64748B', whiteSpace: 'nowrap' }}>{c.exposant_data?.stand_width ? `${c.exposant_data.stand_width}m × ${c.exposant_data.stand_length}m` : '—'}</p></td>
                               <td style={{ padding: '12px 14px' }}><p style={{ fontSize: 12, color: '#64748B', whiteSpace: 'nowrap' }}>{formatDate(c.created_at)}</p></td>
                               <td style={{ padding: '12px 14px' }}><div style={{ display: 'flex', gap: 4 }}><DocBadge ok={!!c.exposant_data?.kbis_url} label="Kbis" /><DocBadge ok={!!c.exposant_data?.assurance_url} label="RC Pro" /></div></td>
+                              <td style={{ padding: '12px 14px' }}><VerifBadge status={c.exposant_data?.verification_status || 'pending'} /></td>
                               <td style={{ padding: '12px 14px' }}><StatusBadge status={c.status} /></td>
                               <td style={{ padding: '12px 14px' }}><ChevronRight size={14} style={{ color: '#CBD5E1' }} /></td>
                             </tr>
@@ -445,13 +504,10 @@ export default function Candidatures() {
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
                     style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#0F172A', borderRadius: 12, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 8px 40px rgba(0,0,0,0.3)', zIndex: 30 }}>
                     <span style={{ fontSize: 13, color: '#94A3B8' }}><strong style={{ color: 'white' }}>{selectedIds.length}</strong> sélectionné(s)</span>
-                    <button onClick={handleBulkValidate}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    <button onClick={handleBulkValidate} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                       <CheckCircle size={13} /> Valider + factures
                     </button>
-                    <button onClick={() => setSelectedIds([])} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
-                      <X size={14} />
-                    </button>
+                    <button onClick={() => setSelectedIds([])} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={14} /></button>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -464,12 +520,11 @@ export default function Candidatures() {
       <AnimatePresence>
         {slideOver && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => { setSlideOver(null); setShowRejectInput(false) }}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeSlideOver}
               style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 40, backdropFilter: 'blur(2px)' }} />
             <motion.div initial={{ x: '100%', opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: '100%', opacity: 0 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: isMobile ? '100%' : 420, background: 'white', zIndex: 50, display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 40px rgba(0,0,0,0.12)' }}>
+              style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: isMobile ? '100%' : 440, background: 'white', zIndex: 50, display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 40px rgba(0,0,0,0.12)' }}>
 
               <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -479,8 +534,7 @@ export default function Candidatures() {
                     <p style={{ fontSize: 11, color: '#94A3B8' }}>{slideOver.profiles?.email}</p>
                   </div>
                 </div>
-                <button onClick={() => { setSlideOver(null); setShowRejectInput(false) }}
-                  style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '6px', cursor: 'pointer', display: 'flex' }}>
+                <button onClick={closeSlideOver} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '6px', cursor: 'pointer', display: 'flex' }}>
                   <X size={14} style={{ color: '#64748B' }} />
                 </button>
               </div>
@@ -490,6 +544,50 @@ export default function Candidatures() {
                   <StatusBadge status={slideOver.status} />
                   <span style={{ fontSize: 11, color: '#94A3B8' }}>{new Date(slideOver.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                 </div>
+
+                {/* ✅ Bloc vérification dossier */}
+                <div style={{ background: slideOver.exposant_data?.verification_status === 'manual_review' ? '#FFF7ED' : '#F8FAFC', border: `1px solid ${slideOver.exposant_data?.verification_status === 'manual_review' ? '#FED7AA' : '#E2E8F0'}`, borderRadius: 10, padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <ScanLine size={13} style={{ color: '#4F46E5' }} />
+                      <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Vérification dossier</p>
+                    </div>
+                    <VerifBadge status={slideOver.exposant_data?.verification_status || 'pending'} />
+                  </div>
+                  {slideOver.exposant_data?.ocr_score !== null && slideOver.exposant_data?.ocr_score !== undefined && (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748B', marginBottom: 4 }}>
+                        <span>Score OCR</span>
+                        <span style={{ fontWeight: 700, color: slideOver.exposant_data.ocr_score >= 0.8 ? '#16A34A' : slideOver.exposant_data.ocr_score >= 0.5 ? '#F59E0B' : '#DC2626' }}>
+                          {Math.round(slideOver.exposant_data.ocr_score * 100)}%
+                        </span>
+                      </div>
+                      <div style={{ height: 6, background: '#E2E8F0', borderRadius: 100, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${slideOver.exposant_data.ocr_score * 100}%`, background: slideOver.exposant_data.ocr_score >= 0.8 ? '#16A34A' : slideOver.exposant_data.ocr_score >= 0.5 ? '#F59E0B' : '#DC2626', borderRadius: 100 }} />
+                      </div>
+                    </div>
+                  )}
+                  {/* ✅ Boutons validation manuelle */}
+                  {slideOver.exposant_data?.verification_status !== 'auto_verified' && (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => handleManualVerify(slideOver.exposant_id)} disabled={verifyingDossier}
+                        style={{ flex: 1, background: '#16A34A', color: 'white', border: 'none', borderRadius: 8, padding: '8px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                        {verifyingDossier ? <Loader size={11} style={{ animation: 'spin 0.8s linear infinite' }} /> : <UserCheck size={11} />}
+                        Valider manuellement
+                      </button>
+                      {slideOver.exposant_data?.verification_status !== 'manual_review' && (
+                        <button onClick={() => handleFlagReview(slideOver.exposant_id)}
+                          style={{ flex: 1, background: '#FFF7ED', color: '#EA580C', border: '1px solid #FED7AA', borderRadius: 8, padding: '8px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                          <AlertTriangle size={11} /> Signaler
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {slideOver.exposant_data?.verification_status === 'auto_verified' && slideOver.exposant_data?.reviewed_by && (
+                    <p style={{ fontSize: 11, color: '#16A34A', marginTop: 8 }}>✓ Validé manuellement par votre équipe</p>
+                  )}
+                </div>
+
                 <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 14px' }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Informations exposant</p>
                   {[
@@ -504,15 +602,30 @@ export default function Candidatures() {
                     </div>
                   ))}
                 </div>
+
+                {/* ✅ Documents avec signed URLs */}
                 <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 14px' }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Documents légaux</p>
-                  {[{ label: 'Extrait Kbis', url: slideOver.exposant_data?.kbis_url }, { label: 'Attestation RC Pro', url: slideOver.exposant_data?.assurance_url }].map((doc, i) => (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Documents légaux</p>
+                    {signedUrlsLoading && <Loader size={11} style={{ color: '#94A3B8', animation: 'spin 0.8s linear infinite' }} />}
+                  </div>
+                  {[
+                    { label: 'Extrait Kbis', hasDoc: !!slideOver.exposant_data?.kbis_url, url: signedUrls.kbis },
+                    { label: 'Attestation RC Pro', hasDoc: !!slideOver.exposant_data?.assurance_url, url: signedUrls.assurance },
+                  ].map((doc, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: i < 1 ? 8 : 0, marginBottom: i < 1 ? 8 : 0, borderBottom: i < 1 ? '1px solid #F1F5F9' : 'none' }}>
-                      <DocBadge ok={!!doc.url} label={doc.label} />
-                      {doc.url && <a href={doc.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#4F46E5', fontWeight: 500, textDecoration: 'none' }}>Voir <ExternalLink size={10} /></a>}
+                      <DocBadge ok={doc.hasDoc} label={doc.label} />
+                      {doc.hasDoc && (doc.url
+                        ? <a href={doc.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#4F46E5', fontWeight: 500, textDecoration: 'none' }}>Voir <ExternalLink size={10} /></a>
+                        : <span style={{ fontSize: 11, color: '#94A3B8' }}>Chargement...</span>
+                      )}
                     </div>
                   ))}
+                  {(signedUrls.kbis || signedUrls.assurance) && (
+                    <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 8 }}>🔒 Liens sécurisés — expirent dans 5 minutes</p>
+                  )}
                 </div>
+
                 {showRejectInput && (
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 600, color: '#DC2626', display: 'block', marginBottom: 6 }}>Motif du refus</label>
@@ -528,17 +641,14 @@ export default function Candidatures() {
                     style={{ width: '100%', background: '#16A34A', color: 'white', border: 'none', borderRadius: 10, padding: '11px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, opacity: updating === slideOver.id ? 0.7 : 1 }}>
                     <ThumbsUp size={14} /> Approuver + Générer la facture
                   </button>
-                  {!showRejectInput ? (
-                    <button onClick={() => setShowRejectInput(true)}
-                      style={{ width: '100%', background: 'white', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 0', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-                      <ThumbsDown size={14} /> Refuser avec un motif
-                    </button>
-                  ) : (
-                    <button onClick={() => handleReject(slideOver.id)}
-                      style={{ width: '100%', background: '#DC2626', color: 'white', border: 'none', borderRadius: 10, padding: '10px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                      Confirmer le refus
-                    </button>
-                  )}
+                  {!showRejectInput
+                    ? <button onClick={() => setShowRejectInput(true)} style={{ width: '100%', background: 'white', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 0', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+                        <ThumbsDown size={14} /> Refuser avec un motif
+                      </button>
+                    : <button onClick={() => handleReject(slideOver.id)} style={{ width: '100%', background: '#DC2626', color: 'white', border: 'none', borderRadius: 10, padding: '10px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                        Confirmer le refus
+                      </button>
+                  }
                 </div>
               )}
               {slideOver.status !== 'pending' && (
