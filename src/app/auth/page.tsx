@@ -37,10 +37,22 @@ function AuthForm() {
     setLoading(true); setError('')
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) { setError('Email ou mot de passe incorrect'); setLoading(false); return }
+
     const { data: profileData } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
-    if (profileData?.role === 'placier') router.push('/dashboard/placier')
-    else if (profileData?.role === 'organisateur') router.push('/dashboard/organisateur')
-    else router.push('/dashboard')
+
+    // ✅ Bloque les organisateurs sur la page exposant
+    if (profileData?.role === 'organisateur') {
+      await supabase.auth.signOut()
+      setError("Ce compte est un compte organisateur. Connectez-vous via l'espace administration.")
+      setLoading(false)
+      return
+    }
+
+    if (profileData?.role === 'placier') {
+      router.push('/dashboard/placier')
+    } else {
+      router.push('/dashboard')
+    }
     setLoading(false)
   }
 
@@ -72,21 +84,18 @@ function AuthForm() {
   return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      {/* Panneau gauche — desktop seulement */}
       <motion.div
         initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}
         className="hidden lg:flex"
         style={{ width: '45%', background: '#0F172A', padding: '48px', flexDirection: 'column', justifyContent: 'space-between', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -100, right: -100, width: 400, height: 400, background: 'radial-gradient(circle, rgba(79,70,229,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: -80, left: -80, width: 300, height: 300, background: 'radial-gradient(circle, rgba(79,70,229,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 32, height: 32, background: '#4F46E5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ color: 'white', fontSize: 13, fontWeight: 700 }}>PM</span>
           </div>
           <span style={{ color: 'white', fontWeight: 600, fontSize: 16 }}>PulseMarket</span>
         </div>
-
         <div>
           <h2 style={{ color: 'white', fontSize: 32, fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.02em', marginBottom: 20 }}>
             La numérisation des marchés du terroir français
@@ -95,11 +104,7 @@ function AuthForm() {
             Gérez vos Autorisations d'Occupation du Domaine Public, certifiez vos dossiers exposants et simplifiez vos marchés.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {[
-              'Vérification SIREN via API INSEE en 10 secondes',
-              'Génération automatique des arrêtés municipaux',
-              'Dossiers certifiés OCR — RC Pro & Kbis',
-            ].map((text, i) => (
+            {['Vérification SIREN via API INSEE en 10 secondes', 'Génération automatique des arrêtés municipaux', 'Dossiers certifiés OCR — RC Pro & Kbis'].map((text, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ background: 'rgba(79,70,229,0.15)', borderRadius: 6, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <ShieldCheck size={15} style={{ color: '#818CF8' }} />
@@ -108,8 +113,6 @@ function AuthForm() {
               </div>
             ))}
           </div>
-
-          {/* Stats */}
           <div style={{ display: 'flex', gap: 24, marginTop: 40 }}>
             {[{ val: '36 000', label: 'communes en France' }, { val: '100%', label: 'données hébergées FR' }, { val: '< 10s', label: 'vérification SIREN' }].map((s, i) => (
               <div key={i}>
@@ -119,15 +122,12 @@ function AuthForm() {
             ))}
           </div>
         </div>
-
         <p style={{ color: '#334155', fontSize: 12 }}>© 2026 PulseMarket SAS — Données hébergées en France</p>
       </motion.div>
 
-      {/* Panneau droit — formulaire */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 20px' }}>
         <motion.div variants={stagger} initial="hidden" animate="visible" style={{ width: '100%', maxWidth: 420 }}>
 
-          {/* Logo mobile */}
           <motion.div variants={fadeUp} className="lg:hidden" style={{ marginBottom: 32 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <div style={{ width: 32, height: 32, background: '#0F172A', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -147,7 +147,6 @@ function AuthForm() {
             </p>
           </motion.div>
 
-          {/* Tabs */}
           <motion.div variants={fadeUp} style={{ background: '#F1F5F9', borderRadius: 10, padding: 4, display: 'flex', marginBottom: 24 }}>
             {[{ val: 'signin', label: 'Connexion' }, { val: 'signup', label: 'Inscription' }].map(t => (
               <button key={t.val} onClick={() => { setTab(t.val as any); setError('') }}
@@ -182,12 +181,12 @@ function AuthForm() {
                   <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Mot de passe</label>
                   {tab === 'signin' && (
                     <button onClick={async () => {
-                    if (!email) { setError('Entrez votre email d\'abord'); return }
-                    await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/auth/reset` })
-                    setError('')
-                    alert('Email de réinitialisation envoyé à ' + email)
+                      if (!email) { setError("Entrez votre email d'abord"); return }
+                      await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/auth/reset` })
+                      setError('')
+                      alert('Email de réinitialisation envoyé à ' + email)
                     }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#4F46E5', fontWeight: 500 }}>
-                    Mot de passe oublié ?
+                      Mot de passe oublié ?
                     </button>
                   )}
                 </div>
@@ -221,7 +220,6 @@ function AuthForm() {
                 </div>
               )}
 
-              {/* Erreur */}
               <AnimatePresence>
                 {error && (
                   <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -232,7 +230,7 @@ function AuthForm() {
               </AnimatePresence>
 
               <button onClick={tab === 'signin' ? handleSignIn : handleSignUp} disabled={loading}
-                style={{ width: '100%', padding: '13px 0', background: loading ? '#818CF8' : '#4F46E5', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'background 0.2s', marginTop: 2 }}>
+                style={{ width: '100%', padding: '13px 0', background: loading ? '#818CF8' : '#4F46E5', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 2 }}>
                 {loading
                   ? <><Loader size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</>
                   : <>{tab === 'signin' ? 'Accéder à mon espace' : 'Créer mon compte'}<ArrowRight size={15} /></>

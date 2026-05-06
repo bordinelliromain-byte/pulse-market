@@ -36,6 +36,15 @@ function AuthOrganisateurForm() {
     setLoading(true); setError('')
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) { setError('Email ou mot de passe incorrect'); setLoading(false); return }
+
+    // ✅ Vérification du rôle — bloque les exposants
+    const { data: profileData } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
+    if (profileData?.role !== 'organisateur') {
+      await supabase.auth.signOut()
+      setError('Ce compte n\'est pas un compte organisateur. Connectez-vous sur l\'espace exposant.')
+      setLoading(false); return
+    }
+
     router.push('/dashboard/organisateur')
     setLoading(false)
   }
@@ -66,18 +75,15 @@ function AuthOrganisateurForm() {
   return (
     <div style={{ minHeight: '100vh', background: '#0F172A', display: 'flex', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      {/* Panneau gauche — desktop */}
       <div className="hidden lg:flex" style={{ width: '42%', background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', padding: '48px', flexDirection: 'column', justifyContent: 'space-between', borderRight: '1px solid rgba(255,255,255,0.06)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, background: 'radial-gradient(circle, rgba(79,70,229,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: -60, left: -60, width: 280, height: 280, background: 'radial-gradient(circle, rgba(79,70,229,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 32, height: 32, background: '#4F46E5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ color: 'white', fontSize: 13, fontWeight: 700 }}>PM</span>
           </div>
           <span style={{ color: 'white', fontWeight: 600, fontSize: 16 }}>PulseMarket</span>
         </div>
-
         <div>
           {villeParam && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(79,70,229,0.15)', border: '1px solid rgba(79,70,229,0.3)', borderRadius: 100, padding: '6px 14px', marginBottom: 24 }}>
@@ -86,13 +92,11 @@ function AuthOrganisateurForm() {
             </div>
           )}
           <h2 style={{ color: 'white', fontSize: 30, fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.02em', marginBottom: 16 }}>
-            La gestion des marchés,{' '}
-            <span style={{ color: '#818CF8' }}>enfin numérisée</span>
+            La gestion des marchés,{' '}<span style={{ color: '#818CF8' }}>enfin numérisée</span>
           </h2>
           <p style={{ color: '#64748B', fontSize: 14, lineHeight: 1.7, marginBottom: 36 }}>
             PulseMarket permet à toutes les communes, comités des fêtes et associations de gérer leurs marchés et exposants en ligne.
           </p>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {[
               { icon: '🏛️', text: 'Mairies, comités des fêtes, associations' },
@@ -101,15 +105,11 @@ function AuthOrganisateurForm() {
               { icon: '🗺️', text: 'Attribution des emplacements en drag & drop' },
             ].map((item, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 32, height: 32, background: 'rgba(79,70,229,0.12)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>
-                  {item.icon}
-                </div>
+                <div style={{ width: 32, height: 32, background: 'rgba(79,70,229,0.12)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>{item.icon}</div>
                 <span style={{ color: '#94A3B8', fontSize: 13 }}>{item.text}</span>
               </div>
             ))}
           </div>
-
-          {/* Stats */}
           <div style={{ display: 'flex', gap: 28, marginTop: 36 }}>
             {[{ val: '36 000', label: 'communes FR' }, { val: 'RGPD', label: 'conforme' }, { val: '100%', label: 'données FR' }].map((s, i) => (
               <div key={i}>
@@ -119,18 +119,15 @@ function AuthOrganisateurForm() {
             ))}
           </div>
         </div>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <ShieldCheck size={14} style={{ color: '#475569' }} />
           <p style={{ color: '#334155', fontSize: 12 }}>© 2026 PulseMarket SAS — Données hébergées en France</p>
         </div>
       </div>
 
-      {/* Panneau droit — formulaire */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 20px' }}>
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} style={{ width: '100%', maxWidth: 420 }}>
 
-          {/* Logo mobile */}
           <div className="lg:hidden" style={{ marginBottom: 32 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <div style={{ width: 30, height: 30, background: '#4F46E5', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -154,7 +151,6 @@ function AuthOrganisateurForm() {
             </p>
           </div>
 
-          {/* Tabs */}
           <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: 4, display: 'flex', marginBottom: 24, border: '1px solid rgba(255,255,255,0.08)' }}>
             {[{ val: 'signin', label: 'Connexion' }, { val: 'signup', label: 'Inscription' }].map(t => (
               <button key={t.val} onClick={() => { setTab(t.val as any); setError('') }}
@@ -165,8 +161,6 @@ function AuthOrganisateurForm() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-            {/* Inscription — type + nom organisation */}
             {tab === 'signup' && (
               <>
                 <div>
@@ -181,7 +175,6 @@ function AuthOrganisateurForm() {
                     ))}
                   </div>
                 </div>
-
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Nom de l'organisation</label>
                   <input type="text" placeholder={selectedOrgType.placeholder} value={orgName} onChange={e => setOrgName(e.target.value)} onKeyDown={handleKeyDown}
