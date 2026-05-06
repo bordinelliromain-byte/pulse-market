@@ -1,10 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 type LogAction =
   | 'paiement_initie'
   | 'paiement_confirme'
@@ -30,6 +25,12 @@ export async function securityLog({
   ip?: string
 }) {
   try {
+    // ✅ Client créé dans la fonction — pas au niveau du module
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
     await supabase.from('security_logs').insert({
       user_id: userId || null,
       action,
