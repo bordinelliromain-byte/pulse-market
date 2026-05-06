@@ -151,3 +151,21 @@ html, body {
 @media (max-width: 768px) {
   .dash-header { padding-left: 60px !important; }
 }
+
+/* Colonne droite dashboard — pleine largeur sur mobile */
+.dash-wrap [style*="300px"] {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Cartes scroll horizontal — touch scroll */
+.hide-scrollbar {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto !important;
+}
+
+/* Empêche les enfants de dépasser */
+.dash-wrap * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
