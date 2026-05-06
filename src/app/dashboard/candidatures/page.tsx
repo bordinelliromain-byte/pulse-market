@@ -363,6 +363,22 @@ export default function Candidatures() {
                                   <Users size={12} style={{ color: '#4F46E5' }} />
                                   <span><strong style={{ color: '#0F172A' }}>{count}</strong> candidature{count !== 1 ? 's' : ''}</span>
                                 </div>
+
+                                {/* ✅ Places restantes */}
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                  <span style={{ fontSize: 11, color: '#64748B' }}>
+                                    <strong style={{ color: event.available_spots === 0 ? '#DC2626' : '#0F172A' }}>{event.available_spots}</strong>/{event.total_spots} places
+                                  </span>
+                                  <div style={{ width: 72, height: 4, background: '#F1F5F9', borderRadius: 100, overflow: 'hidden' }}>
+                                    <div style={{
+                                      height: '100%',
+                                      width: `${event.total_spots > 0 ? Math.round(((event.total_spots - event.available_spots) / event.total_spots) * 100) : 0}%`,
+                                      background: event.available_spots === 0 ? '#DC2626' : event.available_spots <= event.total_spots * 0.2 ? '#F59E0B' : '#4F46E5',
+                                      borderRadius: 100,
+                                    }} />
+                                  </div>
+                                </div>
+
                                 <button onClick={async (e) => {
                                   e.stopPropagation()
                                   if (!confirm(`Supprimer "${event.title}" ?`)) return
