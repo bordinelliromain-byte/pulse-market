@@ -14,6 +14,34 @@ const ORG_TYPES = [
   { val: 'autre', label: 'Autre organisateur', icon: <MapPin size={14} />, placeholder: 'Office de Tourisme de Cassis' },
 ]
 
+// ── ANTI BRUTE-FORCE ──────────────────────────────────────────────────────
+const MAX_ATTEMPTS = 5
+const LOCKOUT_MS = 15 * 60 * 1000 // 15 minutes
+
+function getLockoutState(): { attempts: number; lockedUntil: number } {
+  try {
+    const raw = sessionStorage.getItem('auth_attempts')
+    return raw ? JSON.parse(raw) : { attempts: 0, lockedUntil: 0 }
+  } catch { return { attempts: 0, lockedUntil: 0 } }
+}
+
+function recordFailedAttempt(): { attempts: number; lockedUntil: number } {
+  const state = getLockoutState()
+  const newAttempts = state.attempts + 1
+  const lockedUntil = newAttempts >= MAX_ATTEMPTS ? Date.now() + LOCKOUT_MS : state.lockedUntil
+  const newState = { attempts: newAttempts, lockedUntil }
+  sessionStorage.setItem('auth_attempts', JSON.stringify(newState))
+  return newState
+}
+
+function resetAttempts() {
+  sessionStorage.removeItem('auth_attempts')
+}
+
+function getRemainingMinutes(lockedUntil: number): number {
+  return Math.ceil((lockedUntil - Date.now()) / 60_000)
+}
+
 function AuthOrganisateurForm() {
   const searchParams = useSearchParams()
   const villeParam = searchParams.get('ville') || ''
@@ -26,18 +54,49 @@ function AuthOrganisateurForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+
+  // ✅ Anti brute-force
+  const [attemptCount, setAttemptCount] = useState(() => getLockoutState().attempts)
+  const [lockedUntil, setLockedUntil] = useState(() => getLockoutState().lockedUntil)
+
   const router = useRouter()
   const supabase = createClient()
-
   const selectedOrgType = ORG_TYPES.find(t => t.val === orgType) || ORG_TYPES[0]
 
-  const handleSignIn = async () => {
-    if (!email || !password) { setError('Veuillez remplir tous les champs'); return }
-    setLoading(true); setError('')
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { setError('Email ou mot de passe incorrect'); setLoading(false); return }
+  const isLocked = lockedUntil > Date.now()
 
-    // ✅ Vérification du rôle — bloque les exposants
+  const handleSignIn = async () => {
+    if (isLocked) {
+      setError(`Trop de tentatives. Réessayez dans ${getRemainingMinutes(lockedUntil)} minute(s).`)
+      return
+    }
+    if (!email || !password) { setError('Veuillez remplir tous les champs'); return }
+
+    setLoading(true); setError('')
+
+    // ✅ Délai croissant selon le nombre de tentatives
+    if (attemptCount > 0) {
+      const delay = Math.min(attemptCount * 1000, 5000) // max 5s
+      await new Promise(r => setTimeout(r, delay))
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+
+    if (error) {
+      const newState = recordFailedAttempt()
+      setAttemptCount(newState.attempts)
+      setLockedUntil(newState.lockedUntil)
+
+      if (newState.attempts >= MAX_ATTEMPTS) {
+        setError(`Compte temporairement bloqué pendant 15 minutes suite à trop de tentatives.`)
+      } else {
+        const remaining = MAX_ATTEMPTS - newState.attempts
+        setError(`Email ou mot de passe incorrect. ${remaining} tentative${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}.`)
+      }
+      setLoading(false); return
+    }
+
+    // ✅ Vérification du rôle
     const { data: profileData } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
     if (profileData?.role !== 'organisateur') {
       await supabase.auth.signOut()
@@ -45,6 +104,9 @@ function AuthOrganisateurForm() {
       setLoading(false); return
     }
 
+    // ✅ Connexion réussie — reset compteur
+    resetAttempts()
+    setAttemptCount(0)
     router.push('/dashboard/organisateur')
     setLoading(false)
   }
@@ -63,7 +125,7 @@ function AuthOrganisateurForm() {
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !loading) tab === 'signin' ? handleSignIn() : handleSignUp()
+    if (e.key === 'Enter' && !loading && !isLocked) tab === 'signin' ? handleSignIn() : handleSignUp()
   }
 
   const inputStyle: React.CSSProperties = {
@@ -215,17 +277,40 @@ function AuthOrganisateurForm() {
               </div>
             </div>
 
-            {error && (
+            {/* ✅ Barre de tentatives */}
+            {tab === 'signin' && attemptCount > 0 && !isLocked && (
+              <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '8px 12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#F59E0B', marginBottom: 6 }}>
+                  <span>Tentatives incorrectes</span>
+                  <span>{attemptCount}/{MAX_ATTEMPTS}</span>
+                </div>
+                <div style={{ height: 3, background: 'rgba(245,158,11,0.2)', borderRadius: 100, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${(attemptCount / MAX_ATTEMPTS) * 100}%`, background: '#F59E0B', borderRadius: 100 }} />
+                </div>
+              </div>
+            )}
+
+            {/* ✅ Compte bloqué */}
+            {isLocked && (
+              <div style={{ background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.3)', borderRadius: 8, padding: '12px 14px', textAlign: 'center' }}>
+                <p style={{ fontSize: 13, color: '#FCA5A5', fontWeight: 600 }}>🔒 Accès temporairement bloqué</p>
+                <p style={{ fontSize: 12, color: '#F87171', marginTop: 4 }}>Réessayez dans {getRemainingMinutes(lockedUntil)} minute(s)</p>
+              </div>
+            )}
+
+            {error && !isLocked && (
               <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
                 style={{ background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.3)', borderRadius: 8, padding: '10px 14px' }}>
                 <p style={{ fontSize: 13, color: '#FCA5A5' }}>{error}</p>
               </motion.div>
             )}
 
-            <button onClick={tab === 'signin' ? handleSignIn : handleSignUp} disabled={loading}
-              style={{ width: '100%', padding: '13px 0', background: loading ? '#3730A3' : '#4F46E5', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 }}>
+            <button onClick={tab === 'signin' ? handleSignIn : handleSignUp} disabled={loading || isLocked}
+              style={{ width: '100%', padding: '13px 0', background: isLocked ? '#374151' : loading ? '#3730A3' : '#4F46E5', color: isLocked ? '#6B7280' : 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: loading || isLocked ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 }}>
               {loading
                 ? <><Loader size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</>
+                : isLocked
+                ? <>🔒 Accès bloqué</>
                 : <>{tab === 'signin' ? 'Accéder à mon espace' : 'Créer mon compte'}<ArrowRight size={15} /></>
               }
             </button>
