@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { sanitize } from '@/lib/sanitize'
+
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 
@@ -27,8 +29,9 @@ export async function POST(req: NextRequest) {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
     const { data: mairie } = await supabase.from('profiles').select('id, role').eq('id', mairieId).single()
     if (!mairie || mairie.role !== 'organisateur') return NextResponse.json({ error: 'Organisateur introuvable' }, { status: 404 })
-
-    const { error } = await supabase.from('placier_invitations').insert({ email, mairie_id: mairieId, token, used: false })
+    
+    const safeEmail = sanitize(email)
+    const { error } = await supabase.from('placier_invitations').insert({ email: safeEmail, mairie_id: mairieId, token, used: false })
     if (error) throw error
 
     return NextResponse.json({ success: true })
