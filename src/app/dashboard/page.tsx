@@ -54,7 +54,7 @@ function CandidatureTimeline({ status }: { status: string }) {
   ]
   const activeIndex = status === 'validated' || status === 'paid' ? 3 : status === 'pending' ? 1 : 0
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 0, minWidth: 280 }}>
       {steps.map((step, i) => (
         <div key={step.key} style={{ display: 'flex', alignItems: 'center', flex: i < steps.length - 1 ? 1 : 'none' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
@@ -133,9 +133,9 @@ function DashboardContent() {
     const { data: expData } = await supabase.from('exposant_data').select('plan, is_verified').eq('user_id', user.id).single()
     setStats({
       total: apps?.length || 0,
-      validated: apps?.filter(a => a.status === 'validated').length || 0,
-      paid: apps?.filter(a => a.status === 'paid').length || 0,
-      pending: apps?.filter(a => a.status === 'pending').length || 0,
+      validated: apps?.filter((a: any) => a.status === 'validated').length || 0,
+      paid: apps?.filter((a: any) => a.status === 'paid').length || 0,
+      pending: apps?.filter((a: any) => a.status === 'pending').length || 0,
       plan: expData?.plan || 'gratuit',
       isVerified: expData?.is_verified || false,
     })
@@ -171,12 +171,10 @@ function DashboardContent() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#EEF2F7', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <Sidebar profile={profile} />
-      <div style={{ marginLeft: isMobile ? 0 : 220, flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: isMobile ? '0 16px 0 56px' : '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
+      <div className="dash-wrap" style={{ marginLeft: isMobile ? 0 : 220, flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <header className="dash-header" style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: isMobile ? '0 16px 0 60px' : '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <div>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>
-              Salut {profile?.full_name?.split(' ')[0]} 👋
-            </p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>Salut {profile?.full_name?.split(' ')[0]} 👋</p>
             <p style={{ fontSize: 11, color: '#94A3B8' }}>Tableau de bord — Exposant</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 16 }}>
@@ -200,13 +198,13 @@ function DashboardContent() {
 
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }
-          @keyframes pulse-live { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); } 70% { box-shadow: 0 0 0 6px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
           .hide-scrollbar::-webkit-scrollbar { display: none; }
         `}</style>
 
-        <main style={{ padding: isMobile ? '16px 14px' : '24px 28px', flex: 1 }}>
+        <main className="dash-main" style={{ padding: isMobile ? '16px 14px' : '24px 28px', flex: 1 }}>
           <motion.div variants={stagger} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
+            {/* Alerte paiement */}
             {candidaturesAPayer.length > 0 && (
               <motion.div variants={fadeUp}>
                 {candidaturesAPayer.map(c => (
@@ -249,9 +247,9 @@ function DashboardContent() {
 
             {/* Main grid */}
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 300px', gap: 16 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
 
-                {/* Marchés suggérés */}
+                {/* Marchés à proximité — scroll horizontal */}
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Marchés à proximité</p>
@@ -262,12 +260,14 @@ function DashboardContent() {
                   {nearbyEvents.length === 0 ? (
                     <div style={{ padding: '32px', textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>Aucun événement disponible</div>
                   ) : (
-                    <div className="hide-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 12, padding: '14px 18px', scrollbarWidth: 'none' }}>
+                    // ✅ FIX 1 : touch scroll activé
+                    <div className="hide-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 12, padding: '14px 18px', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
                       {nearbyEvents.filter(event => !candidatures.find(c => c.event_id === event.id && c.status === 'paid')).slice(0, 5).map((event: any, i: number) => {
                         const gradients = ['linear-gradient(135deg, #4F46E5, #7C3AED)', 'linear-gradient(135deg, #0EA5E9, #4F46E5)', 'linear-gradient(135deg, #16A34A, #0EA5E9)', 'linear-gradient(135deg, #EA580C, #DC2626)', 'linear-gradient(135deg, #7C3AED, #EC4899)']
                         return (
-                          <div key={event.id} onClick={() => router.push(`/dashboard/candidature?eventId=${event.id}&eventName=${encodeURIComponent(event.title)}&eventDate=${encodeURIComponent(new Date(event.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(event.location_name || '')}`)}
-                            style={{ flexShrink: 0, width: 175, borderRadius: 12, overflow: 'hidden', border: '1px solid #E2E8F0', cursor: 'pointer', transition: 'all 0.2s', background: 'white' }}>
+                          <div key={event.id}
+                            onClick={() => router.push(`/dashboard/candidature?eventId=${event.id}&eventName=${encodeURIComponent(event.title)}&eventDate=${encodeURIComponent(new Date(event.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(event.location_name || '')}`)}
+                            style={{ flexShrink: 0, width: 175, borderRadius: 12, overflow: 'hidden', border: '1px solid #E2E8F0', cursor: 'pointer', background: 'white' }}>
                             <div style={{ height: 100, position: 'relative', overflow: 'hidden', background: gradients[i % gradients.length] }}>
                               {event.image_url && <img src={event.image_url} alt={event.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 60%)' }} />
@@ -291,7 +291,7 @@ function DashboardContent() {
                   )}
                 </motion.div>
 
-                {/* Suivi dossiers */}
+                {/* Suivi dossiers — scroll horizontal sur la timeline */}
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px 18px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                     <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Suivi de mes dossiers</p>
@@ -305,7 +305,7 @@ function DashboardContent() {
                         <div key={c.id}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                             <p style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>{c.events?.title || 'Événement'}</p>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                               {c.status === 'validated' && (
                                 <button onClick={() => handlePayer(c)} disabled={payingId === c.id}
                                   style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#4F46E5', color: 'white', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
@@ -317,7 +317,10 @@ function DashboardContent() {
                               </span>
                             </div>
                           </div>
-                          <CandidatureTimeline status={c.status} />
+                          {/* ✅ FIX 2 : scroll horizontal sur la timeline */}
+                          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                            <CandidatureTimeline status={c.status} />
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -325,8 +328,8 @@ function DashboardContent() {
                 </motion.div>
               </div>
 
-              {/* Sidebar droite */}
-              <motion.div variants={fadeUp} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* ✅ FIX 3 : Sidebar droite — pleine largeur, pas de débordement */}
+              <motion.div variants={fadeUp} style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
 
                 <div style={{ background: 'linear-gradient(135deg, #F59E0B, #EF4444)', borderRadius: 12, padding: '14px 16px', cursor: 'pointer' }}
                   onClick={() => router.push('/dashboard/boost')}>
