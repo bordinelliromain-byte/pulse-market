@@ -182,6 +182,18 @@ export default function Candidatures() {
     setAllCandidatures(prev => prev.map(c => c.id === id ? { ...c, status: 'validated' } : c))
     if (slideOver?.id === id) setSlideOver((prev: any) => ({ ...prev, status: 'validated' }))
     const candidature = allCandidatures.find(c => c.id === id)
+
+    // ✅ Décrémenter les places disponibles
+    if (candidature?.event_id) {
+      await supabase.rpc('decrement_available_spots', { event_id: candidature.event_id })
+      // Mettre à jour le state local immédiatement
+      setEvents(prev => prev.map(e =>
+        e.id === candidature.event_id
+          ? { ...e, available_spots: Math.max((e.available_spots || 0) - 1, 0) }
+          : e
+      ))
+    }
+
     if (candidature) {
       openFacturePDF({
         candidatureId: id, exposantNom: candidature.profiles?.full_name || '', exposantEmail: candidature.profiles?.email || '',
