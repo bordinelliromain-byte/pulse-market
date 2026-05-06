@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       const pdfBytes = await generateBoostInvoice({ nom: safeData.nom, offre: safeData.offre, eventTitle: safeData.eventTitle, email: safeTo, amount: safeData.amount || 20, stripeSessionId: safeData.stripeSessionId || '' })
       const pdfBase64 = Buffer.from(pdfBytes).toString('base64')
       const { data: emailData, error } = await resend.emails.send({
-        from: 'Whatmarket <onboarding@resend.dev>',
+        from: 'Whatmarket <noreply@pulse-market.fr>',
         to: safeTo,
         subject,
         html,
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     if (!subject || !html) return NextResponse.json({ error: 'Type email non géré' }, { status: 400 })
 
     const { data: emailData, error } = await resend.emails.send({
-      from: 'PulseMarket <onboarding@resend.dev>',
+      from: 'PulseMarket <noreply@pulse-market.fr>',
       to: safeTo,
       subject,
       html,

@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const date = created_at ? new Date(created_at).toLocaleString('fr-FR') : new Date().toLocaleString('fr-FR')
 
     await resend.emails.send({
-      from: 'PulseMarket Sécurité <onboarding@resend.dev>',
+      from: 'PulseMarket Sécurité <noreply@pulse-market.fr>',
       to: process.env.SECURITY_ALERT_EMAIL || 'romain@pulse-market.fr',
       subject: `${label} — PulseMarket`,
       html: `
