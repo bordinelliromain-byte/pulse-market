@@ -288,7 +288,7 @@ export default function ProfilExposant() {
     setAvatarUploading(false)
   }
 
-  // ✅ handleSave corrigé — parenthèses correctes + onConflict
+  // ✅ handleSave — INSERT ou UPDATE selon si la ligne existe
   const handleSave = async () => {
     setSaving(true)
     setMessage(null)
@@ -302,22 +302,40 @@ export default function ProfilExposant() {
       if (kbisFile) finalKbisUrl = await uploadFile(kbisFile, `${user.id}/kbis.pdf`)
       if (assuranceFile) finalAssuranceUrl = await uploadFile(assuranceFile, `${user.id}/assurance.pdf`)
 
-      const { error } = await supabase.from('exposant_data').upsert(
-        {
-          user_id: user.id,
-          business_name: businessName,
-          siren,
-          stand_width: standWidth ? parseFloat(standWidth) : null,
-          stand_length: standLength ? parseFloat(standLength) : null,
-          needs_electricity: needsElectricity,
-          description,
-          kbis_url: finalKbisUrl,
-          assurance_url: finalAssuranceUrl,
-          kbis_badge: kbisOcrResult?.badge || null,
-          assurance_expiry: assuranceOcrResult?.expiryDate || null,
-        },
-        { onConflict: 'user_id' }
-      )
+      const payload = {
+        user_id: user.id,
+        business_name: businessName,
+        siren,
+        stand_width: standWidth ? parseFloat(standWidth) : null,
+        stand_length: standLength ? parseFloat(standLength) : null,
+        needs_electricity: needsElectricity,
+        description,
+        kbis_url: finalKbisUrl,
+        assurance_url: finalAssuranceUrl,
+        kbis_badge: kbisOcrResult?.badge || null,
+        assurance_expiry: assuranceOcrResult?.expiryDate || null,
+      }
+
+      // Vérifie si la ligne existe déjà
+      const { data: existing } = await supabase
+        .from('exposant_data')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .single()
+
+      let error
+      if (existing) {
+        const res = await supabase
+          .from('exposant_data')
+          .update(payload)
+          .eq('user_id', user.id)
+        error = res.error
+      } else {
+        const res = await supabase
+          .from('exposant_data')
+          .insert(payload)
+        error = res.error
+      }
 
       if (error) throw new Error(error.message)
       setMessage({ type: 'success', text: 'Dossier sauvegardé avec succès' })
