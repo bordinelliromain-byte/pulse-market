@@ -288,7 +288,7 @@ export default function ProfilExposant() {
     setAvatarUploading(false)
   }
 
-  // ✅ handleSave — INSERT ou UPDATE selon si la ligne existe
+  // ✅ handleSave — via fonction SQL SECURITY DEFINER (bypass RLS)
   const handleSave = async () => {
     setSaving(true)
     setMessage(null)
@@ -302,40 +302,19 @@ export default function ProfilExposant() {
       if (kbisFile) finalKbisUrl = await uploadFile(kbisFile, `${user.id}/kbis.pdf`)
       if (assuranceFile) finalAssuranceUrl = await uploadFile(assuranceFile, `${user.id}/assurance.pdf`)
 
-      const payload = {
-        user_id: user.id,
-        business_name: businessName,
-        siren,
-        stand_width: standWidth ? parseFloat(standWidth) : null,
-        stand_length: standLength ? parseFloat(standLength) : null,
-        needs_electricity: needsElectricity,
-        description,
-        kbis_url: finalKbisUrl,
-        assurance_url: finalAssuranceUrl,
-        kbis_badge: kbisOcrResult?.badge || null,
-        assurance_expiry: assuranceOcrResult?.expiryDate || null,
-      }
-
-      // Vérifie si la ligne existe déjà
-      const { data: existing } = await supabase
-        .from('exposant_data')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .single()
-
-      let error
-      if (existing) {
-        const res = await supabase
-          .from('exposant_data')
-          .update(payload)
-          .eq('user_id', user.id)
-        error = res.error
-      } else {
-        const res = await supabase
-          .from('exposant_data')
-          .insert(payload)
-        error = res.error
-      }
+      const { error } = await supabase.rpc('save_exposant_data', {
+        p_user_id: user.id,
+        p_business_name: businessName,
+        p_siren: siren,
+        p_stand_width: standWidth ? parseFloat(standWidth) : null,
+        p_stand_length: standLength ? parseFloat(standLength) : null,
+        p_needs_electricity: needsElectricity,
+        p_description: description,
+        p_kbis_url: finalKbisUrl,
+        p_assurance_url: finalAssuranceUrl,
+        p_kbis_badge: kbisOcrResult?.badge || null,
+        p_assurance_expiry: assuranceOcrResult?.expiryDate || null,
+      })
 
       if (error) throw new Error(error.message)
       setMessage({ type: 'success', text: 'Dossier sauvegardé avec succès' })
