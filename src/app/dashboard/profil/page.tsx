@@ -32,59 +32,55 @@ function useIsMobile() {
   return isMobile
 }
 
-// ── VALIDATION FICHIERS ────────────────────────────────────────────────────
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
-
+const MAX_FILE_SIZE = 10 * 1024 * 1024
 const ALLOWED_DOC_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
 const ALLOWED_IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
-// Magic bytes pour vérifier le vrai type du fichier
 async function getFileMagicType(file: File): Promise<string | null> {
   const buffer = await file.slice(0, 8).arrayBuffer()
   const bytes = new Uint8Array(buffer)
-  // PDF : %PDF
   if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return 'application/pdf'
-  // JPEG : FF D8 FF
   if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'image/jpeg'
-  // PNG : 89 50 4E 47
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'image/png'
-  // WebP : RIFF....WEBP
   if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) return 'image/webp'
-  // GIF
   if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return 'image/gif'
   return null
 }
 
 async function validateFile(file: File, allowedTypes: string[]): Promise<string | null> {
-  // Taille
   if (file.size > MAX_FILE_SIZE) return `Fichier trop volumineux — max 10MB (actuel : ${(file.size / 1024 / 1024).toFixed(1)}MB)`
   if (file.size === 0) return 'Fichier vide'
-
-  // Extension MIME déclarée
-  if (!allowedTypes.includes(file.type)) {
-    return `Format non supporté. Formats acceptés : PDF, JPG, PNG`
-  }
-
-  // ✅ Magic bytes — vérifie le vrai contenu du fichier
+  if (!allowedTypes.includes(file.type)) return `Format non supporté. Formats acceptés : PDF, JPG, PNG`
   const magicType = await getFileMagicType(file)
   if (!magicType) return 'Fichier non reconnu ou corrompu'
   if (!allowedTypes.includes(magicType)) return 'Le contenu du fichier ne correspond pas à son extension'
-
-  return null // ✅ Fichier valide
+  return null
 }
 
 function getLevel(count: number) {
-  if (count >= 50) return { label: 'Platine', color: '#0EA5E9', bg: '#F0F9FF', border: '#BAE6FD', icon: '💎', next: null, min: 50 }
-  if (count >= 20) return { label: 'Or', color: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A', icon: '🥇', next: 50, min: 20 }
-  if (count >= 5)  return { label: 'Argent', color: '#64748B', bg: '#F8FAFC', border: '#CBD5E1', icon: '🥈', next: 20, min: 5 }
-  return { label: 'Bronze', color: '#EA580C', bg: '#FFF7ED', border: '#FED7AA', icon: '🥉', next: 5, min: 0 }
+  if (count >= 50) return { label: 'Platine', color: '#0EA5E9', bg: '#F0F9FF', border: '#BAE6FD', next: null, min: 50 }
+  if (count >= 20) return { label: 'Or', color: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A', next: 50, min: 20 }
+  if (count >= 5)  return { label: 'Argent', color: '#64748B', bg: '#F8FAFC', border: '#CBD5E1', next: 20, min: 5 }
+  return { label: 'Bronze', color: '#EA580C', bg: '#FFF7ED', border: '#FED7AA', next: 5, min: 0 }
 }
 
 function SirenStatus({ status }: { status: 'idle' | 'loading' | 'valid' | 'invalid' }) {
   if (status === 'idle') return null
-  if (status === 'loading') return <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#64748B', marginTop: 8 }}><Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> Vérification via API INSEE...</div>
-  if (status === 'valid') return <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#16A34A', marginTop: 8, background: '#F0FDF4', padding: '6px 10px', borderRadius: 7, border: '1px solid #BBF7D0' }}><CheckCircle size={13} /> Entreprise active — SIREN vérifié via INSEE</div>
-  return <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#DC2626', marginTop: 8, background: '#FEF2F2', padding: '6px 10px', borderRadius: 7, border: '1px solid #FECACA' }}><AlertCircle size={13} /> SIREN invalide ou entreprise introuvable</div>
+  if (status === 'loading') return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#64748B', marginTop: 8 }}>
+      <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> Vérification via API INSEE...
+    </div>
+  )
+  if (status === 'valid') return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#16A34A', marginTop: 8, background: '#F0FDF4', padding: '6px 10px', borderRadius: 7, border: '1px solid #BBF7D0' }}>
+      <CheckCircle size={13} /> Entreprise active — SIREN vérifié via INSEE
+    </div>
+  )
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#DC2626', marginTop: 8, background: '#FEF2F2', padding: '6px 10px', borderRadius: 7, border: '1px solid #FECACA' }}>
+      <AlertCircle size={13} /> SIREN invalide ou entreprise introuvable
+    </div>
+  )
 }
 
 function OcrResult({ result }: { result: any }) {
@@ -100,10 +96,19 @@ function OcrResult({ result }: { result: any }) {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
         {Object.entries(result.checks).map(([key, ok]: [string, any]) => {
-          const labels: Record<string, string> = { readable: 'Document lisible', sirenMatch: 'SIREN correspond', nameMatch: 'Raison sociale correspond', notExpired: 'Document valide', crossValid: 'Cross-validation OK' }
+          const labels: Record<string, string> = {
+            readable: 'Document lisible',
+            sirenMatch: 'SIREN correspond',
+            nameMatch: 'Raison sociale correspond',
+            notExpired: 'Document valide',
+            crossValid: 'Cross-validation OK'
+          }
           return (
             <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-              {ok ? <CheckCircle size={11} style={{ color: '#16A34A', flexShrink: 0 }} /> : <AlertTriangle size={11} style={{ color: '#DC2626', flexShrink: 0 }} />}
+              {ok
+                ? <CheckCircle size={11} style={{ color: '#16A34A', flexShrink: 0 }} />
+                : <AlertTriangle size={11} style={{ color: '#DC2626', flexShrink: 0 }} />
+              }
               <span style={{ color: ok ? '#475569' : '#DC2626' }}>{labels[key] || key}</span>
             </div>
           )
@@ -112,7 +117,10 @@ function OcrResult({ result }: { result: any }) {
       {result.daysUntilExpiry !== null && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 11, color: result.daysUntilExpiry < 30 ? '#DC2626' : result.daysUntilExpiry < 90 ? '#F59E0B' : '#16A34A' }}>
           <Clock size={11} />
-          {result.daysUntilExpiry < 0 ? `⚠️ Expiré depuis ${Math.abs(result.daysUntilExpiry)} jours` : `Expire dans ${result.daysUntilExpiry} jours`}
+          {result.daysUntilExpiry < 0
+            ? `Expiré depuis ${Math.abs(result.daysUntilExpiry)} jours`
+            : `Expire dans ${result.daysUntilExpiry} jours`
+          }
         </div>
       )}
     </motion.div>
@@ -161,8 +169,8 @@ export default function ProfilExposant() {
       if (exposantData) {
         setBusinessName(exposantData.business_name || '')
         setSiren(exposantData.siren || '')
-        setStandWidth(exposantData.stand_width || '')
-        setStandLength(exposantData.stand_length || '')
+        setStandWidth(exposantData.stand_width?.toString() || '')
+        setStandLength(exposantData.stand_length?.toString() || '')
         setNeedsElectricity(exposantData.needs_electricity || false)
         setDescription(exposantData.description || '')
         setKbisUrl(exposantData.kbis_url || '')
@@ -194,15 +202,28 @@ export default function ProfilExposant() {
     setSirenStatus('loading')
     const timer = setTimeout(() => setSirenStatus('invalid'), 10000)
     try {
-      const res = await fetch('/api/verify-siren', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siren }) })
+      const res = await fetch('/api/verify-siren', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siren })
+      })
       const data = await res.json()
       clearTimeout(timer)
       setSirenStatus(data.valid ? 'valid' : 'invalid')
       if (data.valid) {
         const { data: { user } } = await supabase.auth.getUser()
-        if (user) { await supabase.from('exposant_data').upsert({ user_id: user.id, is_verified: true }); setIsVerified(true) }
+        if (user) {
+          await supabase.from('exposant_data').upsert(
+            { user_id: user.id, is_verified: true },
+            { onConflict: 'user_id' }
+          )
+          setIsVerified(true)
+        }
       }
-    } catch { clearTimeout(timer); setSirenStatus('invalid') }
+    } catch {
+      clearTimeout(timer)
+      setSirenStatus('invalid')
+    }
   }
 
   const verifyDocument = async (file: File, type: 'kbis' | 'assurance') => {
@@ -211,46 +232,44 @@ export default function ProfilExposant() {
     setVerifying(true)
     try {
       const formData = new FormData()
-      formData.append('file', file); formData.append('type', type)
-      formData.append('siren', siren); formData.append('businessName', businessName)
+      formData.append('file', file)
+      formData.append('type', type)
+      formData.append('siren', siren)
+      formData.append('businessName', businessName)
       const res = await fetch('/api/verify-document', { method: 'POST', body: formData })
       setResult(await res.json())
     } catch (err) { console.error(err) }
     setVerifying(false)
   }
 
-  // ✅ Upload avec validation
   const uploadFile = async (file: File, path: string) => {
     const error = await validateFile(file, ALLOWED_DOC_TYPES)
     if (error) throw new Error(error)
-    const { data, error: uploadError } = await supabase.storage.from('documents').upload(path, file, { upsert: true })
-    if (uploadError) throw uploadError
+    const { data, error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(path, file, { upsert: true })
+    if (uploadError) throw new Error(uploadError.message)
     return data.path
   }
 
-  // ✅ Sélection document avec validation immédiate
   const handleDocumentSelect = async (file: File | null, type: 'kbis' | 'assurance') => {
     const setFile = type === 'kbis' ? setKbisFile : setAssuranceFile
     const setResult = type === 'kbis' ? setKbisOcrResult : setAssuranceOcrResult
-
     if (!file) { setFile(null); return }
-
     const error = await validateFile(file, ALLOWED_DOC_TYPES)
     if (error) {
       setFileErrors(prev => ({ ...prev, [type]: error }))
       setFile(null)
       return
     }
-
     setFileErrors(prev => ({ ...prev, [type]: undefined }))
     setFile(file)
     setResult(null)
   }
 
-  // ✅ Avatar avec validation
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return
-
+    const file = e.target.files?.[0]
+    if (!file) return
     const error = await validateFile(file, ALLOWED_IMG_TYPES)
     if (error) {
       setFileErrors(prev => ({ ...prev, avatar: error }))
@@ -258,9 +277,9 @@ export default function ProfilExposant() {
     }
     setFileErrors(prev => ({ ...prev, avatar: undefined }))
     setAvatarUploading(true)
-
     try {
-      const { data: { user } } = await supabase.auth.getUser(); if (!user) return
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
       await supabase.storage.from('images').upload(`avatars/${user.id}`, file, { upsert: true })
       const { data } = supabase.storage.from('images').getPublicUrl(`avatars/${user.id}`)
       await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', user.id)
@@ -269,24 +288,42 @@ export default function ProfilExposant() {
     setAvatarUploading(false)
   }
 
+  // ✅ handleSave corrigé — parenthèses correctes + onConflict
   const handleSave = async () => {
-    setSaving(true); setMessage(null)
+    setSaving(true)
+    setMessage(null)
     try {
-      const { data: { user } } = await supabase.auth.getUser(); if (!user) return
-      let finalKbisUrl = kbisUrl, finalAssuranceUrl = assuranceUrl
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      let finalKbisUrl = kbisUrl
+      let finalAssuranceUrl = assuranceUrl
+
       if (kbisFile) finalKbisUrl = await uploadFile(kbisFile, `${user.id}/kbis.pdf`)
       if (assuranceFile) finalAssuranceUrl = await uploadFile(assuranceFile, `${user.id}/assurance.pdf`)
-      const { error } = await supabase.from('exposant_data').upsert({
-        user_id: user.id, business_name: businessName, siren,
-        stand_width: parseFloat(standWidth), stand_length: parseFloat(standLength),
-        needs_electricity: needsElectricity, description,
-        kbis_url: finalKbisUrl, assurance_url: finalAssuranceUrl,
-        kbis_badge: kbisOcrResult?.badge || null,
-        assurance_expiry: assuranceOcrResult?.expiryDate || null,
-      })
-      if (error) throw error
+
+      const { error } = await supabase.from('exposant_data').upsert(
+        {
+          user_id: user.id,
+          business_name: businessName,
+          siren,
+          stand_width: standWidth ? parseFloat(standWidth) : null,
+          stand_length: standLength ? parseFloat(standLength) : null,
+          needs_electricity: needsElectricity,
+          description,
+          kbis_url: finalKbisUrl,
+          assurance_url: finalAssuranceUrl,
+          kbis_badge: kbisOcrResult?.badge || null,
+          assurance_expiry: assuranceOcrResult?.expiryDate || null,
+        },
+        { onConflict: 'user_id' }
+      )
+
+      if (error) throw new Error(error.message)
       setMessage({ type: 'success', text: 'Dossier sauvegardé avec succès' })
-    } catch (err: any) { setMessage({ type: 'error', text: err.message }) }
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message })
+    }
     setSaving(false)
   }
 
@@ -314,7 +351,7 @@ export default function ProfilExposant() {
           <button onClick={handleSave} disabled={saving}
             style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
             {saving ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
-            {saving ? 'Saving...' : 'Sauvegarder'}
+            {saving ? 'Sauvegarde...' : 'Sauvegarder'}
           </button>
         </header>
 
@@ -332,14 +369,20 @@ export default function ProfilExposant() {
               <div style={{ display: 'flex', gap: isMobile ? 14 : 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
                   <div style={{ width: isMobile ? 60 : 80, height: isMobile ? 60 : 80, borderRadius: '50%', background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid rgba(255,255,255,0.15)', overflow: 'hidden' }}>
-                    {avatarUrl ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: isMobile ? 20 : 28, fontWeight: 800, color: 'white' }}>{initials}</span>}
+                    {avatarUrl
+                      ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ fontSize: isMobile ? 20 : 28, fontWeight: 800, color: 'white' }}>{initials}</span>
+                    }
                   </div>
                   <label style={{ position: 'absolute', bottom: -2, right: -2, width: 24, height: 24, background: '#4F46E5', borderRadius: '50%', border: '2px solid #0F172A', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {avatarUploading ? <Loader size={10} style={{ color: 'white', animation: 'spin 0.8s linear infinite' }} /> : <Camera size={10} style={{ color: 'white' }} />}
+                    {avatarUploading
+                      ? <Loader size={10} style={{ color: 'white', animation: 'spin 0.8s linear infinite' }} />
+                      : <Camera size={10} style={{ color: 'white' }} />
+                    }
                     <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style={{ display: 'none' }} onChange={handleAvatarUpload} />
                   </label>
                 </div>
-                {fileErrors.avatar && <p style={{ fontSize: 11, color: '#FCA5A5', marginTop: 4 }}>⚠️ {fileErrors.avatar}</p>}
+                {fileErrors.avatar && <p style={{ fontSize: 11, color: '#FCA5A5', marginTop: 4 }}>{fileErrors.avatar}</p>}
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
@@ -350,14 +393,19 @@ export default function ProfilExposant() {
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                       <span style={{ fontSize: 11, color: '#64748B' }}>{marchesCount} marché(s)</span>
-                      {level.next && <span style={{ fontSize: 11, color: '#64748B' }}>→ {level.next}</span>}
+                      {level.next && <span style={{ fontSize: 11, color: '#64748B' }}>Prochain niveau : {level.next}</span>}
                     </div>
                     <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 100, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${level.color}, ${level.color}99)`, borderRadius: 100 }} />
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: isMobile ? 16 : 24 }}>
-                    {[{ label: 'Marchés', value: marchesCount }, { label: 'Kbis', value: kbisUrl ? '✓' : '—' }, { label: 'RC Pro', value: assuranceUrl ? '✓' : '—' }, { label: 'SIREN', value: (isVerified || sirenStatus === 'valid') ? '✓' : '—' }].map((s, i) => (
+                    {[
+                      { label: 'Marchés', value: marchesCount },
+                      { label: 'Kbis', value: kbisUrl ? '✓' : '—' },
+                      { label: 'RC Pro', value: assuranceUrl ? '✓' : '—' },
+                      { label: 'SIREN', value: (isVerified || sirenStatus === 'valid') ? '✓' : '—' }
+                    ].map((s, i) => (
                       <div key={i}>
                         <p style={{ fontSize: isMobile ? 14 : 18, fontWeight: 800, color: 'white' }}>{s.value}</p>
                         <p style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</p>
@@ -372,7 +420,9 @@ export default function ProfilExposant() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                       {badges.map((badge, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, opacity: badge.ok ? 1 : 0.3 }}>
-                          <div style={{ width: 22, height: 22, borderRadius: 6, background: badge.ok ? `${badge.color}20` : 'rgba(255,255,255,0.04)', border: `1px solid ${badge.ok ? badge.color + '50' : 'rgba(255,255,255,0.08)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: badge.ok ? badge.color : '#475569' }}>{badge.icon}</div>
+                          <div style={{ width: 22, height: 22, borderRadius: 6, background: badge.ok ? `${badge.color}20` : 'rgba(255,255,255,0.04)', border: `1px solid ${badge.ok ? badge.color + '50' : 'rgba(255,255,255,0.08)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: badge.ok ? badge.color : '#475569' }}>
+                            {badge.icon}
+                          </div>
                           <span style={{ fontSize: 11, color: badge.ok ? 'white' : '#475569', fontWeight: badge.ok ? 600 : 400 }}>{badge.label}</span>
                         </div>
                       ))}
@@ -388,7 +438,9 @@ export default function ProfilExposant() {
                 {/* Infos entreprise */}
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 30, height: 30, background: '#EEF2FF', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Building2 size={15} style={{ color: '#4F46E5' }} /></div>
+                    <div style={{ width: 30, height: 30, background: '#EEF2FF', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Building2 size={15} style={{ color: '#4F46E5' }} />
+                    </div>
                     <div>
                       <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Informations entreprise</p>
                       <p style={{ fontSize: 11, color: '#94A3B8' }}>Raison sociale, SIREN, activité</p>
@@ -429,12 +481,17 @@ export default function ProfilExposant() {
                 {/* Stand */}
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 30, height: 30, background: '#EEF2FF', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Ruler size={15} style={{ color: '#4F46E5' }} /></div>
+                    <div style={{ width: 30, height: 30, background: '#EEF2FF', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ruler size={15} style={{ color: '#4F46E5' }} />
+                    </div>
                     <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Caractéristiques du stand</p>
                   </div>
                   <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                      {[{ label: 'Largeur (m)', val: standWidth, set: setStandWidth }, { label: 'Longueur (m)', val: standLength, set: setStandLength }].map((f, i) => (
+                      {[
+                        { label: 'Largeur (m)', val: standWidth, set: setStandWidth },
+                        { label: 'Longueur (m)', val: standLength, set: setStandLength }
+                      ].map((f, i) => (
                         <div key={i}>
                           <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>{f.label}</label>
                           <input type="number" value={f.val} onChange={e => f.set(e.target.value)} placeholder="3"
@@ -466,10 +523,12 @@ export default function ProfilExposant() {
                 {/* Documents */}
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 30, height: 30, background: '#EEF2FF', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ScanLine size={15} style={{ color: '#4F46E5' }} /></div>
+                    <div style={{ width: 30, height: 30, background: '#EEF2FF', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <ScanLine size={15} style={{ color: '#4F46E5' }} />
+                    </div>
                     <div>
                       <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Documents légaux</p>
-                      <p style={{ fontSize: 11, color: '#94A3B8' }}>PDF, JPG ou PNG — max 10MB — vérification IA automatique</p>
+                      <p style={{ fontSize: 11, color: '#94A3B8' }}>PDF, JPG ou PNG — max 10MB</p>
                     </div>
                   </div>
                   <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -479,9 +538,13 @@ export default function ProfilExposant() {
                     ].map(doc => (
                       <div key={doc.type}>
                         <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>{doc.label}</label>
-                        {doc.url && !doc.file && <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#16A34A', marginBottom: 8, background: '#F0FDF4', padding: '5px 9px', borderRadius: 6 }}><CheckCircle size={11} /> Document déjà fourni</div>}
 
-                        {/* ✅ Erreur validation affichée */}
+                        {doc.url && !doc.file && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#16A34A', marginBottom: 8, background: '#F0FDF4', padding: '5px 9px', borderRadius: 6 }}>
+                            <CheckCircle size={11} /> Document déjà fourni
+                          </div>
+                        )}
+
                         {doc.error && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#DC2626', marginBottom: 8, background: '#FEF2F2', padding: '6px 10px', borderRadius: 6, border: '1px solid #FECACA' }}>
                             <AlertTriangle size={11} /> {doc.error}
@@ -543,7 +606,7 @@ export default function ProfilExposant() {
                     ))}
                   </div>
                   <button style={{ width: '100%', background: 'white', color: '#4F46E5', border: 'none', borderRadius: 9, padding: '11px 0', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                    Upgrader →
+                    Upgrader
                   </button>
                 </motion.div>
               </div>
