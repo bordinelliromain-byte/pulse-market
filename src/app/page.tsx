@@ -408,9 +408,11 @@ export default function Landing() {
           </div>
           <p style={{ fontSize: 13, color: '#94A3B8' }}>© 2026 PulseMarket SAS — Tous droits réservés</p>
           <div className="flex gap-6" style={{ fontSize: 13, color: '#94A3B8' }}>
-            <a href="#" className="hover:text-slate-900 transition-colors">Mentions légales</a>
-            <a href="#" className="hover:text-slate-900 transition-colors">CGU</a>
-            <a href="#" className="hover:text-slate-900 transition-colors">contact@pulse-market.fr</a>
+            <a href="/mentions-legales" className="hover:text-slate-900 transition-colors">Mentions légales</a>
+            <a href="/cgu" className="hover:text-slate-900 transition-colors">CGU</a>
+            <a href="/confidentialite" className="hover:text-slate-900 transition-colors">Confidentialité</a>
+            <a href="/cgv" className="hover:text-slate-900 transition-colors">CGV</a>
+            <a href="mailto:contact@pulse-market.fr" className="hover:text-slate-900 transition-colors">Contact</a>
           </div>
         </div>
       </footer>
