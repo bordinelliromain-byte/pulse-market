@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle, ArrowRight, Users, Building2, Phone, Mail, User, UserPlus, ChevronRight } from 'lucide-react'
 
-export default function TerrainPage({ params }: { params: { code: string } }) {
+export default function TerrainPage({ params }: { params: Promise<{ code: string }> }) {
+  const { code } = use(params)  
   const [step, setStep] = useState<'pin' | 'home' | 'form' | 'inscription' | 'success'>('pin')
   const [pin, setPin] = useState('')
   const [pinError, setPinError] = useState(false)
@@ -58,7 +59,7 @@ export default function TerrainPage({ params }: { params: { code: string } }) {
     const { data } = await supabase
       .from('commerciaux')
       .select('*')
-      .eq('code', params.code.toLowerCase())
+      .eq('code', code.toLowerCase())
       .eq('pin', pin)
       .eq('actif', true)
       .single()
