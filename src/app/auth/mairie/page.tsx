@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowRight, Eye, EyeOff, ShieldCheck, Loader, Building2, Users, TreePine, MapPin } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, ShieldCheck, Loader, Building2, Users, TreePine, MapPin, Upload, Clock, CheckCircle } from 'lucide-react'
 
 const ORG_TYPES = [
   { val: 'mairie', label: 'Commune / Mairie', icon: <Building2 size={14} />, placeholder: 'Mairie d\'Aubagne' },
@@ -14,13 +14,12 @@ const ORG_TYPES = [
   { val: 'autre', label: 'Autre organisateur', icon: <MapPin size={14} />, placeholder: 'Office de Tourisme de Cassis' },
 ]
 
-// ── ANTI BRUTE-FORCE ──────────────────────────────────────────────────────
 const MAX_ATTEMPTS = 5
-const LOCKOUT_MS = 15 * 60 * 1000 // 15 minutes
+const LOCKOUT_MS = 15 * 60 * 1000
 
 function getLockoutState(): { attempts: number; lockedUntil: number } {
   try {
-    const raw = sessionStorage.getItem('auth_attempts')
+    const raw = sessionStorage.getItem('auth_mairie_attempts')
     return raw ? JSON.parse(raw) : { attempts: 0, lockedUntil: 0 }
   } catch { return { attempts: 0, lockedUntil: 0 } }
 }
@@ -30,17 +29,12 @@ function recordFailedAttempt(): { attempts: number; lockedUntil: number } {
   const newAttempts = state.attempts + 1
   const lockedUntil = newAttempts >= MAX_ATTEMPTS ? Date.now() + LOCKOUT_MS : state.lockedUntil
   const newState = { attempts: newAttempts, lockedUntil }
-  sessionStorage.setItem('auth_attempts', JSON.stringify(newState))
+  sessionStorage.setItem('auth_mairie_attempts', JSON.stringify(newState))
   return newState
 }
 
-function resetAttempts() {
-  sessionStorage.removeItem('auth_attempts')
-}
-
-function getRemainingMinutes(lockedUntil: number): number {
-  return Math.ceil((lockedUntil - Date.now()) / 60_000)
-}
+function resetAttempts() { sessionStorage.removeItem('auth_mairie_attempts') }
+function getRemainingMinutes(lockedUntil: number): number { return Math.ceil((lockedUntil - Date.now()) / 60_000) }
 
 function AuthOrganisateurForm() {
   const searchParams = useSearchParams()
@@ -51,77 +45,104 @@ function AuthOrganisateurForm() {
   const [password, setPassword] = useState('')
   const [orgName, setOrgName] = useState(villeParam ? `Mairie de ${villeParam}` : '')
   const [orgType, setOrgType] = useState('mairie')
+  const [siret, setSiret] = useState('')
+  const [justificatif, setJustificatif] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [pendingScreen, setPendingScreen] = useState(false)
 
-  // ✅ Anti brute-force
   const [attemptCount, setAttemptCount] = useState(() => getLockoutState().attempts)
   const [lockedUntil, setLockedUntil] = useState(() => getLockoutState().lockedUntil)
 
   const router = useRouter()
   const supabase = createClient()
   const selectedOrgType = ORG_TYPES.find(t => t.val === orgType) || ORG_TYPES[0]
-
   const isLocked = lockedUntil > Date.now()
 
   const handleSignIn = async () => {
-    if (isLocked) {
-      setError(`Trop de tentatives. Réessayez dans ${getRemainingMinutes(lockedUntil)} minute(s).`)
-      return
-    }
+    if (isLocked) { setError(`Trop de tentatives. Réessayez dans ${getRemainingMinutes(lockedUntil)} minute(s).`); return }
     if (!email || !password) { setError('Veuillez remplir tous les champs'); return }
-
     setLoading(true); setError('')
 
-    // ✅ Délai croissant selon le nombre de tentatives
     if (attemptCount > 0) {
-      const delay = Math.min(attemptCount * 1000, 5000) // max 5s
-      await new Promise(r => setTimeout(r, delay))
+      await new Promise(r => setTimeout(r, Math.min(attemptCount * 1000, 5000)))
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-
     if (error) {
       const newState = recordFailedAttempt()
       setAttemptCount(newState.attempts)
       setLockedUntil(newState.lockedUntil)
-
-      if (newState.attempts >= MAX_ATTEMPTS) {
-        setError(`Compte temporairement bloqué pendant 15 minutes suite à trop de tentatives.`)
-      } else {
-        const remaining = MAX_ATTEMPTS - newState.attempts
-        setError(`Email ou mot de passe incorrect. ${remaining} tentative${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}.`)
-      }
+      const remaining = MAX_ATTEMPTS - newState.attempts
+      setError(newState.attempts >= MAX_ATTEMPTS
+        ? 'Compte temporairement bloqué pendant 15 minutes.'
+        : `Email ou mot de passe incorrect. ${remaining} tentative${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}.`
+      )
       setLoading(false); return
     }
 
-    // ✅ Vérification du rôle
-    const { data: profileData } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
+    const { data: profileData } = await supabase.from('profiles').select('role, organisateur_status').eq('id', data.user.id).single()
     if (profileData?.role !== 'organisateur') {
       await supabase.auth.signOut()
-      setError('Ce compte n\'est pas un compte organisateur. Connectez-vous sur l\'espace exposant.')
+      setError('Ce compte n\'est pas un compte organisateur.')
       setLoading(false); return
     }
 
-    // ✅ Connexion réussie — reset compteur
-    resetAttempts()
-    setAttemptCount(0)
+    resetAttempts(); setAttemptCount(0)
     router.push('/dashboard/organisateur')
     setLoading(false)
   }
 
   const handleSignUp = async () => {
-    if (!email || !password || !orgName) { setError('Veuillez remplir tous les champs'); return }
+    if (!email || !password || !orgName || !siret) {
+      setError('Veuillez remplir tous les champs obligatoires')
+      return
+    }
     if (password.length < 6) { setError('Le mot de passe doit faire au moins 6 caractères'); return }
+    if (siret.replace(/\s/g, '').length !== 14) { setError('Le numéro SIRET doit contenir 14 chiffres'); return }
+    if (!justificatif) { setError('Veuillez joindre un document justificatif'); return }
+
     setLoading(true); setError('')
-    const { error } = await supabase.auth.signUp({
+
+    // 1. Inscription Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email, password,
-      options: { data: { full_name: orgName, role: 'organisateur', organization_name: orgName, organization_type: orgType } }
+      options: {
+        data: {
+          full_name: orgName,
+          role: 'organisateur',
+          organization_name: orgName,
+          organization_type: orgType,
+        },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      }
     })
-    if (error) setError(error.message)
-    else router.push('/dashboard/organisateur')
+
+    if (authError) { setError(authError.message); setLoading(false); return }
+    if (!authData.user) { setError('Erreur lors de la création du compte'); setLoading(false); return }
+
+    // 2. Upload justificatif
+    let justificatifUrl = ''
+    try {
+      const ext = justificatif.name.split('.').pop()
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(`justificatifs/${authData.user.id}/justificatif.${ext}`, justificatif, { upsert: true })
+      if (!uploadError && uploadData) {
+        justificatifUrl = uploadData.path
+      }
+    } catch (e) { console.error('Upload justificatif error:', e) }
+
+    // 3. Mettre à jour le profil avec SIRET + justificatif + status pending
+    await supabase.from('profiles').update({
+      organisateur_status: 'pending',
+      organisation_siret: siret.replace(/\s/g, ''),
+      justificatif_url: justificatifUrl,
+    }).eq('id', authData.user.id)
+
     setLoading(false)
+    setPendingScreen(true)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -134,9 +155,64 @@ function AuthOrganisateurForm() {
     outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
   }
 
+  // ✅ Écran d'attente après inscription
+  if (pendingScreen) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', system-ui, sans-serif", padding: 24 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 40 }}>
+            <div style={{ width: 32, height: 32, background: '#4F46E5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ color: 'white', fontSize: 13, fontWeight: 700 }}>PM</span>
+            </div>
+            <span style={{ color: 'white', fontWeight: 600, fontSize: 16 }}>PulseMarket</span>
+          </div>
+
+          <div style={{ width: 64, height: 64, background: 'rgba(79,70,229,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+            <Clock size={28} style={{ color: '#818CF8' }} />
+          </div>
+
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'white', marginBottom: 12, letterSpacing: '-0.02em' }}>
+            Dossier reçu — en cours de validation
+          </h1>
+
+          <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.7, marginBottom: 32 }}>
+            Votre demande a bien été enregistrée. Notre équipe va vérifier votre dossier dans les <strong style={{ color: '#94A3B8' }}>24 à 48h ouvrées</strong>.
+          </p>
+
+          <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 20, marginBottom: 32, textAlign: 'left' }}>
+            {[
+              { label: 'Organisation', value: orgName },
+              { label: 'SIRET', value: siret },
+              { label: 'Email', value: email },
+              { label: 'Justificatif', value: justificatif?.name || '—' },
+            ].map((item, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                <span style={{ fontSize: 12, color: '#475569' }}>{item.label}</span>
+                <span style={{ fontSize: 12, color: '#94A3B8', fontWeight: 500, maxWidth: 220, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.value}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ background: 'rgba(79,70,229,0.1)', border: '1px solid rgba(79,70,229,0.2)', borderRadius: 10, padding: '12px 16px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <CheckCircle size={14} style={{ color: '#818CF8', flexShrink: 0 }} />
+            <p style={{ fontSize: 12, color: '#818CF8', lineHeight: 1.5 }}>
+              Vous recevrez un email de confirmation dès que votre compte sera activé.
+            </p>
+          </div>
+
+          <button onClick={() => router.push('/')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#475569' }}>
+            ← Retour à l'accueil
+          </button>
+        </motion.div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: '#0F172A', display: 'flex', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
+      {/* Panneau gauche */}
       <div className="hidden lg:flex" style={{ width: '42%', background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', padding: '48px', flexDirection: 'column', justifyContent: 'space-between', borderRight: '1px solid rgba(255,255,255,0.06)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, background: 'radial-gradient(circle, rgba(79,70,229,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: -60, left: -60, width: 280, height: 280, background: 'radial-gradient(circle, rgba(79,70,229,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
@@ -161,13 +237,13 @@ function AuthOrganisateurForm() {
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {[
-              { icon: '🏛️', text: 'Mairies, comités des fêtes, associations' },
-              { icon: '📋', text: 'Dossiers exposants vérifiés automatiquement' },
-              { icon: '💶', text: 'Redevances AOT collectées via Stripe' },
-              { icon: '🗺️', text: 'Attribution des emplacements en drag & drop' },
+              { icon: <Building2 size={15} style={{ color: '#818CF8' }} />, text: 'Mairies, comités des fêtes, associations' },
+              { icon: <CheckCircle size={15} style={{ color: '#818CF8' }} />, text: 'Dossiers exposants vérifiés automatiquement' },
+              { icon: <ShieldCheck size={15} style={{ color: '#818CF8' }} />, text: 'Redevances AOT collectées via Stripe' },
+              { icon: <Clock size={15} style={{ color: '#818CF8' }} />, text: 'Validation des comptes sous 24-48h' },
             ].map((item, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 32, height: 32, background: 'rgba(79,70,229,0.12)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>{item.icon}</div>
+                <div style={{ width: 32, height: 32, background: 'rgba(79,70,229,0.12)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{item.icon}</div>
                 <span style={{ color: '#94A3B8', fontSize: 13 }}>{item.text}</span>
               </div>
             ))}
@@ -187,8 +263,9 @@ function AuthOrganisateurForm() {
         </div>
       </div>
 
+      {/* Formulaire */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 20px' }}>
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} style={{ width: '100%', maxWidth: 420 }}>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} style={{ width: '100%', maxWidth: 440 }}>
 
           <div className="lg:hidden" style={{ marginBottom: 32 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -209,7 +286,7 @@ function AuthOrganisateurForm() {
               {tab === 'signin' ? 'Connexion à votre espace' : 'Créer votre compte organisateur'}
             </h1>
             <p style={{ fontSize: 14, color: '#475569' }}>
-              {tab === 'signin' ? 'Accédez à votre tableau de bord.' : 'Mairie, comité des fêtes, association...'}
+              {tab === 'signin' ? 'Accédez à votre tableau de bord.' : 'Votre dossier sera vérifié sous 24-48h.'}
             </p>
           </div>
 
@@ -225,6 +302,7 @@ function AuthOrganisateurForm() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {tab === 'signup' && (
               <>
+                {/* Type organisation */}
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Type d'organisation</label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -237,25 +315,57 @@ function AuthOrganisateurForm() {
                     ))}
                   </div>
                 </div>
+
+                {/* Nom organisation */}
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Nom de l'organisation</label>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Nom de l'organisation <span style={{ color: '#EF4444' }}>*</span></label>
                   <input type="text" placeholder={selectedOrgType.placeholder} value={orgName} onChange={e => setOrgName(e.target.value)} onKeyDown={handleKeyDown}
-                    style={inputStyle} autoFocus
+                    style={inputStyle}
                     onFocus={e => e.target.style.borderColor = '#4F46E5'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
+                </div>
+
+                {/* SIRET */}
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Numéro SIRET <span style={{ color: '#EF4444' }}>*</span></label>
+                  <input type="text" placeholder="213 130 011 00019" value={siret} onChange={e => setSiret(e.target.value)} onKeyDown={handleKeyDown}
+                    style={inputStyle} maxLength={17}
+                    onFocus={e => e.target.style.borderColor = '#4F46E5'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
+                  <p style={{ fontSize: 11, color: '#475569', marginTop: 5 }}>Le SIRET de votre commune ou organisation (14 chiffres)</p>
+                </div>
+
+                {/* Justificatif */}
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Document justificatif <span style={{ color: '#EF4444' }}>*</span></label>
+                  <label style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    padding: '12px', border: `1.5px dashed ${justificatif ? '#4F46E5' : 'rgba(255,255,255,0.15)'}`,
+                    borderRadius: 10, cursor: 'pointer', fontSize: 13,
+                    color: justificatif ? '#818CF8' : '#475569',
+                    background: justificatif ? 'rgba(79,70,229,0.08)' : 'transparent',
+                    transition: 'all 0.2s',
+                  }}>
+                    <Upload size={14} />
+                    {justificatif ? justificatif.name : 'Arrêté municipal, délibération ou carte agent'}
+                    <input type="file" accept=".pdf,image/jpeg,image/png" style={{ display: 'none' }}
+                      onChange={e => setJustificatif(e.target.files?.[0] || null)} />
+                  </label>
+                  <p style={{ fontSize: 11, color: '#475569', marginTop: 5 }}>PDF, JPG ou PNG — max 10MB</p>
                 </div>
               </>
             )}
 
+            {/* Email */}
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Adresse email</label>
+              <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Adresse email <span style={{ color: '#EF4444' }}>*</span></label>
               <input type="email" placeholder="contact@mairie-aubagne.fr" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={handleKeyDown}
                 style={inputStyle} autoFocus={tab === 'signin'}
                 onFocus={e => e.target.style.borderColor = '#4F46E5'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
             </div>
 
+            {/* Mot de passe */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Mot de passe</label>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Mot de passe <span style={{ color: '#EF4444' }}>*</span></label>
                 {tab === 'signin' && (
                   <button onClick={async () => {
                     if (!email) { setError('Entrez votre email d\'abord'); return }
@@ -277,7 +387,7 @@ function AuthOrganisateurForm() {
               </div>
             </div>
 
-            {/* ✅ Barre de tentatives */}
+            {/* Barre tentatives */}
             {tab === 'signin' && attemptCount > 0 && !isLocked && (
               <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '8px 12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#F59E0B', marginBottom: 6 }}>
@@ -290,10 +400,9 @@ function AuthOrganisateurForm() {
               </div>
             )}
 
-            {/* ✅ Compte bloqué */}
             {isLocked && (
               <div style={{ background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.3)', borderRadius: 8, padding: '12px 14px', textAlign: 'center' }}>
-                <p style={{ fontSize: 13, color: '#FCA5A5', fontWeight: 600 }}>🔒 Accès temporairement bloqué</p>
+                <p style={{ fontSize: 13, color: '#FCA5A5', fontWeight: 600 }}>Accès temporairement bloqué</p>
                 <p style={{ fontSize: 12, color: '#F87171', marginTop: 4 }}>Réessayez dans {getRemainingMinutes(lockedUntil)} minute(s)</p>
               </div>
             )}
@@ -309,9 +418,9 @@ function AuthOrganisateurForm() {
               style={{ width: '100%', padding: '13px 0', background: isLocked ? '#374151' : loading ? '#3730A3' : '#4F46E5', color: isLocked ? '#6B7280' : 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: loading || isLocked ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 }}>
               {loading
                 ? <><Loader size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</>
-                : isLocked
-                ? <>🔒 Accès bloqué</>
-                : <>{tab === 'signin' ? 'Accéder à mon espace' : 'Créer mon compte'}<ArrowRight size={15} /></>
+                : isLocked ? 'Accès bloqué'
+                : tab === 'signin' ? <>'Accéder à mon espace' <ArrowRight size={15} /></>
+                : <>'Envoyer ma demande' <ArrowRight size={15} /></>
               }
             </button>
 
