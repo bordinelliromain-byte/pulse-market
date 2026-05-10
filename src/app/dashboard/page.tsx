@@ -33,7 +33,6 @@ function useIsMobile() {
   return isMobile
 }
 
-// ── SKELETON ──────────────────────────────────────────────────────────────
 function Skeleton({ w = '100%', h = 14, radius = 6, style = {} }: { w?: string | number; h?: number; radius?: number; style?: React.CSSProperties }) {
   return (
     <div style={{ width: w, height: h, borderRadius: radius, background: 'linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite', flexShrink: 0, ...style }} />
@@ -43,12 +42,7 @@ function Skeleton({ w = '100%', h = 14, radius = 6, style = {} }: { w?: string |
 function DashboardSkeleton({ isMobile }: { isMobile: boolean }) {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#EEF2F7', fontFamily: "'Inter', system-ui, sans-serif" }}>
-      <style>{`
-        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
-
-      {/* Header skeleton */}
+      <style>{`@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <div style={{ position: 'fixed', top: 0, left: isMobile ? 0 : 220, right: 0, height: 52, background: 'white', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', padding: isMobile ? '0 16px 0 60px' : '0 28px', gap: 10, zIndex: 10 }}>
         <div style={{ flex: 1 }}>
           <Skeleton w={140} h={13} style={{ marginBottom: 6 }} />
@@ -56,10 +50,7 @@ function DashboardSkeleton({ isMobile }: { isMobile: boolean }) {
         </div>
         <Skeleton w={32} h={32} radius={8} />
       </div>
-
       <div style={{ marginLeft: isMobile ? 0 : 220, flex: 1, padding: isMobile ? '80px 14px 20px' : '76px 28px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-        {/* KPIs skeleton */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 10 }}>
           {[...Array(4)].map((_, i) => (
             <div key={i} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
@@ -68,76 +59,6 @@ function DashboardSkeleton({ isMobile }: { isMobile: boolean }) {
               <Skeleton w="100%" h={28} radius={4} />
             </div>
           ))}
-        </div>
-
-        {/* Main grid skeleton */}
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 300px', gap: 16 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* Marchés skeleton */}
-            <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
-              <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Skeleton w={140} h={13} />
-                <Skeleton w={60} h={12} />
-              </div>
-              <div style={{ padding: '14px 18px', display: 'flex', gap: 12, overflow: 'hidden' }}>
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} style={{ flexShrink: 0, width: 175 }}>
-                    <Skeleton w={175} h={100} radius={10} style={{ marginBottom: 10 }} />
-                    <Skeleton w="85%" h={12} style={{ marginBottom: 6 }} />
-                    <Skeleton w="60%" h={10} style={{ marginBottom: 8 }} />
-                    <Skeleton w="40%" h={14} />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Dossiers skeleton */}
-            <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px 18px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-                <Skeleton w={150} h={13} />
-                <Skeleton w={70} h={11} />
-              </div>
-              {[...Array(2)].map((_, i) => (
-                <div key={i} style={{ marginBottom: i < 1 ? 20 : 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <Skeleton w="55%" h={12} />
-                    <Skeleton w={70} h={22} radius={100} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {[...Array(4)].map((_, j) => (
-                      <div key={j} style={{ display: 'flex', alignItems: 'center', flex: j < 3 ? 1 : 'none' }}>
-                        <Skeleton w={28} h={28} radius={50} />
-                        {j < 3 && <div style={{ flex: 1, height: 2, background: '#F1F5F9', margin: '0 4px' }} />}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Sidebar droite skeleton */}
-          {!isMobile && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <Skeleton w="100%" h={110} radius={12} />
-              <Skeleton w="100%" h={100} radius={12} />
-              <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
-                <Skeleton w={60} h={10} style={{ marginBottom: 10 }} />
-                <Skeleton w={80} h={22} style={{ marginBottom: 6 }} />
-                <Skeleton w="70%" h={12} />
-              </div>
-              <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
-                <Skeleton w={100} h={10} style={{ marginBottom: 12 }} />
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: i < 2 ? 10 : 0 }}>
-                    <Skeleton w="50%" h={12} />
-                    <Skeleton w="25%" h={12} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -242,6 +163,7 @@ function DashboardContent() {
   const [stats, setStats] = useState<any>({})
   const [loading, setLoading] = useState(true)
   const [payingId, setPayingId] = useState<string | null>(null)
+  const [upgradingPro, setUpgradingPro] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
@@ -264,8 +186,37 @@ function DashboardContent() {
 
   useEffect(() => { loadData() }, [searchParams])
 
-  // ✅ Skeleton au lieu du spinner
   if (loading) return <DashboardSkeleton isMobile={isMobile} />
+
+  // ✅ Candidatures ce mois (blocage free)
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const candidaturesCeMois = candidatures.filter(c =>
+    new Date(c.created_at) >= monthStart
+  ).length
+
+  // ✅ Plan Pro depuis profiles (source of truth)
+  const isPro = profile?.plan === 'pro'
+
+  // ✅ Upgrade Pro
+  const handleUpgradePro = async () => {
+    setUpgradingPro(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const res = await fetch('/api/create-pro-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, email: profile?.email || '' })
+      })
+      const { url, error } = await res.json()
+      if (error) throw new Error(error)
+      if (url) window.location.href = url
+    } catch (err: any) {
+      alert('Erreur : ' + err.message)
+    }
+    setUpgradingPro(false)
+  }
 
   const candidaturesAPayer = candidatures.filter(c => c.status === 'validated')
 
@@ -354,6 +305,25 @@ function DashboardContent() {
         <main className="dash-main" style={{ padding: isMobile ? '16px 14px' : '24px 28px', flex: 1 }}>
           <motion.div variants={stagger} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
+            {/* ✅ Bannière limite free */}
+            {!isPro && candidaturesCeMois >= 1 && (
+              <motion.div variants={fadeUp}>
+                <div style={{ background: 'linear-gradient(135deg, #0F172A, #1E293B)', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Zap size={18} style={{ color: '#FBBF24', flexShrink: 0 }} />
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 2 }}>Limite mensuelle atteinte</p>
+                      <p style={{ fontSize: 11, color: '#64748B' }}>Vous avez utilisé votre 1 candidature gratuite ce mois — passez Pro pour candidater sans limite.</p>
+                    </div>
+                  </div>
+                  <button onClick={handleUpgradePro} disabled={upgradingPro}
+                    style={{ background: '#4F46E5', color: 'white', border: 'none', borderRadius: 9, padding: '9px 18px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, opacity: upgradingPro ? 0.7 : 1 }}>
+                    {upgradingPro ? <><Loader size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</> : '⚡ Passer Pro — 20€/mois'}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
             {candidaturesAPayer.length > 0 && (
               <motion.div variants={fadeUp}>
                 {candidaturesAPayer.map(c => (
@@ -406,9 +376,22 @@ function DashboardContent() {
                     <div className="hide-scrollbar" style={{ overflowX: 'auto', display: 'flex', gap: 12, padding: '14px 18px', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
                       {nearbyEvents.filter(event => !candidatures.find(c => c.event_id === event.id && c.status === 'paid')).slice(0, 5).map((event: any, i: number) => {
                         const gradients = ['linear-gradient(135deg, #4F46E5, #7C3AED)', 'linear-gradient(135deg, #0EA5E9, #4F46E5)', 'linear-gradient(135deg, #16A34A, #0EA5E9)', 'linear-gradient(135deg, #EA580C, #DC2626)', 'linear-gradient(135deg, #7C3AED, #EC4899)']
+                        const isBlocked = !isPro && candidaturesCeMois >= 1
                         return (
-                          <div key={event.id} onClick={() => router.push(`/dashboard/candidature?eventId=${event.id}&eventName=${encodeURIComponent(event.title)}&eventDate=${encodeURIComponent(new Date(event.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(event.location_name || '')}`)}
-                            style={{ flexShrink: 0, width: 175, borderRadius: 12, overflow: 'hidden', border: '1px solid #E2E8F0', cursor: 'pointer', background: 'white' }}>
+                          <div key={event.id}
+                            onClick={() => {
+                              if (isBlocked) {
+                                alert('Limite mensuelle atteinte — passez en Pro pour candidater sans limite.')
+                                return
+                              }
+                              router.push(`/dashboard/candidature?eventId=${event.id}&eventName=${encodeURIComponent(event.title)}&eventDate=${encodeURIComponent(new Date(event.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(event.location_name || '')}`)
+                            }}
+                            style={{ flexShrink: 0, width: 175, borderRadius: 12, overflow: 'hidden', border: '1px solid #E2E8F0', cursor: isBlocked ? 'not-allowed' : 'pointer', background: 'white', opacity: isBlocked ? 0.6 : 1, position: 'relative' }}>
+                            {isBlocked && (
+                              <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.5)', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: '#4F46E5', background: 'white', padding: '4px 8px', borderRadius: 6, border: '1px solid #E2E8F0' }}>🔒 Pro</span>
+                              </div>
+                            )}
                             <div style={{ height: 100, position: 'relative', overflow: 'hidden', background: gradients[i % gradients.length] }}>
                               {event.image_url && <img src={event.image_url} alt={event.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 60%)' }} />
@@ -480,7 +463,8 @@ function DashboardContent() {
                   </div>
                 </div>
 
-                {stats.plan !== 'pro' && (
+                {/* ✅ Bloc Pro — caché si déjà Pro */}
+                {!isPro && (
                   <div style={{ background: '#0F172A', borderRadius: 12, padding: '14px 16px' }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 10 }}>
                       <Zap size={14} style={{ color: '#FBBF24', flexShrink: 0, marginTop: 1 }} />
@@ -489,17 +473,36 @@ function DashboardContent() {
                         <p style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5 }}>Candidatures illimitées, alertes, événements exclusifs</p>
                       </div>
                     </div>
-                    <button style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '8px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Upgrader →</button>
+                    <button onClick={handleUpgradePro} disabled={upgradingPro}
+                      style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '9px 0', fontSize: 12, fontWeight: 600, cursor: upgradingPro ? 'not-allowed' : 'pointer', opacity: upgradingPro ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      {upgradingPro
+                        ? <><Loader size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</>
+                        : '⚡ Passer Pro — 20€/mois →'
+                      }
+                    </button>
                   </div>
                 )}
 
                 <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Mon plan</p>
-                    <Star size={14} style={{ color: stats.plan === 'pro' ? '#FBBF24' : '#CBD5E1' }} />
+                    <Star size={14} style={{ color: isPro ? '#FBBF24' : '#CBD5E1' }} />
                   </div>
-                  <p style={{ fontSize: 22, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>{stats.plan === 'pro' ? 'Pro' : 'Gratuit'}</p>
-                  <p style={{ fontSize: 12, color: '#94A3B8' }}>{stats.plan === 'pro' ? 'Candidatures illimitées' : '1 candidature / mois'}</p>
+                  <p style={{ fontSize: 22, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>
+                    {isPro ? '⭐ Pro' : 'Gratuit'}
+                  </p>
+                  <p style={{ fontSize: 12, color: '#94A3B8' }}>
+                    {isPro
+                      ? 'Candidatures illimitées'
+                      : `${candidaturesCeMois}/1 candidature ce mois`
+                    }
+                  </p>
+                  {!isPro && (
+                    <button onClick={handleUpgradePro} disabled={upgradingPro}
+                      style={{ width: '100%', marginTop: 10, background: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE', borderRadius: 7, padding: '7px 0', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                      Upgrader →
+                    </button>
+                  )}
                 </div>
 
                 {!isMobile && (
