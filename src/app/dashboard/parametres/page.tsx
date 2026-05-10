@@ -8,7 +8,7 @@ import type { Variants } from 'framer-motion'
 import Sidebar from '@/components/Sidebar'
 import {
   User, Bell, Shield, CreditCard, Save, CheckCircle,
-  Eye, EyeOff, Loader, Smartphone, X, QrCode
+  Eye, EyeOff, Loader, Smartphone, X, QrCode, AlertTriangle, Star
 } from 'lucide-react'
 
 const fadeUp: Variants = {
@@ -45,6 +45,10 @@ export default function Parametres() {
   const [newPassword, setNewPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
+  // ── Pro ───────────────────────────────────────────────────────────────────
+  const [upgradingPro, setUpgradingPro] = useState(false)
+  const [cancelingPro, setCancelingPro] = useState(false)
+
   // ── 2FA ──────────────────────────────────────────────────────────────────
   const [mfaEnabled, setMfaEnabled] = useState(false)
   const [mfaLoading, setMfaLoading] = useState(false)
@@ -68,16 +72,16 @@ export default function Parametres() {
       setFullName(profileData?.full_name || '')
       setEmail(user.email || '')
       setPhone(profileData?.phone || '')
-
-      // Vérifier si 2FA déjà activé
       const { data: factors } = await supabase.auth.mfa.listFactors()
       const hasTotp = factors?.totp?.some(f => f.status === 'verified')
       setMfaEnabled(!!hasTotp)
-
       setLoading(false)
     }
     getData()
   }, [])
+
+  const isPro = profile?.plan === 'pro'
+  const isCanceling = profile?.plan === 'canceling'
 
   const handleSave = async () => {
     setSaving(true); setMessage(null)
@@ -94,7 +98,51 @@ export default function Parametres() {
     setSaving(false)
   }
 
-  // ── Activer 2FA ───────────────────────────────────────────────────────────
+  // ✅ Upgrade Pro
+  const handleUpgradePro = async () => {
+    setUpgradingPro(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const res = await fetch('/api/create-pro-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, email: profile?.email || '' })
+      })
+      const { url, error } = await res.json()
+      if (error) throw new Error(error)
+      if (url) window.location.href = url
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message })
+    }
+    setUpgradingPro(false)
+  }
+
+  // ✅ Annuler abonnement Pro
+  const handleCancelPro = async () => {
+    if (!confirm('Êtes-vous sûr de vouloir arrêter votre abonnement Pro ? Vous conservez l\'accès jusqu\'à la fin de la période en cours.')) return
+    setCancelingPro(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const res = await fetch('/api/cancel-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      })
+      const { success, error } = await res.json()
+      if (error) throw new Error(error)
+      if (success) {
+        setProfile((prev: any) => ({ ...prev, plan: 'canceling' }))
+        setMessage({ type: 'success', text: 'Abonnement annulé — vous gardez l\'accès Pro jusqu\'à la fin de la période.' })
+      }
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message })
+    }
+    setCancelingPro(false)
+  }
+
+  // ── Activer 2FA
   const handleEnable2FA = async () => {
     setMfaLoading(true); setMfaError('')
     try {
@@ -108,39 +156,28 @@ export default function Parametres() {
     setMfaLoading(false)
   }
 
-  // ── Vérifier le code 2FA ──────────────────────────────────────────────────
   const handleVerify2FA = async () => {
     if (mfaCode.length !== 6) { setMfaError('Le code doit faire 6 chiffres'); return }
     setMfaLoading(true); setMfaError('')
     try {
       const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId })
       if (challengeError) throw challengeError
-
-      const { error: verifyError } = await supabase.auth.mfa.verify({
-        factorId: mfaFactorId,
-        challengeId: challengeData.id,
-        code: mfaCode,
-      })
+      const { error: verifyError } = await supabase.auth.mfa.verify({ factorId: mfaFactorId, challengeId: challengeData.id, code: mfaCode })
       if (verifyError) throw verifyError
-
-      setMfaEnabled(true)
-      setMfaStep('done')
-      setMfaCode('')
+      setMfaEnabled(true); setMfaStep('done'); setMfaCode('')
     } catch (err: any) { setMfaError('Code incorrect — réessayez') }
     setMfaLoading(false)
   }
 
-  // ── Désactiver 2FA ────────────────────────────────────────────────────────
   const handleDisable2FA = async () => {
-    if (!confirm('Désactiver la double authentification ? Votre compte sera moins sécurisé.')) return
+    if (!confirm('Désactiver la double authentification ?')) return
     setMfaLoading(true)
     try {
       const { data: factors } = await supabase.auth.mfa.listFactors()
       for (const factor of factors?.totp || []) {
         await supabase.auth.mfa.unenroll({ factorId: factor.id })
       }
-      setMfaEnabled(false)
-      setMfaStep('idle')
+      setMfaEnabled(false); setMfaStep('idle')
     } catch (err: any) { setMfaError(err.message) }
     setMfaLoading(false)
   }
@@ -203,7 +240,90 @@ export default function Parametres() {
               </div>
             </motion.div>
 
-            {/* Sécurité — mot de passe + 2FA */}
+            {/* ✅ Mon abonnement — exposants uniquement */}
+            {profile?.role === 'exposant' && (
+              <motion.div variants={fadeUp} style={{ background: '#0F172A', borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 30, height: 30, background: 'rgba(79,70,229,0.2)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CreditCard size={15} style={{ color: '#818CF8' }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>Mon abonnement</p>
+                    <p style={{ fontSize: 11, color: '#475569' }}>Plan actuel et facturation</p>
+                  </div>
+                  {(isPro || isCanceling) && (
+                    <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, background: 'rgba(251,191,36,0.15)', color: '#FBBF24', padding: '3px 10px', borderRadius: 100, border: '1px solid rgba(251,191,36,0.3)' }}>
+                      ⭐ PRO
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ padding: '18px' }}>
+                  {/* Plan actuel */}
+                  <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>
+                        {isPro || isCanceling ? '⭐ Plan Pro' : 'Plan Gratuit'}
+                      </p>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: isPro || isCanceling ? '#FBBF24' : '#64748B' }}>
+                        {isPro || isCanceling ? '20€/mois' : '0€'}
+                      </p>
+                    </div>
+                    <p style={{ fontSize: 12, color: '#64748B', lineHeight: 1.6 }}>
+                      {isCanceling
+                        ? 'Annulation en cours — vous gardez l\'accès Pro jusqu\'à la fin de la période.'
+                        : isPro
+                        ? 'Candidatures illimitées · Badge Pro · Alertes SMS · Marchés exclusifs'
+                        : '1 candidature par mois · Accès limité'
+                      }
+                    </p>
+                  </div>
+
+                  {/* Avantages Pro */}
+                  {(isPro || isCanceling) && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+                      {['Candidatures illimitées', 'Badge Pro visible', 'Alertes SMS géolocalisées', 'Marchés exclusifs Pro'].map((f, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#94A3B8' }}>
+                          <CheckCircle size={12} style={{ color: '#34D399', flexShrink: 0 }} /> {f}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  {!isPro && !isCanceling && (
+                    <button onClick={handleUpgradePro} disabled={upgradingPro}
+                      style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 9, padding: '12px 0', fontSize: 13, fontWeight: 700, cursor: upgradingPro ? 'not-allowed' : 'pointer', opacity: upgradingPro ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                      {upgradingPro
+                        ? <><Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</>
+                        : <><Star size={14} /> Passer au Plan Pro — 20€/mois</>
+                      }
+                    </button>
+                  )}
+
+                  {isPro && !isCanceling && (
+                    <button onClick={handleCancelPro} disabled={cancelingPro}
+                      style={{ width: '100%', background: 'rgba(239,68,68,0.1)', color: '#F87171', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 9, padding: '11px 0', fontSize: 13, fontWeight: 600, cursor: cancelingPro ? 'not-allowed' : 'pointer', opacity: cancelingPro ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                      {cancelingPro
+                        ? <><Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> Annulation...</>
+                        : <><AlertTriangle size={14} /> Arrêter mon abonnement</>
+                      }
+                    </button>
+                  )}
+
+                  {isCanceling && (
+                    <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 9, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <AlertTriangle size={14} style={{ color: '#F59E0B', flexShrink: 0 }} />
+                      <p style={{ fontSize: 12, color: '#F59E0B', lineHeight: 1.5 }}>
+                        Votre abonnement se terminera automatiquement à la fin de la période en cours.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Sécurité */}
             <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
               <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 30, height: 30, background: '#EEF2FF', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Shield size={15} style={{ color: '#4F46E5' }} /></div>
@@ -213,8 +333,6 @@ export default function Parametres() {
                 </div>
               </div>
               <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-
-                {/* Mot de passe */}
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Nouveau mot de passe</label>
                   <div style={{ position: 'relative' }}>
@@ -229,7 +347,6 @@ export default function Parametres() {
                   </div>
                 </div>
 
-                {/* ── 2FA ──────────────────────────────────────────────── */}
                 <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 18 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                     <div>
@@ -238,25 +355,22 @@ export default function Parametres() {
                         <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Double authentification (2FA)</p>
                         {mfaEnabled && <span style={{ fontSize: 10, fontWeight: 700, background: '#F0FDF4', color: '#16A34A', padding: '2px 8px', borderRadius: 100, border: '1px solid #BBF7D0' }}>Activée</span>}
                       </div>
-                      <p style={{ fontSize: 12, color: '#64748B', lineHeight: 1.5 }}>
-                        Protégez votre compte avec Google Authenticator ou Authy.
-                      </p>
+                      <p style={{ fontSize: 12, color: '#64748B', lineHeight: 1.5 }}>Protégez votre compte avec Google Authenticator ou Authy.</p>
                     </div>
                     {mfaEnabled ? (
                       <button onClick={handleDisable2FA} disabled={mfaLoading}
-                        style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
                         Désactiver
                       </button>
                     ) : (
                       <button onClick={handleEnable2FA} disabled={mfaLoading || mfaStep === 'qr'}
-                        style={{ background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        style={{ background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                         {mfaLoading ? <Loader size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> : <QrCode size={12} />}
                         Activer
                       </button>
                     )}
                   </div>
 
-                  {/* Étape QR */}
                   <AnimatePresence>
                     {mfaStep === 'qr' && (
                       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -265,14 +379,8 @@ export default function Parametres() {
                           <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>1. Scannez ce QR code</p>
                           <button onClick={() => setMfaStep('idle')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={14} /></button>
                         </div>
-                        <p style={{ fontSize: 12, color: '#64748B', marginBottom: 12, lineHeight: 1.6 }}>
-                          Ouvrez <strong>Google Authenticator</strong> ou <strong>Authy</strong> sur votre téléphone et scannez ce code.
-                        </p>
-                        {mfaQr && (
-                          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-                            <img src={mfaQr} alt="QR Code 2FA" style={{ width: 160, height: 160, borderRadius: 8, border: '1px solid #E2E8F0' }} />
-                          </div>
-                        )}
+                        <p style={{ fontSize: 12, color: '#64748B', marginBottom: 12, lineHeight: 1.6 }}>Ouvrez <strong>Google Authenticator</strong> ou <strong>Authy</strong> et scannez ce code.</p>
+                        {mfaQr && <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><img src={mfaQr} alt="QR Code 2FA" style={{ width: 160, height: 160, borderRadius: 8, border: '1px solid #E2E8F0' }} /></div>}
                         <div style={{ background: '#EEF2FF', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
                           <p style={{ fontSize: 11, color: '#64748B', marginBottom: 4 }}>Ou entrez ce code manuellement :</p>
                           <p style={{ fontSize: 13, fontWeight: 700, color: '#4F46E5', fontFamily: 'monospace', letterSpacing: '0.1em' }}>{mfaSecret}</p>
@@ -292,15 +400,13 @@ export default function Parametres() {
                         {mfaError && <p style={{ fontSize: 12, color: '#DC2626', marginTop: 8 }}>{mfaError}</p>}
                       </motion.div>
                     )}
-
-                    {/* Succès */}
                     {mfaStep === 'done' && (
                       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                         style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '14px 16px', display: 'flex', gap: 10, alignItems: 'center' }}>
                         <CheckCircle size={16} style={{ color: '#16A34A', flexShrink: 0 }} />
                         <div>
                           <p style={{ fontSize: 13, fontWeight: 600, color: '#15803D' }}>2FA activée avec succès !</p>
-                          <p style={{ fontSize: 12, color: '#16A34A', marginTop: 2 }}>Votre compte est maintenant protégé par double authentification.</p>
+                          <p style={{ fontSize: 12, color: '#16A34A', marginTop: 2 }}>Votre compte est maintenant protégé.</p>
                         </div>
                       </motion.div>
                     )}
@@ -337,28 +443,6 @@ export default function Parametres() {
                 ))}
               </div>
             </motion.div>
-
-            {/* Plan exposant */}
-            {profile?.role === 'exposant' && (
-              <motion.div variants={fadeUp} style={{ background: '#0F172A', borderRadius: 12, padding: '18px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                  <div style={{ width: 30, height: 30, background: 'rgba(79,70,229,0.2)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <CreditCard size={15} style={{ color: '#818CF8' }} />
-                  </div>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>Mon abonnement</p>
-                    <p style={{ fontSize: 11, color: '#475569' }}>Plan actuel et facturation</p>
-                  </div>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: 'white', marginBottom: 3 }}>Plan Gratuit</p>
-                  <p style={{ fontSize: 12, color: '#64748B' }}>1 candidature par mois · Accès limité</p>
-                </div>
-                <button style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 9, padding: '11px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                  Passer au Plan Pro — 20€/mois
-                </button>
-              </motion.div>
-            )}
 
             {/* Danger zone */}
             <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #FECACA', borderRadius: 12, padding: '18px' }}>
