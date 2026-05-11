@@ -150,7 +150,6 @@ function DriveToStoreSlot({ marketId }: { marketId: string }) {
         {bonsPlans.map((plan, i) => (
           <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, delay: 0.35+i*0.08 }}
             style={{ background: plan.couleur, borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            {/* Photo réelle ou emoji */}
             {plan.photo_url
               ? <img src={plan.photo_url} alt={plan.nom} style={{ width: 52, height: 52, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
               : <span style={{ fontSize: 26, flexShrink: 0, lineHeight: 1 }}>{plan.emoji}</span>
@@ -160,7 +159,6 @@ function DriveToStoreSlot({ marketId }: { marketId: string }) {
               <p style={{ fontSize: 12, fontWeight: 600, color: plan.textColor, opacity: 0.9 }}>{plan.offre}</p>
               {plan.detail && <p style={{ fontSize: 11, color: plan.textColor, opacity: 0.65 }}>{plan.detail}</p>}
             </div>
-            {/* Bouton Voir → Google Maps */}
             <a href={plan.adresse ? `https://www.google.com/maps/search/${encodeURIComponent(plan.adresse)}` : '#'}
               target="_blank" rel="noopener noreferrer"
               style={{ flexShrink: 0, background: 'rgba(0,0,0,0.08)', borderRadius: 10, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
@@ -389,25 +387,16 @@ export default function WhatmarketHome() {
         return { ...ev, exposants_count: count||0, distance: lat&&lng&&ev.latitude&&ev.longitude?haversine(lat,lng,ev.latitude,ev.longitude):undefined }
       }))
       setMarkets(enriched)
-
-      // Charger le marché sponsorisé depuis mairie_boosts
       try {
         const now = new Date().toISOString()
         const { data: boostData } = await supabase
-          .from('mairie_boosts')
-          .select('event_id')
-          .eq('status', 'active')
-          .gt('expires_at', now)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
-
+          .from('mairie_boosts').select('event_id').eq('status', 'active').gt('expires_at', now)
+          .order('created_at', { ascending: false }).limit(1).single()
         if (boostData?.event_id) {
           const boosted = enriched.find((m: any) => m.id === boostData.event_id)
           if (boosted) setSponsoredMarket({ ...boosted, sponsored: true })
         }
-      } catch (err) { /* pas de marché sponsorisé */ }
-
+      } catch (err) {}
     } catch(err) { console.error(err) }
     setLoading(false)
   }, [])
@@ -437,20 +426,36 @@ export default function WhatmarketHome() {
         html,body{font-family:'DM Sans',system-ui,sans-serif;background:#F9F8F6;overscroll-behavior:none;}
         ::-webkit-scrollbar{display:none;}*{scrollbar-width:none;}
         @keyframes shimmer{0%{background-position:-300px 0}100%{background-position:300px 0}}
-        @keyframes pulse-ring{0%,100%{box-shadow:0 0 0 0 rgba(79,70,229,0.35)}50%{box-shadow:0 0 0 10px rgba(79,70,229,0)}}
+        @keyframes pulse-ring{0%,100%{box-shadow:0 0 0 0 rgba(14,165,233,0.35)}50%{box-shadow:0 0 0 10px rgba(14,165,233,0)}}
         @keyframes spin{to{transform:rotate(360deg)}}
         .pulse-ring{animation:pulse-ring 1.8s ease infinite}
       `}</style>
       <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: '#F9F8F6', position: 'relative', fontFamily: '"DM Sans",system-ui,sans-serif' }}>
+
+        {/* ✅ HEADER AVEC LOGO WHATMARKET */}
         <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(249,248,246,0.94)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '52px 20px 14px', borderBottom: '0.5px solid rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+
+            {/* ✅ Logo Whatmarket SVG */}
             <div>
-              <p style={{ fontFamily: '"Playfair Display",Georgia,serif', fontSize: 26, fontWeight: 900, color: '#111827', letterSpacing: '-0.02em', lineHeight: 1 }}>whatmarket</p>
-              <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 3 }}>{geoStatus==='ok'?'Marchés près de vous':'Découvrez les marchés locaux'}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 3 }}>
+                <svg width="30" height="30" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="20" cy="20" r="20" fill="#0EA5E9"/>
+                  <path d="M8 13L13 27L20 17L27 27L32 13" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
+                  <span style={{ fontFamily: '"DM Sans",system-ui,sans-serif', fontSize: 22, fontWeight: 700, color: '#111827', letterSpacing: '-0.03em' }}>What</span>
+                  <span style={{ fontFamily: '"DM Sans",system-ui,sans-serif', fontSize: 22, fontWeight: 400, color: '#0EA5E9', letterSpacing: '-0.03em' }}>market</span>
+                </div>
+              </div>
+              <p style={{ fontSize: 12, color: '#9CA3AF', marginLeft: 40 }}>
+                {geoStatus==='ok' ? 'Marchés près de vous' : 'Découvrez les marchés locaux'}
+              </p>
             </div>
+
             <button onClick={geoStatus==='idle'||geoStatus==='denied'?requestGeo:undefined}
               className={geoStatus==='requesting'?'pulse-ring':''}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, background: geoStatus==='ok'?'#ECFDF5':'#4F46E5', border: 'none', borderRadius: 100, padding: '9px 14px', cursor: geoStatus==='requesting'?'default':'pointer', transition: 'all 0.3s' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: geoStatus==='ok'?'#ECFDF5':'#0EA5E9', border: 'none', borderRadius: 100, padding: '9px 14px', cursor: geoStatus==='requesting'?'default':'pointer', transition: 'all 0.3s' }}>
               {geoStatus==='requesting'
                 ? <div style={{ width: 13, height: 13, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                 : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={geoStatus==='ok'?'#10B981':'white'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
@@ -460,6 +465,7 @@ export default function WhatmarketHome() {
               </span>
             </button>
           </div>
+
           <div style={{ display: 'flex', gap: 7 }}>
             {(['bientot','proche','tous'] as const).map((f,i) => (
               <button key={f} onClick={() => setFilter(f)}
@@ -486,12 +492,15 @@ export default function WhatmarketHome() {
               </motion.div>
             )}
           </AnimatePresence>
+
           {loading && [1,2,3].map(i => (
             <div key={i} style={{ height: 252, borderRadius: 24, marginBottom: 14, background: 'linear-gradient(90deg,#EFEDE8 0%,#E5E3DE 40%,#EFEDE8 100%)', backgroundSize: '300% 100%', animation: 'shimmer 1.5s ease infinite' }} />
           ))}
+
           <AnimatePresence>
             {!loading && sponsoredMarket && <SponsoredMarketCard market={sponsoredMarket} onClick={() => setSelected(sponsoredMarket)} />}
           </AnimatePresence>
+
           {!loading && sorted.map((m,i) => <MarketCard key={m.id} market={m} index={i} onClick={() => setSelected(m)} />)}
         </div>
 
