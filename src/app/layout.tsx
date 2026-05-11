@@ -17,6 +17,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "PulseMarket — La numérisation des marchés du terroir français",
   description: "Gérez vos marchés, certifiez vos dossiers exposants et simplifiez vos AOT avec PulseMarket.",
+  icons: {
+    icon: [
+      { url: '/icon-pulsemarket.svg', type: 'image/svg+xml' },
+    ],
+    apple: '/icon-pulsemarket.svg',
+    shortcut: '/icon-pulsemarket.svg',
+  },
 };
 
 export default function RootLayout({
@@ -29,6 +36,10 @@ export default function RootLayout({
       lang="fr"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <link rel="icon" href="/icon-pulsemarket.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/icon-pulsemarket.svg" />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
         <CrispChat />
