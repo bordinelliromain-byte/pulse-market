@@ -7,7 +7,7 @@ import type { Variants } from 'framer-motion'
 import {
   ArrowRight, FileCheck, Building2, Store, ShieldCheck,
   Zap, MapPin, Bell, CheckCircle, ChevronRight,
-  BarChart3, Clock, Lock, Users, Euro, Map
+  BarChart3, Clock, Users, Euro, Map
 } from 'lucide-react'
 
 const fadeUp: Variants = {
@@ -19,11 +19,11 @@ const stagger: Variants = {
   visible: { transition: { staggerChildren: 0.08 } },
 }
 
-function AnimatedSection({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+function AnimatedSection({ children, className = '', style = {} }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: '-80px' })
   return (
-    <motion.div ref={ref} variants={stagger} initial="hidden" animate={inView ? 'visible' : 'hidden'} className={className}>
+    <motion.div ref={ref} variants={stagger} initial="hidden" animate={inView ? 'visible' : 'hidden'} className={className} style={style}>
       {children}
     </motion.div>
   )
@@ -60,11 +60,10 @@ export default function Landing() {
   return (
     <div style={{ background: '#F8FAFC', color: '#0F172A', fontFamily: 'system-ui, sans-serif' }} className="min-h-screen">
 
-      {/* NAV */}
+      {/* ✅ NAV — épuré, un seul vrai CTA */}
       <motion.header initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.4 }}
         style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: scrolled ? 'rgba(255,255,255,0.92)' : 'transparent', backdropFilter: scrolled ? 'blur(12px)' : 'none', borderBottom: scrolled ? '1px solid #E2E8F0' : 'none', transition: 'all 0.2s ease' }}>
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          {/* ✅ Logo SVG nav */}
           <div className="flex items-center gap-2">
             <LogoIcon size={28} />
             <LogoWordmark size={15} />
@@ -76,50 +75,66 @@ export default function Landing() {
             <a href="#tarifs" className="hover:text-slate-900 transition-colors">Tarifs</a>
           </div>
           <div className="flex items-center gap-3">
+            {/* Espace organisateur — très discret */}
             <button onClick={() => router.push('/auth/mairie')}
-              style={{ fontSize: 13, color: '#4F46E5', fontWeight: 600, background: '#EEF2FF', padding: '6px 14px', borderRadius: 8, border: '1px solid #C7D2FE' }}
-              className="hidden md:flex items-center gap-1.5 hover:opacity-90 transition-opacity">
-              <Building2 size={13} /> Espace mairie
+              style={{ fontSize: 12, color: '#64748B', fontWeight: 500, background: 'transparent', padding: '6px 12px', borderRadius: 8, border: '1px solid #E2E8F0', cursor: 'pointer' }}
+              className="hidden md:flex items-center gap-1.5 hover:border-slate-400 hover:text-slate-900 transition-all">
+              <Building2 size={12} /> Espace organisateur
             </button>
+            {/* Connexion — seul vrai CTA nav */}
             <button onClick={() => router.push('/auth')}
-              style={{ background: '#4F46E5', color: 'white', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500 }}
-              className="hover:opacity-90 transition-opacity flex items-center gap-1.5">
+              style={{ background: '#0F172A', color: 'white', padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              className="hover:opacity-85 transition-opacity flex items-center gap-1.5">
               Connexion <ArrowRight size={13} />
             </button>
           </div>
         </div>
       </motion.header>
 
-      {/* HERO */}
+      {/* ✅ HERO — hiérarchie claire, un chemin par profil */}
       <section className="pt-36 pb-24 px-6" style={{ borderBottom: '1px solid #E2E8F0', background: 'white' }}>
         <div className="max-w-5xl mx-auto">
           <AnimatedSection>
             <motion.div variants={fadeUp} className="mb-6">
               <span style={{ background: '#EEF2FF', color: '#4F46E5', padding: '4px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: '1px solid #C7D2FE' }}>
-                Conforme RGPD — Données hébergées en France
+                Conforme RGPD · Données hébergées en France
               </span>
             </motion.div>
-            <motion.h1 variants={fadeUp} style={{ fontSize: 'clamp(36px, 5vw, 62px)', fontWeight: 700, lineHeight: 1.08, letterSpacing: '-0.03em', maxWidth: 720 }} className="mb-6">
+
+            <motion.h1 variants={fadeUp}
+              style={{ fontSize: 'clamp(36px, 5vw, 62px)', fontWeight: 700, lineHeight: 1.08, letterSpacing: '-0.03em', maxWidth: 720 }}
+              className="mb-5">
               Gérez vos marchés municipaux sans effort
             </motion.h1>
-            <motion.p variants={fadeUp} style={{ fontSize: 18, color: '#64748B', maxWidth: 560, lineHeight: 1.7 }} className="mb-10">
-              PulseMarket numérise la gestion des AOT, automatise la vérification des dossiers exposants et collecte les redevances en ligne. Zéro papier, zéro relance, zéro prise de tête.
+
+            <motion.p variants={fadeUp}
+              style={{ fontSize: 18, color: '#64748B', maxWidth: 520, lineHeight: 1.7 }}
+              className="mb-10">
+              PulseMarket numérise les AOT, automatise la vérification des dossiers exposants et collecte les redevances en ligne. Zéro papier, zéro relance.
             </motion.p>
-            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-3">
+
+            {/* CTAs — hiérarchie nette */}
+            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              {/* Principal — Maire */}
               <button onClick={() => router.push('/auth/mairie')}
-                style={{ background: '#4F46E5', color: 'white', padding: '13px 28px', borderRadius: 10, fontWeight: 600, fontSize: 15 }}
-                className="hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
-                <Building2 size={16} /> Créer mon espace mairie
+                style={{ background: '#4F46E5', color: 'white', padding: '14px 28px', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 24px rgba(79,70,229,0.28)' }}
+                className="hover:opacity-90 transition-opacity flex items-center gap-2 whitespace-nowrap">
+                <Building2 size={16} /> Démarrer PulseMarket
               </button>
+              {/* Secondaire — Exposant, lien discret */}
               <button onClick={() => router.push('/auth')}
-                style={{ background: 'white', color: '#0F172A', padding: '13px 28px', borderRadius: 10, fontWeight: 600, fontSize: 15, border: '1px solid #E2E8F0' }}
-                className="hover:border-slate-400 transition-colors flex items-center justify-center gap-2">
-                <Store size={16} /> Je suis exposant
+                style={{ background: 'transparent', color: '#64748B', padding: '14px 0', fontWeight: 500, fontSize: 14, cursor: 'pointer', border: 'none' }}
+                className="hover:text-slate-900 transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                <Store size={14} style={{ color: '#94A3B8' }} />
+                Vous êtes exposant ?&nbsp;
+                <span style={{ color: '#4F46E5', fontWeight: 600 }}>Inscrivez-vous ici</span>
+                <ArrowRight size={13} style={{ color: '#4F46E5' }} />
               </button>
             </motion.div>
           </AnimatedSection>
 
-          <AnimatedSection className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16">
+          {/* Stats — séparées visuellement */}
+          <AnimatedSection className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-10" style={{ borderTop: '1px solid #F1F5F9' }}>
             {[
               { n: '36 000', l: 'communes françaises avec marchés' },
               { n: '600 k', l: 'commerçants non-sédentaires' },
@@ -196,7 +211,6 @@ export default function Landing() {
               Un tableau de bord complet pour gérer vos événements, valider les dossiers, attribuer les emplacements et suivre la trésorerie — depuis n'importe où.
             </motion.p>
           </AnimatedSection>
-
           <AnimatedSection className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <motion.div variants={fadeUp} className="md:col-span-2" style={{ background: '#0F172A', borderRadius: 12, padding: 32, minHeight: 280 }}>
               <div style={{ background: 'rgba(79,70,229,0.2)', borderRadius: 8, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
@@ -232,7 +246,6 @@ export default function Landing() {
               <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>Envoyez un message à tous vos exposants en un clic. Alertes météo, changement de placement, report de date — tout le monde est notifié.</p>
             </motion.div>
           </AnimatedSection>
-
           <AnimatedSection className="mt-8">
             <motion.div variants={fadeUp} style={{ background: 'linear-gradient(135deg, #0F172A, #1E293B)', borderRadius: 14, padding: '28px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 16 }}>
               <Building2 size={24} style={{ color: '#818CF8' }} />
@@ -297,9 +310,9 @@ export default function Landing() {
           </AnimatedSection>
           <AnimatedSection className="grid md:grid-cols-3 gap-6">
             {[
-              { name: 'Exposant Gratuit', price: '0€', period: 'pour toujours', features: ['Consultation de la carte des événements', 'Création de votre profil exposant', 'Upload Kbis & RC Pro', '1 candidature par mois', 'Vérification SIREN incluse'], cta: 'Créer mon compte', accent: false, path: '/auth?tab=signup' },
-              { name: 'Exposant Pro', price: '20€', period: 'par mois', features: ['Candidatures illimitées', 'Badge Dossier Vérifié', 'Alertes géolocalisées', 'Accès aux marchés exclusifs', 'Visibilité prioritaire sur Whatmarket'], cta: 'Passer en Pro', accent: true, path: '/auth?tab=signup' },
-              { name: 'Administration', price: '150€', period: 'par mois', features: ['Événements illimités', 'Vérification automatique des dossiers', 'Attribution terrain drag & drop', 'Collecte des redevances AOT', 'Export comptable CSV / PDF', 'Support dédié'], cta: 'Créer mon espace', accent: false, path: '/auth/mairie' },
+              { name: 'Exposant Gratuit', price: '0€', period: 'pour toujours', features: ['Consultation de la carte des événements', 'Création de votre profil exposant', 'Upload Kbis & RC Pro', '1 candidature par mois', 'Vérification SIREN incluse'], cta: 'Créer mon compte', accent: false, path: '/auth' },
+              { name: 'Exposant Pro', price: '20€', period: 'par mois', features: ['Candidatures illimitées', 'Badge Dossier Vérifié', 'Alertes géolocalisées', 'Accès aux marchés exclusifs', 'Visibilité prioritaire sur Whatmarket'], cta: 'Passer en Pro', accent: true, path: '/auth' },
+              { name: 'Administration', price: '150€', period: 'par mois', features: ['Événements illimités', 'Vérification automatique des dossiers', 'Attribution terrain drag & drop', 'Collecte des redevances AOT', 'Export comptable CSV / PDF', 'Support dédié'], cta: 'Démarrer PulseMarket', accent: false, path: '/auth/mairie' },
             ].map((plan, i) => (
               <motion.div key={i} variants={fadeUp}
                 style={{ background: plan.accent ? '#0F172A' : 'white', border: `1px solid ${plan.accent ? '#0F172A' : '#E2E8F0'}`, borderRadius: 12, padding: 28, position: 'relative' }}>
@@ -346,16 +359,19 @@ export default function Landing() {
             <motion.p variants={fadeUp} style={{ color: '#64748B', fontSize: 16, marginBottom: 32, lineHeight: 1.7 }}>
               Rejoignez les premiers organisateurs et exposants qui font confiance à PulseMarket. Gratuit pour démarrer, sans engagement.
             </motion.p>
-            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-3 justify-center">
+            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <button onClick={() => router.push('/auth/mairie')}
-                style={{ background: '#4F46E5', color: 'white', padding: '14px 32px', borderRadius: 10, fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
+                style={{ background: '#4F46E5', color: 'white', padding: '14px 32px', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 24px rgba(79,70,229,0.28)' }}
                 className="hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-2">
-                <Building2 size={16} /> Créer mon espace mairie <ArrowRight size={16} />
+                <Building2 size={16} /> Démarrer PulseMarket <ArrowRight size={16} />
               </button>
               <button onClick={() => router.push('/auth')}
-                style={{ background: 'white', color: '#0F172A', padding: '14px 32px', borderRadius: 10, fontWeight: 600, fontSize: 15, cursor: 'pointer', border: '1px solid #E2E8F0' }}
-                className="hover:border-slate-400 transition-colors inline-flex items-center justify-center gap-2">
-                <Store size={16} /> Je suis exposant
+                style={{ background: 'transparent', color: '#64748B', fontSize: 14, fontWeight: 500, cursor: 'pointer', border: 'none', padding: '14px 0' }}
+                className="hover:text-slate-900 transition-colors inline-flex items-center gap-1.5">
+                <Store size={14} style={{ color: '#94A3B8' }} />
+                Vous êtes exposant ?&nbsp;
+                <span style={{ color: '#4F46E5', fontWeight: 600 }}>Inscrivez-vous ici</span>
+                <ArrowRight size={13} style={{ color: '#4F46E5' }} />
               </button>
             </motion.div>
           </AnimatedSection>
@@ -365,7 +381,6 @@ export default function Landing() {
       {/* FOOTER */}
       <footer style={{ borderTop: '1px solid #E2E8F0', background: 'white', padding: '24px' }}>
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          {/* ✅ Logo SVG footer */}
           <div className="flex items-center gap-2">
             <LogoIcon size={24} />
             <LogoWordmark size={14} />
