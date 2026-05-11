@@ -29,6 +29,24 @@ function AnimatedSection({ children, className = '' }: { children: React.ReactNo
   )
 }
 
+function LogoIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="40" height="40" rx="10" fill="#4F46E5"/>
+      <path d="M6 20L12 20L14 11L17 29L20 14L22 20L34 20" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+function LogoWordmark({ size = 15 }: { size?: number }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
+      <span style={{ fontWeight: 700, fontSize: size, letterSpacing: '-0.02em', color: '#0F172A' }}>Pulse</span>
+      <span style={{ fontWeight: 400, fontSize: size, letterSpacing: '-0.02em', color: '#4F46E5' }}>Market</span>
+    </div>
+  )
+}
+
 export default function Landing() {
   const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
@@ -46,11 +64,10 @@ export default function Landing() {
       <motion.header initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.4 }}
         style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: scrolled ? 'rgba(255,255,255,0.92)' : 'transparent', backdropFilter: scrolled ? 'blur(12px)' : 'none', borderBottom: scrolled ? '1px solid #E2E8F0' : 'none', transition: 'all 0.2s ease' }}>
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+          {/* ✅ Logo SVG nav */}
           <div className="flex items-center gap-2">
-            <div style={{ width: 28, height: 28, background: '#0F172A', borderRadius: 7 }} className="flex items-center justify-center">
-              <span style={{ color: 'white', fontSize: 12, fontWeight: 700 }}>PM</span>
-            </div>
-            <span style={{ fontWeight: 600, fontSize: 15 }}>PulseMarket</span>
+            <LogoIcon size={28} />
+            <LogoWordmark size={15} />
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: '#64748B' }}>
             <a href="#fonctionnement" className="hover:text-slate-900 transition-colors">Fonctionnement</a>
@@ -193,26 +210,22 @@ export default function Landing() {
                 ))}
               </div>
             </motion.div>
-
             <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24 }}>
               <Clock size={18} style={{ color: '#4F46E5', marginBottom: 16 }} />
               <h3 style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Gain de temps estimé</h3>
               <p style={{ fontSize: 36, fontWeight: 700, color: '#4F46E5', marginBottom: 4 }}>-80%</p>
               <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>de temps administratif par événement. Plus d'appels, de relances email ni de dossiers papier manquants.</p>
             </motion.div>
-
             <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24 }}>
               <ShieldCheck size={18} style={{ color: '#16A34A', marginBottom: 16 }} />
               <h3 style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Sécurité juridique totale</h3>
               <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>Chaque dossier est archivé avec horodatage légal. RC Pro vérifiées à date de validité. Votre responsabilité est couverte.</p>
             </motion.div>
-
             <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24 }}>
               <Euro size={18} style={{ color: '#F59E0B', marginBottom: 16 }} />
               <h3 style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Trésorerie automatisée</h3>
               <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>Les redevances AOT sont collectées en ligne via Stripe. Exports comptables CSV/PDF générés en un clic pour votre service financier.</p>
             </motion.div>
-
             <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24 }}>
               <Bell size={18} style={{ color: '#8B5CF6', marginBottom: 16 }} />
               <h3 style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Communication groupée</h3>
@@ -251,7 +264,6 @@ export default function Landing() {
               Un dossier, des dizaines de marchés. Déposez vos documents une seule fois et candidatez partout en un clic.
             </motion.p>
           </AnimatedSection>
-
           <AnimatedSection className="grid md:grid-cols-2 gap-4">
             {[
               { icon: <FileCheck size={16} style={{ color: '#4F46E5' }} />, title: 'Un dossier, partout', desc: "Déposez votre Kbis et RC Pro une seule fois. Notre système les réutilise automatiquement pour chaque candidature. Fini les copies papier." },
@@ -283,62 +295,16 @@ export default function Landing() {
               Les mairies démarrent gratuitement. Les exposants choisissent leur formule.
             </motion.p>
           </AnimatedSection>
-
           <AnimatedSection className="grid md:grid-cols-3 gap-6">
             {[
-              {
-                name: 'Exposant Gratuit',
-                price: '0€',
-                period: 'pour toujours',
-                features: [
-                  'Consultation de la carte des événements',
-                  'Création de votre profil exposant',
-                  'Upload Kbis & RC Pro',
-                  '1 candidature par mois',
-                  'Vérification SIREN incluse',
-                ],
-                cta: 'Créer mon compte',
-                accent: false,
-                path: '/auth?tab=signup'
-              },
-              {
-                name: 'Exposant Pro',
-                price: '20€',
-                period: 'par mois',
-                features: [
-                  'Candidatures illimitées',
-                  'Badge Dossier Vérifié',
-                  'Alertes géolocalisées',
-                  'Accès aux marchés exclusifs',
-                  'Visibilité prioritaire sur Whatmarket',
-                ],
-                cta: 'Passer en Pro',
-                accent: true,
-                path: '/auth?tab=signup'
-              },
-              {
-                name: 'Administration',
-                price: '150€',
-                period: 'par mois',
-                features: [
-                  'Événements illimités',
-                  'Vérification automatique des dossiers',
-                  'Attribution terrain drag & drop',
-                  'Collecte des redevances AOT',
-                  'Export comptable CSV / PDF',
-                  'Support dédié',
-                ],
-                cta: 'Créer mon espace',
-                accent: false,
-                path: '/auth/mairie'
-              },
+              { name: 'Exposant Gratuit', price: '0€', period: 'pour toujours', features: ['Consultation de la carte des événements', 'Création de votre profil exposant', 'Upload Kbis & RC Pro', '1 candidature par mois', 'Vérification SIREN incluse'], cta: 'Créer mon compte', accent: false, path: '/auth?tab=signup' },
+              { name: 'Exposant Pro', price: '20€', period: 'par mois', features: ['Candidatures illimitées', 'Badge Dossier Vérifié', 'Alertes géolocalisées', 'Accès aux marchés exclusifs', 'Visibilité prioritaire sur Whatmarket'], cta: 'Passer en Pro', accent: true, path: '/auth?tab=signup' },
+              { name: 'Administration', price: '150€', period: 'par mois', features: ['Événements illimités', 'Vérification automatique des dossiers', 'Attribution terrain drag & drop', 'Collecte des redevances AOT', 'Export comptable CSV / PDF', 'Support dédié'], cta: 'Créer mon espace', accent: false, path: '/auth/mairie' },
             ].map((plan, i) => (
               <motion.div key={i} variants={fadeUp}
                 style={{ background: plan.accent ? '#0F172A' : 'white', border: `1px solid ${plan.accent ? '#0F172A' : '#E2E8F0'}`, borderRadius: 12, padding: 28, position: 'relative' }}>
                 {plan.accent && (
-                  <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#4F46E5', color: 'white', fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 100 }}>
-                    POPULAIRE
-                  </div>
+                  <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#4F46E5', color: 'white', fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 100 }}>POPULAIRE</div>
                 )}
                 <p style={{ fontSize: 13, fontWeight: 600, color: plan.accent ? '#94A3B8' : '#64748B', marginBottom: 8 }}>{plan.name}</p>
                 <p style={{ fontSize: 36, fontWeight: 700, color: plan.accent ? 'white' : '#0F172A' }}>{plan.price}</p>
@@ -359,7 +325,6 @@ export default function Landing() {
               </motion.div>
             ))}
           </AnimatedSection>
-
           <AnimatedSection className="mt-8">
             <motion.div variants={fadeUp} style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
               <CheckCircle size={18} style={{ color: '#16A34A', flexShrink: 0 }} />
@@ -400,11 +365,10 @@ export default function Landing() {
       {/* FOOTER */}
       <footer style={{ borderTop: '1px solid #E2E8F0', background: 'white', padding: '24px' }}>
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+          {/* ✅ Logo SVG footer */}
           <div className="flex items-center gap-2">
-            <div style={{ width: 24, height: 24, background: '#0F172A', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'white', fontSize: 10, fontWeight: 700 }}>PM</span>
-            </div>
-            <span style={{ fontWeight: 600, fontSize: 14 }}>PulseMarket</span>
+            <LogoIcon size={24} />
+            <LogoWordmark size={14} />
           </div>
           <p style={{ fontSize: 13, color: '#94A3B8' }}>© 2026 PulseMarket SAS — Tous droits réservés</p>
           <div className="flex gap-6" style={{ fontSize: 13, color: '#94A3B8' }}>
