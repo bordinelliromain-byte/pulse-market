@@ -62,7 +62,6 @@ export default function Sidebar({ profile }: SidebarProps) {
 
   return (
     <>
-      {/* Hamburger — visible seulement quand menu fermé */}
       {isMobile && !open && (
         <button
           onClick={() => setOpen(true)}
@@ -76,7 +75,6 @@ export default function Sidebar({ profile }: SidebarProps) {
         </button>
       )}
 
-      {/* Overlay */}
       {isMobile && open && (
         <div
           onClick={() => setOpen(false)}
@@ -87,19 +85,23 @@ export default function Sidebar({ profile }: SidebarProps) {
         />
       )}
 
-      {/* Sidebar */}
       <aside style={{
         width: 220, background: '#020617', display: 'flex', flexDirection: 'column',
         position: 'fixed', top: 0, left: isMobile ? (open ? 0 : -240) : 0, bottom: 0,
         zIndex: 40, transition: 'left 0.3s ease',
       }}>
-        {/* Logo */}
-        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, background: '#4F46E5', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>PM</span>
+
+        {/* ✅ Logo SVG inline */}
+        <div style={{ padding: '18px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => router.push('/dashboard')}>
+            <svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="40" height="40" rx="10" fill="#4F46E5"/>
+              <path d="M6 20L12 20L14 11L17 29L20 14L22 20L34 20" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+              <span style={{ color: 'white', fontWeight: 700, fontSize: 15, letterSpacing: '-0.03em', fontFamily: "'Inter', system-ui, sans-serif" }}>Pulse</span>
+              <span style={{ color: '#818CF8', fontWeight: 400, fontSize: 15, letterSpacing: '-0.03em', fontFamily: "'Inter', system-ui, sans-serif" }}>Market</span>
             </div>
-            <span style={{ color: 'white', fontWeight: 600, fontSize: 14 }}>PulseMarket</span>
           </div>
           {isMobile && (
             <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: 4 }}>
@@ -108,7 +110,6 @@ export default function Sidebar({ profile }: SidebarProps) {
           )}
         </div>
 
-        {/* Nav */}
         <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto' }}>
           <p style={{ fontSize: 10, fontWeight: 600, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '8px 10px', marginBottom: 4 }}>Navigation</p>
           {NAV_ITEMS.map((item) => (
@@ -126,13 +127,15 @@ export default function Sidebar({ profile }: SidebarProps) {
           ))}
         </nav>
 
-        {/* User */}
         <div style={{ padding: '12px 10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ padding: '8px 10px', marginBottom: 4 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
               <p style={{ fontSize: 12, fontWeight: 600, color: '#CBD5E1' }}>{profile?.full_name}</p>
               {profile?.role === 'organisateur' && (
                 <span style={{ fontSize: 9, fontWeight: 700, background: '#4F46E5', color: 'white', padding: '1px 6px', borderRadius: 100 }}>VÉRIFIÉ</span>
+              )}
+              {profile?.plan === 'pro' && profile?.role !== 'organisateur' && (
+                <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(251,191,36,0.15)', color: '#FBBF24', padding: '1px 6px', borderRadius: 100, border: '1px solid rgba(251,191,36,0.3)' }}>⭐ PRO</span>
               )}
             </div>
             <p style={{ fontSize: 11, color: '#475569' }}>
@@ -145,7 +148,6 @@ export default function Sidebar({ profile }: SidebarProps) {
           </button>
         </div>
       </aside>
-
     </>
   )
 }
