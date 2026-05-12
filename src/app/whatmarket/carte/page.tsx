@@ -45,7 +45,6 @@ function fmt_countdown(dateStr: string) {
   return { text: 'En cours', color: '#10B981', dot: true, pin: '#10B981' }
 }
 
-// ── DRAWER ─────────────────────────────────────────────────────────────────
 function MarketDrawer({ market, onClose }: { market: Market; onClose: () => void }) {
   const cd = fmt_countdown(market.start_date)
   const cover = market.cover_image || COVERS[0]
@@ -66,11 +65,9 @@ function MarketDrawer({ market, onClose }: { market: Market; onClose: () => void
         initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 32, stiffness: 320 }}
         onClick={e => e.stopPropagation()}>
-
         <div style={{ padding: '12px 0 8px', display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
           <div style={{ width: 36, height: 4, borderRadius: 100, background: '#D1CFC9' }} />
         </div>
-
         <div style={{ overflowY: 'auto', flex: 1, padding: '8px 20px 40px' }}>
           <div style={{ height: 180, borderRadius: 20, overflow: 'hidden', marginBottom: 16, position: 'relative' }}>
             <img src={cover} alt={market.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -83,7 +80,6 @@ function MarketDrawer({ market, onClose }: { market: Market; onClose: () => void
               <p style={{ fontFamily: '"Playfair Display",Georgia,serif', fontSize: 20, fontWeight: 700, color: 'white', lineHeight: 1.2 }}>{market.title}</p>
             </div>
           </div>
-
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
             <span style={{ fontSize: 13, color: '#6B7280' }}>{market.location_name}</span>
@@ -91,7 +87,6 @@ function MarketDrawer({ market, onClose }: { market: Market; onClose: () => void
               <span style={{ fontSize: 12, color: '#10B981', fontWeight: 600, background: '#ECFDF5', padding: '2px 8px', borderRadius: 100 }}>{fmt_dist(market.distance)}</span>
             )}
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 20 }}>
             {[
               { emoji: '📅', label: 'Date', value: new Date(market.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) },
@@ -105,7 +100,6 @@ function MarketDrawer({ market, onClose }: { market: Market; onClose: () => void
               </div>
             ))}
           </div>
-
           <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, background: '#111827', color: 'white', borderRadius: 18, padding: '17px', fontSize: 15, fontWeight: 700, textDecoration: 'none', fontFamily: '"DM Sans",sans-serif' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
@@ -117,9 +111,8 @@ function MarketDrawer({ market, onClose }: { market: Market; onClose: () => void
   )
 }
 
-// ── PAGE CARTE ─────────────────────────────────────────────────────────────
 export default function WhatmarketCarte() {
-  const mapRef = useRef<any>(null)
+  const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
   const userMarkerRef = useRef<any>(null)
@@ -127,10 +120,8 @@ export default function WhatmarketCarte() {
   const [selected, setSelected] = useState<Market | null>(null)
   const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle')
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null)
-  const [activeNav, setActiveNav] = useState(1)
   const [loading, setLoading] = useState(true)
 
-  // Load markets
   const loadMarkets = useCallback(async (lat?: number, lng?: number) => {
     try {
       const { createClient } = await import('@/lib/supabase')
@@ -139,28 +130,58 @@ export default function WhatmarketCarte() {
       const { data: events } = await supabase.from('events').select('*')
         .eq('status', 'published').gte('start_date', today)
         .order('start_date', { ascending: true }).limit(50)
-      if (!events) return
-
+      if (!events) return []
       const enriched = events
         .filter((ev: any) => ev.latitude && ev.longitude)
         .map((ev: any) => ({
           ...ev,
           distance: lat && lng ? haversine(lat, lng, ev.latitude, ev.longitude) : undefined
         }))
-
       setMarkets(enriched)
       return enriched
     } catch (err) { console.error(err) }
     return []
   }, [])
 
-  // Init Leaflet map
+  const addMarkers = useCallback((map: any, L: any, marketsData: Market[]) => {
+    markersRef.current.forEach(m => m.remove())
+    markersRef.current = []
+    marketsData.forEach(market => {
+      if (!market.latitude || !market.longitude) return
+      const cd = fmt_countdown(market.start_date)
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="width:36px;height:36px;cursor:pointer;">
+          <div style="width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${cd.pin};border:2.5px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">
+            <span style="transform:rotate(45deg);font-size:14px;line-height:1;">🏪</span>
+          </div>
+        </div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 36],
+      })
+      const marker = L.marker([market.latitude, market.longitude], { icon })
+        .addTo(map)
+        .on('click', () => setSelected(market))
+      markersRef.current.push(marker)
+    })
+  }, [])
+
+  // ✅ Init Leaflet — avec hauteur explicite sur le container
   useEffect(() => {
     if (mapInstanceRef.current || !mapRef.current) return
 
     const initMap = async () => {
-      const L = await import('leaflet')
+      const L = (await import('leaflet')).default
       await import('leaflet/dist/leaflet.css')
+
+      // ✅ Force la hauteur avant d'initialiser
+      mapRef.current!.style.width = '100%'
+      mapRef.current!.style.height = '100%'
+      mapRef.current!.style.position = 'absolute'
+      mapRef.current!.style.top = '0'
+      mapRef.current!.style.left = '0'
+      mapRef.current!.style.right = '0'
+      mapRef.current!.style.bottom = '0'
 
       const map = L.map(mapRef.current!, {
         center: [43.7, 5.1],
@@ -177,100 +198,42 @@ export default function WhatmarketCarte() {
       L.control.attribution({ position: 'bottomleft', prefix: '© OpenStreetMap' }).addTo(map)
 
       mapInstanceRef.current = map
-      setLoading(false)
+
+      // ✅ Force recalcul de la taille après mount
+      setTimeout(() => {
+        map.invalidateSize()
+        setLoading(false)
+      }, 200)
 
       const marketsData: any = await loadMarkets()
       if (marketsData?.length) addMarkers(map, L, marketsData)
     }
 
     initMap()
-  }, [])
+  }, [loadMarkets, addMarkers])
 
-  const addMarkers = (map: any, L: any, marketsData: Market[]) => {
-    markersRef.current.forEach(m => m.remove())
-    markersRef.current = []
-
-    marketsData.forEach(market => {
-      if (!market.latitude || !market.longitude) return
-      const cd = fmt_countdown(market.start_date)
-
-      const icon = L.divIcon({
-        className: '',
-        html: `
-          <div style="
-            position: relative;
-            width: 36px;
-            height: 36px;
-            cursor: pointer;
-          ">
-            <div style="
-              width: 36px;
-              height: 36px;
-              border-radius: 50% 50% 50% 0;
-              transform: rotate(-45deg);
-              background: ${cd.pin};
-              border: 2.5px solid white;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            ">
-              <span style="transform: rotate(45deg); font-size: 14px; line-height: 1;">🏪</span>
-            </div>
-          </div>
-        `,
-        iconSize: [36, 36],
-        iconAnchor: [18, 36],
-      })
-
-      const marker = L.marker([market.latitude, market.longitude], { icon })
-        .addTo(map)
-        .on('click', () => setSelected(market))
-
-      markersRef.current.push(marker)
-    })
-  }
-
-  // Géolocalisation
-  const requestGeo = () => {
+  const requestGeo = async () => {
     if (!navigator.geolocation) return
     setGeoStatus('requesting')
     navigator.geolocation.getCurrentPosition(
       async ({ coords: { latitude: lat, longitude: lng } }) => {
         setUserPos({ lat, lng })
         setGeoStatus('ok')
-
         const map = mapInstanceRef.current
         if (!map) return
-
-        const L = await import('leaflet')
-
+        const L = (await import('leaflet')).default
         if (userMarkerRef.current) userMarkerRef.current.remove()
         const userIcon = L.divIcon({
           className: '',
-          html: `
-            <div style="position:relative;width:20px;height:20px;">
-              <div style="
-                position:absolute;inset:0;
-                border-radius:50%;
-                background:rgba(79,70,229,0.2);
-                animation:userPulse 2s ease infinite;
-              "></div>
-              <div style="
-                position:absolute;inset:4px;
-                border-radius:50%;
-                background:#4F46E5;
-                border:2px solid white;
-                box-shadow:0 2px 8px rgba(79,70,229,0.5);
-              "></div>
-            </div>
-          `,
+          html: `<div style="position:relative;width:20px;height:20px;">
+            <div style="position:absolute;inset:0;border-radius:50%;background:rgba(79,70,229,0.2);animation:userPulse 2s ease infinite;"></div>
+            <div style="position:absolute;inset:4px;border-radius:50%;background:#4F46E5;border:2px solid white;box-shadow:0 2px 8px rgba(79,70,229,0.5);"></div>
+          </div>`,
           iconSize: [20, 20],
           iconAnchor: [10, 10],
         })
         userMarkerRef.current = L.marker([lat, lng], { icon: userIcon }).addTo(map)
         map.flyTo([lat, lng], 13, { duration: 1.2 })
-
         const marketsData = await loadMarkets(lat, lng)
         if (marketsData?.length) addMarkers(map, L, marketsData)
       },
@@ -298,18 +261,38 @@ export default function WhatmarketCarte() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        html, body { font-family: 'DM Sans', system-ui, sans-serif; background: #111827; overflow: hidden; }
+        html, body { height: 100%; overflow: hidden; font-family: 'DM Sans', system-ui, sans-serif; background: #111827; }
         ::-webkit-scrollbar { display: none; }
-        .leaflet-container { background: #F9F8F6; }
+        .leaflet-container { background: #F9F8F6 !important; }
         .leaflet-control-attribution { font-size: 9px !important; background: rgba(255,255,255,0.7) !important; }
         @keyframes userPulse { 0%, 100% { transform: scale(1); opacity: 0.6; } 50% { transform: scale(1.8); opacity: 0; } }
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
-      <div style={{ position: 'fixed', inset: 0, maxWidth: 430, margin: '0 auto', fontFamily: '"DM Sans",system-ui,sans-serif' }}>
+      {/* ✅ Container fixé avec dimensions explicites */}
+      <div style={{
+        position: 'fixed',
+        top: 0, bottom: 0,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '100%',
+        maxWidth: 430,
+        height: '100dvh',
+        overflow: 'hidden',
+        fontFamily: '"DM Sans",system-ui,sans-serif',
+      }}>
 
-        {/* MAP */}
-        <div ref={mapRef} style={{ position: 'absolute', inset: 0, zIndex: 0 }} />
+        {/* ✅ Map div avec dimensions absolues explicites */}
+        <div
+          ref={mapRef}
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            width: '100%',
+            height: '100%',
+            zIndex: 0,
+          }}
+        />
 
         {/* Loading */}
         {loading && (
@@ -330,8 +313,7 @@ export default function WhatmarketCarte() {
                 {markets.length > 0 ? `${markets.length} marché${markets.length > 1 ? 's' : ''} sur la carte` : 'Chargement...'}
               </p>
             </div>
-            <button
-              onClick={requestGeo}
+            <button onClick={requestGeo}
               style={{ display: 'flex', alignItems: 'center', gap: 6, background: geoStatus === 'ok' ? '#ECFDF5' : '#4F46E5', border: 'none', borderRadius: 100, padding: '8px 14px', cursor: 'pointer', transition: 'all 0.3s' }}>
               {geoStatus === 'requesting'
                 ? <div style={{ width: 13, height: 13, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
@@ -358,15 +340,11 @@ export default function WhatmarketCarte() {
           ))}
         </div>
 
-        {/* CENTRER SUR MOI */}
-        <button
-          onClick={centerOnUser}
-          style={{ position: 'absolute', bottom: 100, right: 16, zIndex: 20, width: 48, height: 48, borderRadius: '50%', background: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s' }}
-          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
-          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
+        {/* CENTRER */}
+        <button onClick={centerOnUser}
+          style={{ position: 'absolute', bottom: 100, right: 16, zIndex: 20, width: 48, height: 48, borderRadius: '50%', background: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={geoStatus === 'ok' ? '#4F46E5' : '#6B7280'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M12 1v4M12 19v4M1 12h4M19 12h4"/>
+            <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/>
           </svg>
         </button>
 
@@ -374,10 +352,7 @@ export default function WhatmarketCarte() {
         <div style={{ position: 'absolute', bottom: 160, right: 16, zIndex: 20, display: 'flex', flexDirection: 'column', gap: 1, borderRadius: 12, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
           {['+', '−'].map((label, i) => (
             <button key={i}
-              onClick={() => {
-                const map = mapInstanceRef.current
-                if (map) i === 0 ? map.zoomIn() : map.zoomOut()
-              }}
+              onClick={() => { const map = mapInstanceRef.current; if (map) i === 0 ? map.zoomIn() : map.zoomOut() }}
               style={{ width: 40, height: 40, background: 'white', border: 'none', cursor: 'pointer', fontSize: 18, fontWeight: 400, color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: i === 0 ? '0.5px solid #E5E7EB' : 'none' }}>
               {label}
             </button>
@@ -389,19 +364,17 @@ export default function WhatmarketCarte() {
           <div style={{ display: 'flex', justifyContent: 'space-around' }}>
             {NAV.map((item, i) => (
               <a key={i} href={item.href}
-                style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, color: activeNav === i ? '#111827' : '#C4C2BC', transition: 'color 0.2s', padding: '2px 16px' }}
-                onClick={() => setActiveNav(i)}>
+                style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, color: i === 1 ? '#111827' : '#C4C2BC', transition: 'color 0.2s', padding: '2px 16px' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d={item.path} />
                 </svg>
-                <span style={{ fontSize: 10, fontWeight: activeNav === i ? 600 : 400, fontFamily: '"DM Sans",sans-serif' }}>{item.label}</span>
-                {activeNav === i && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#111827' }} />}
+                <span style={{ fontSize: 10, fontWeight: i === 1 ? 600 : 400, fontFamily: '"DM Sans",sans-serif' }}>{item.label}</span>
+                {i === 1 && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#111827' }} />}
               </a>
             ))}
           </div>
         </div>
 
-        {/* DRAWER */}
         <AnimatePresence>
           {selected && <MarketDrawer market={selected} onClose={() => setSelected(null)} />}
         </AnimatePresence>
