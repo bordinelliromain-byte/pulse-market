@@ -423,7 +423,7 @@ export default function WhatmarketHome() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-        html,body{font-family:'DM Sans',system-ui,sans-serif;background:#F9F8F6;overscroll-behavior:none;}
+        html,body{font-family:'DM Sans',system-ui,sans-serif;background:#F9F8F6;}
         ::-webkit-scrollbar{display:none;}*{scrollbar-width:none;}
         @keyframes shimmer{0%{background-position:-300px 0}100%{background-position:300px 0}}
         @keyframes pulse-ring{0%,100%{box-shadow:0 0 0 0 rgba(14,165,233,0.35)}50%{box-shadow:0 0 0 10px rgba(14,165,233,0)}}
@@ -476,7 +476,7 @@ export default function WhatmarketHome() {
           </div>
         </div>
 
-        <div style={{ padding: '16px 16px 100px' }}>
+          <div style={{ padding: '16px 16px 100px', overflowY: 'auto' }}>
           <AnimatePresence>
             {geoStatus==='idle' && (
               <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}
