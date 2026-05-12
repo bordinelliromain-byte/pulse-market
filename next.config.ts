@@ -46,7 +46,7 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://client.crisp.chat https://js.stripe.com https://maps.googleapis.com",
-              "style-src 'self' 'unsafe-inline' https://client.crisp.chat https://fonts.googleapis.com",
+              "style-src 'self' 'unsafe-inline' https://client.crisp.chat https://fonts.googleapis.com https://unpkg.com",
               // ✅ Unsplash + Supabase + Google Maps images
               "img-src 'self' data: blob: https://*.supabase.co https://client.crisp.chat https://*.crisp.chat https://image.crisp.chat https://images.unsplash.com https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com",
               "font-src 'self' https://client.crisp.chat https://fonts.gstatic.com",

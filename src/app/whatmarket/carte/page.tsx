@@ -297,7 +297,6 @@ export default function WhatmarketCarte() {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
-        @import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         html, body { font-family: 'DM Sans', system-ui, sans-serif; background: #111827; overflow: hidden; }
         ::-webkit-scrollbar { display: none; }
