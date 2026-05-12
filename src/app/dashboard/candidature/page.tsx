@@ -8,7 +8,7 @@ import type { Variants } from 'framer-motion'
 import {
   ArrowLeft, CheckCircle, Upload, Shield, Zap,
   FileText, CreditCard, Loader, Star, Lock,
-  ChevronRight, AlertCircle, X
+  ChevronRight, AlertCircle, X, Clock
 } from 'lucide-react'
 import { Suspense } from 'react'
 
@@ -35,7 +35,6 @@ function useIsMobile() {
   return isMobile
 }
 
-// ── TOAST ──────────────────────────────────────────────────────────────────
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 4000); return () => clearTimeout(t) }, [])
   return (
@@ -109,7 +108,6 @@ function CandidatureForm() {
       })
       if (error) throw error
       await new Promise(r => setTimeout(r, 1000))
-      // ✅ Toast de confirmation
       setToast({ message: '🎉 Candidature envoyée avec succès !', type: 'success' })
       setTimeout(() => setSuccess(true), 1500)
     } catch (err: any) {
@@ -125,6 +123,7 @@ function CandidatureForm() {
     </div>
   )
 
+  // ✅ Écran de succès — Instagram uniquement après paiement
   if (success) return (
     <div style={{ minHeight: '100vh', background: '#EEF2F7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', system-ui, sans-serif", padding: 20 }}>
       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}
@@ -135,7 +134,9 @@ function CandidatureForm() {
         <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>Candidature envoyée !</h2>
         <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.7, marginBottom: 6 }}>Votre dossier a été transmis à l'organisateur de</p>
         <p style={{ fontSize: 14, fontWeight: 600, color: '#4F46E5', marginBottom: 24 }}>{eventName}</p>
-        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '14px 16px', marginBottom: 24, textAlign: 'left' }}>
+
+        {/* Récap */}
+        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '14px 16px', marginBottom: 20, textAlign: 'left' }}>
           {[
             { label: 'Stand', value: `${selectedSize} ml — ${selectedOption.desc}` },
             { label: 'Total TTC', value: `${totalTTC.toFixed(2)} €` },
@@ -147,13 +148,19 @@ function CandidatureForm() {
             </div>
           ))}
         </div>
-        <button onClick={() => router.push(`/dashboard/partage?eventName=${encodeURIComponent(eventName)}&eventDate=${encodeURIComponent(eventDate)}&eventLocation=${encodeURIComponent(eventLocation)}`)}
-          style={{ width: '100%', background: 'linear-gradient(135deg, #E1306C, #833AB4)', color: 'white', border: 'none', borderRadius: 10, padding: '12px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
-          📸 Préparer mon post Instagram
-        </button>
+
+        {/* ✅ Info Instagram — disponible après paiement uniquement */}
+        <div style={{ background: '#FDF4FF', border: '1px solid #E9D5FF', borderRadius: 10, padding: '12px 14px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
+          <Clock size={16} style={{ color: '#9333EA', flexShrink: 0 }} />
+          <p style={{ fontSize: 12, color: '#7C3AED', lineHeight: 1.5 }}>
+            <strong>Post Instagram</strong> disponible une fois votre place confirmée et payée — vous le retrouverez dans votre suivi de candidature.
+          </p>
+        </div>
+
+        {/* CTA unique */}
         <button onClick={() => router.push('/dashboard')}
-          style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 10, padding: '12px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-          Retour au tableau de bord
+          style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 10, padding: '13px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+          Suivre ma candidature →
         </button>
       </motion.div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -165,12 +172,10 @@ function CandidatureForm() {
   return (
     <div style={{ minHeight: '100vh', background: '#EEF2F7', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      {/* Toast */}
       <AnimatePresence>
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       </AnimatePresence>
 
-      {/* Header */}
       <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: isMobile ? '0 14px' : '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <button onClick={() => router.push('/dashboard/evenements')}
@@ -191,7 +196,6 @@ function CandidatureForm() {
 
       <div style={{ maxWidth: 960, margin: '0 auto', padding: isMobile ? '14px' : '28px 24px', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 300px', gap: isMobile ? 14 : 24, alignItems: 'start' }}>
 
-        {/* Colonne principale */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* Stepper */}
@@ -211,7 +215,6 @@ function CandidatureForm() {
 
           <AnimatePresence mode="wait">
 
-            {/* Étape 1 */}
             {step === 1 && (
               <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}>
                 <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
@@ -220,7 +223,6 @@ function CandidatureForm() {
                     <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>Choisissez la taille de votre stand en mètres linéaires</p>
                   </div>
                   <div style={{ padding: '16px 18px' }}>
-                    {/* Stand options */}
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
                       {STAND_OPTIONS.map((opt) => (
                         <button key={opt.size} onClick={() => setSelectedSize(opt.size)}
@@ -234,7 +236,6 @@ function CandidatureForm() {
                       ))}
                     </div>
 
-                    {/* Électricité */}
                     <div style={{ border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 30, height: 30, background: needsElectricity ? '#FFF7ED' : '#F8FAFC', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -251,7 +252,6 @@ function CandidatureForm() {
                       </button>
                     </div>
 
-                    {/* Message */}
                     <div style={{ marginBottom: 14 }}>
                       <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Message (optionnel)</label>
                       <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder="Présentez-vous brièvement, décrivez vos produits..."
@@ -269,7 +269,6 @@ function CandidatureForm() {
               </motion.div>
             )}
 
-            {/* Étape 2 */}
             {step === 2 && (
               <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}>
                 <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
@@ -318,7 +317,6 @@ function CandidatureForm() {
               </motion.div>
             )}
 
-            {/* Étape 3 */}
             {step === 3 && (
               <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}>
                 <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
@@ -365,7 +363,6 @@ function CandidatureForm() {
           </AnimatePresence>
         </div>
 
-        {/* Sticky sidebar — desktop seulement */}
         {!isMobile && (
           <div style={{ position: 'sticky', top: 72 }}>
             <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
@@ -415,7 +412,6 @@ function CandidatureForm() {
           </div>
         )}
 
-        {/* Récap mobile en bas */}
         {isMobile && step !== 3 && (
           <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>

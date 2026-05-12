@@ -440,6 +440,13 @@ function DashboardContent() {
                           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                             <CandidatureTimeline status={c.status} />
                           </div>
+                          {/* ✅ Bouton Instagram uniquement si paid */}
+                          {c.status === 'paid' && (
+                            <button onClick={() => router.push(`/dashboard/partage?eventName=${encodeURIComponent(c.events?.title || '')}&eventDate=${encodeURIComponent(new Date(c.events?.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(c.events?.location_name || '')}`)}
+                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'linear-gradient(135deg, #E1306C, #833AB4)', color: 'white', border: 'none', borderRadius: 8, padding: '9px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', marginTop: 10, width: '100%' }}>
+                              📸 Préparer mon post Instagram
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
