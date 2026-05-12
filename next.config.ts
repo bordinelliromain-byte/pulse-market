@@ -5,6 +5,15 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
 
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: '*.supabase.co' },
+      { protocol: 'https', hostname: 'maps.googleapis.com' },
+      { protocol: 'https', hostname: 'maps.gstatic.com' },
+    ],
+  },
+
   async redirects() {
     return [
       {
@@ -27,39 +36,28 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: [
-          // Empêche le clickjacking (ton site dans une iframe d'un autre site)
           { key: 'X-Frame-Options', value: 'DENY' },
-
-          // Empêche le MIME sniffing (exécution de fichiers déguisés)
           { key: 'X-Content-Type-Options', value: 'nosniff' },
-
-          // Force HTTPS pour 1 an
           { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
-
-          // Bloque les infos de navigation (referrer)
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-
-          // Désactive les fonctionnalités sensibles du navigateur
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
-
-          // Content Security Policy — contrôle ce qui peut s'exécuter sur tes pages
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), payment=()' },
           {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://client.crisp.chat https://js.stripe.com https://maps.googleapis.com",
-              "style-src 'self' 'unsafe-inline' https://client.crisp.chat",
-              "img-src 'self' data: blob: https://*.supabase.co https://client.crisp.chat https://*.crisp.chat https://image.crisp.chat",
-              "font-src 'self' https://client.crisp.chat",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://client.crisp.chat wss://client.crisp.chat wss://client.relay.crisp.chat wss://client.relay.rescue.crisp.chat https://api-iam.intercom.io",
-              "frame-src https://js.stripe.com https://hooks.stripe.com",
+              "style-src 'self' 'unsafe-inline' https://client.crisp.chat https://fonts.googleapis.com",
+              // ✅ Unsplash + Supabase + Google Maps images
+              "img-src 'self' data: blob: https://*.supabase.co https://client.crisp.chat https://*.crisp.chat https://image.crisp.chat https://images.unsplash.com https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com",
+              "font-src 'self' https://client.crisp.chat https://fonts.gstatic.com",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://client.crisp.chat wss://client.crisp.chat wss://client.relay.crisp.chat wss://client.relay.rescue.crisp.chat https://maps.googleapis.com",
+              // ✅ Google Maps iframes
+              "frame-src https://js.stripe.com https://hooks.stripe.com https://www.google.com https://maps.google.com",
               "worker-src blob:",
             ].join('; ')
           },
         ],
       },
-
-      // Headers spécifiques aux routes API — plus stricts
       {
         source: '/api/(.*)',
         headers: [
