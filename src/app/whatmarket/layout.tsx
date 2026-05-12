@@ -37,6 +37,9 @@ export const metadata: Metadata = {
     icon: [{ url: "/icon-whatmarket.svg", type: "image/svg+xml" }],
     apple: "/icon-whatmarket.svg",
   },
+  verification: {
+    google: "HH-rQE-kpvqlv7pgr1EIP5X1D_YDuFWIlqUfNYSOoPc",
+  },
 };
 
 export default function WhatmarketLayout({ children }: { children: React.ReactNode }) {
