@@ -122,7 +122,7 @@ export default function Landing() {
                 <Building2 size={16} /> Démarrer PulseMarket
               </button>
               {/* Secondaire — Exposant, lien discret */}
-              <button onClick={() => router.push('/auth')}
+              <button onClick={() => router.push('/auth?tab=signup')}
                 style={{ background: 'transparent', color: '#64748B', padding: '14px 0', fontWeight: 500, fontSize: 14, cursor: 'pointer', border: 'none' }}
                 className="hover:text-slate-900 transition-colors flex items-center gap-1.5 whitespace-nowrap">
                 <Store size={14} style={{ color: '#94A3B8' }} />
@@ -365,7 +365,7 @@ export default function Landing() {
                 className="hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-2">
                 <Building2 size={16} /> Démarrer PulseMarket <ArrowRight size={16} />
               </button>
-              <button onClick={() => router.push('/auth')}
+              <button onClick={() => router.push('/auth?tab=signup')}
                 style={{ background: 'transparent', color: '#64748B', fontSize: 14, fontWeight: 500, cursor: 'pointer', border: 'none', padding: '14px 0' }}
                 className="hover:text-slate-900 transition-colors inline-flex items-center gap-1.5">
                 <Store size={14} style={{ color: '#94A3B8' }} />

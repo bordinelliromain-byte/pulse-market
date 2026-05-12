@@ -179,8 +179,18 @@ function DashboardContent() {
     setNearbyEvents(eventsData || [])
     const { data: apps } = await supabase.from('applications').select(`*, events:event_id(title, start_date, location_name, price_per_spot)`).eq('exposant_id', user.id).order('created_at', { ascending: false })
     setCandidatures(apps || [])
-    const { data: expData } = await supabase.from('exposant_data').select('plan, is_verified').eq('user_id', user.id).single()
-    setStats({ total: apps?.length || 0, validated: apps?.filter((a: any) => a.status === 'validated').length || 0, paid: apps?.filter((a: any) => a.status === 'paid').length || 0, pending: apps?.filter((a: any) => a.status === 'pending').length || 0, plan: expData?.plan || 'gratuit', isVerified: expData?.is_verified || false })
+    // ✅ Fix : lecture kbis_url et rcpro_url depuis exposant_data
+    const { data: expData } = await supabase.from('exposant_data').select('plan, is_verified, kbis_url, rcpro_url').eq('user_id', user.id).single()
+    setStats({
+      total: apps?.length || 0,
+      validated: apps?.filter((a: any) => a.status === 'validated').length || 0,
+      paid: apps?.filter((a: any) => a.status === 'paid').length || 0,
+      pending: apps?.filter((a: any) => a.status === 'pending').length || 0,
+      plan: expData?.plan || 'gratuit',
+      isVerified: expData?.is_verified || false,
+      kbisUrl: expData?.kbis_url || null,
+      rcproUrl: expData?.rcpro_url || null,
+    })
     setLoading(false)
   }
 
@@ -188,17 +198,11 @@ function DashboardContent() {
 
   if (loading) return <DashboardSkeleton isMobile={isMobile} />
 
-  // ✅ Candidatures ce mois (blocage free)
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const candidaturesCeMois = candidatures.filter(c =>
-    new Date(c.created_at) >= monthStart
-  ).length
-
-  // ✅ Plan Pro depuis profiles (source of truth)
+  const candidaturesCeMois = candidatures.filter(c => new Date(c.created_at) >= monthStart).length
   const isPro = profile?.plan === 'pro'
 
-  // ✅ Upgrade Pro
   const handleUpgradePro = async () => {
     setUpgradingPro(true)
     try {
@@ -212,9 +216,7 @@ function DashboardContent() {
       const { url, error } = await res.json()
       if (error) throw new Error(error)
       if (url) window.location.href = url
-    } catch (err: any) {
-      alert('Erreur : ' + err.message)
-    }
+    } catch (err: any) { alert('Erreur : ' + err.message) }
     setUpgradingPro(false)
   }
 
@@ -251,7 +253,7 @@ function DashboardContent() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
               {[
                 { label: 'Complétez votre profil exposant', sub: 'Ajoutez votre SIREN, Kbis et RC Pro', done: stats.isVerified, path: '/dashboard/profil', cta: 'Compléter mon profil', emoji: '📋' },
-                { label: 'Explorez les marchés disponibles', sub: 'Des dizaines d\'événements en PACA', done: false, path: '/dashboard/evenements', cta: 'Voir les marchés', emoji: '🗺️' },
+                { label: 'Explorez les marchés disponibles', sub: "Des dizaines d'événements en PACA", done: false, path: '/dashboard/evenements', cta: 'Voir les marchés', emoji: '🗺️' },
                 { label: 'Envoyez votre première candidature', sub: 'Gratuit · Réponse sous 48h', done: false, path: '/dashboard/evenements', cta: 'Postuler maintenant', emoji: '🚀' },
               ].map((step, i) => (
                 <div key={i} style={{ background: 'white', border: `1px solid ${step.done ? '#BBF7D0' : '#E2E8F0'}`, borderRadius: 12, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -305,7 +307,6 @@ function DashboardContent() {
         <main className="dash-main" style={{ padding: isMobile ? '16px 14px' : '24px 28px', flex: 1 }}>
           <motion.div variants={stagger} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-            {/* ✅ Bannière limite free */}
             {!isPro && candidaturesCeMois >= 1 && (
               <motion.div variants={fadeUp}>
                 <div style={{ background: 'linear-gradient(135deg, #0F172A, #1E293B)', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -380,10 +381,7 @@ function DashboardContent() {
                         return (
                           <div key={event.id}
                             onClick={() => {
-                              if (isBlocked) {
-                                alert('Limite mensuelle atteinte — passez en Pro pour candidater sans limite.')
-                                return
-                              }
+                              if (isBlocked) { alert('Limite mensuelle atteinte — passez en Pro pour candidater sans limite.'); return }
                               router.push(`/dashboard/candidature?eventId=${event.id}&eventName=${encodeURIComponent(event.title)}&eventDate=${encodeURIComponent(new Date(event.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(event.location_name || '')}`)
                             }}
                             style={{ flexShrink: 0, width: 175, borderRadius: 12, overflow: 'hidden', border: '1px solid #E2E8F0', cursor: isBlocked ? 'not-allowed' : 'pointer', background: 'white', opacity: isBlocked ? 0.6 : 1, position: 'relative' }}>
@@ -463,7 +461,6 @@ function DashboardContent() {
                   </div>
                 </div>
 
-                {/* ✅ Bloc Pro — caché si déjà Pro */}
                 {!isPro && (
                   <div style={{ background: '#0F172A', borderRadius: 12, padding: '14px 16px' }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 10 }}>
@@ -475,10 +472,7 @@ function DashboardContent() {
                     </div>
                     <button onClick={handleUpgradePro} disabled={upgradingPro}
                       style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '9px 0', fontSize: 12, fontWeight: 600, cursor: upgradingPro ? 'not-allowed' : 'pointer', opacity: upgradingPro ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                      {upgradingPro
-                        ? <><Loader size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</>
-                        : '⚡ Passer Pro — 20€/mois →'
-                      }
+                      {upgradingPro ? <><Loader size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</> : '⚡ Passer Pro — 20€/mois →'}
                     </button>
                   </div>
                 )}
@@ -488,14 +482,9 @@ function DashboardContent() {
                     <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Mon plan</p>
                     <Star size={14} style={{ color: isPro ? '#FBBF24' : '#CBD5E1' }} />
                   </div>
-                  <p style={{ fontSize: 22, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>
-                    {isPro ? '⭐ Pro' : 'Gratuit'}
-                  </p>
+                  <p style={{ fontSize: 22, fontWeight: 700, color: '#0F172A', marginBottom: 3 }}>{isPro ? '⭐ Pro' : 'Gratuit'}</p>
                   <p style={{ fontSize: 12, color: '#94A3B8' }}>
-                    {isPro
-                      ? 'Candidatures illimitées'
-                      : `${candidaturesCeMois}/1 candidature ce mois`
-                    }
+                    {isPro ? 'Candidatures illimitées' : `${candidaturesCeMois}/1 candidature ce mois`}
                   </p>
                   {!isPro && (
                     <button onClick={handleUpgradePro} disabled={upgradingPro}
@@ -515,7 +504,12 @@ function DashboardContent() {
                 <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Mon dossier exposant</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-                    {[{ label: 'Extrait Kbis', status: true }, { label: 'Attestation RC Pro', status: true }, { label: 'Vérification SIREN', status: stats.isVerified }].map((doc, i) => (
+                    {[
+                      // ✅ Fix : lecture depuis exposant_data
+                      { label: 'Extrait Kbis', status: !!stats.kbisUrl },
+                      { label: 'Attestation RC Pro', status: !!stats.rcproUrl },
+                      { label: 'Vérification SIREN', status: stats.isVerified },
+                    ].map((doc, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 12, color: '#475569' }}>{doc.label}</span>
                         <span style={{ fontSize: 11, fontWeight: 600, color: doc.status ? '#16A34A' : '#F59E0B' }}>{doc.status ? '✓ Fourni' : '⏳ Manquant'}</span>

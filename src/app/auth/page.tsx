@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight, Store, Building2, Eye, EyeOff, ShieldCheck, Loader, CheckCircle, Mail } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, ShieldCheck, Loader, CheckCircle, Mail } from 'lucide-react'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -17,7 +17,6 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.06 } },
 } as const
 
-// ── TOAST ──────────────────────────────────────────────────────────────────
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) {
   useEffect(() => {
     const t = setTimeout(onClose, 5000)
@@ -52,13 +51,13 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 
 function AuthForm() {
   const searchParams = useSearchParams()
+  // ✅ Fix 1 : tab par défaut depuis l'URL (?tab=signup depuis la landing)
   const [tab, setTab] = useState<'signin' | 'signup'>(
     (searchParams.get('tab') as 'signin' | 'signup') || 'signin'
   )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
-  const [role, setRole] = useState<'exposant' | 'organisateur'>('exposant')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -68,7 +67,6 @@ function AuthForm() {
   const router = useRouter()
   const supabase = createClient()
 
-  // ✅ Détecte le retour après confirmation email
   useEffect(() => {
     const confirmed = searchParams.get('confirmed')
     const error = searchParams.get('error')
@@ -126,7 +124,8 @@ function AuthForm() {
     const { error } = await supabase.auth.signUp({
       email, password,
       options: {
-        data: { full_name: fullName, role },
+        // ✅ Fix 2 : toujours exposant — pas de choix de rôle
+        data: { full_name: fullName, role: 'exposant' },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       }
     })
@@ -134,7 +133,6 @@ function AuthForm() {
     if (error) {
       setError(error.message)
     } else {
-      // ✅ Affiche l'écran de confirmation email
       setEmailSent(true)
       setToast({ message: `Email de confirmation envoyé à ${email}`, type: 'info' })
     }
@@ -156,7 +154,6 @@ function AuthForm() {
   return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      {/* Toast */}
       <AnimatePresence>
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       </AnimatePresence>
@@ -168,12 +165,19 @@ function AuthForm() {
         style={{ width: '45%', background: '#0F172A', padding: '48px', flexDirection: 'column', justifyContent: 'space-between', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -100, right: -100, width: 400, height: 400, background: 'radial-gradient(circle, rgba(79,70,229,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: -80, left: -80, width: 300, height: 300, background: 'radial-gradient(circle, rgba(79,70,229,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
+
+        {/* ✅ Logo SVG inline */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, background: '#4F46E5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: 'white', fontSize: 13, fontWeight: 700 }}>PM</span>
+          <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
+            <rect width="40" height="40" rx="10" fill="#4F46E5"/>
+            <path d="M6 20L12 20L14 11L17 29L20 14L22 20L34 20" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <div style={{ display: 'flex', alignItems: 'baseline' }}>
+            <span style={{ color: 'white', fontWeight: 700, fontSize: 16 }}>Pulse</span>
+            <span style={{ color: '#818CF8', fontWeight: 400, fontSize: 16 }}>Market</span>
           </div>
-          <span style={{ color: 'white', fontWeight: 600, fontSize: 16 }}>PulseMarket</span>
         </div>
+
         <div>
           <h2 style={{ color: 'white', fontSize: 32, fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.02em', marginBottom: 20 }}>
             La numérisation des marchés du terroir français
@@ -209,14 +213,17 @@ function AuthForm() {
 
           <motion.div variants={fadeUp} className="lg:hidden" style={{ marginBottom: 32 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <div style={{ width: 32, height: 32, background: '#0F172A', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: 'white', fontSize: 12, fontWeight: 700 }}>PM</span>
+              <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
+                <rect width="40" height="40" rx="10" fill="#4F46E5"/>
+                <path d="M6 20L12 20L14 11L17 29L20 14L22 20L34 20" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                <span style={{ fontWeight: 700, fontSize: 16, color: '#0F172A' }}>Pulse</span>
+                <span style={{ fontWeight: 400, fontSize: 16, color: '#4F46E5' }}>Market</span>
               </div>
-              <span style={{ fontWeight: 700, fontSize: 16, color: '#0F172A' }}>PulseMarket</span>
             </div>
           </motion.div>
 
-          {/* ✅ Écran "Vérifiez votre email" */}
           <AnimatePresence mode="wait">
             {emailSent ? (
               <motion.div key="email-sent"
@@ -248,11 +255,24 @@ function AuthForm() {
               <motion.div key="form">
                 <motion.div variants={fadeUp} style={{ marginBottom: 28 }}>
                   <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em', marginBottom: 6 }}>
-                    {tab === 'signin' ? 'Connexion à votre espace' : 'Créer votre compte'}
+                    {tab === 'signin' ? 'Connexion à votre espace' : 'Créer votre compte exposant'}
                   </h1>
                   <p style={{ fontSize: 14, color: '#64748B' }}>
-                    {tab === 'signin' ? 'Accédez à votre tableau de bord PulseMarket.' : 'Rejoignez la plateforme des marchés et festivals.'}
+                    {tab === 'signin'
+                      ? 'Accédez à votre tableau de bord PulseMarket.'
+                      : 'Rejoignez la plateforme des marchés et festivals.'
+                    }
                   </p>
+                  {/* ✅ Lien discret vers espace organisateur */}
+                  {tab === 'signup' && (
+                    <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 8 }}>
+                      Vous êtes une mairie ?{' '}
+                      <button onClick={() => router.push('/auth/mairie')}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4F46E5', fontSize: 12, fontWeight: 600 }}>
+                        Espace organisateur →
+                      </button>
+                    </p>
+                  )}
                 </motion.div>
 
                 <motion.div variants={fadeUp} style={{ background: '#F1F5F9', borderRadius: 10, padding: 4, display: 'flex', marginBottom: 24 }}>
@@ -308,25 +328,6 @@ function AuthForm() {
                       </div>
                     </div>
 
-                    {tab === 'signup' && (
-                      <div>
-                        <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 8, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Type de compte</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                          {[
-                            { val: 'exposant', icon: <Store size={15} />, label: 'Exposant', sub: 'Food-truck, artisan' },
-                            { val: 'organisateur', icon: <Building2 size={15} />, label: 'Organisateur', sub: 'Mairie, association' },
-                          ].map(r => (
-                            <button key={r.val} onClick={() => setRole(r.val as any)}
-                              style={{ padding: '12px 14px', border: role === r.val ? '1.5px solid #4F46E5' : '1px solid #E2E8F0', borderRadius: 10, background: role === r.val ? '#EEF2FF' : 'white', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
-                              <div style={{ color: role === r.val ? '#4F46E5' : '#64748B', marginBottom: 4 }}>{r.icon}</div>
-                              <p style={{ fontSize: 13, fontWeight: 600, color: role === r.val ? '#4338CA' : '#0F172A' }}>{r.label}</p>
-                              <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>{r.sub}</p>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     <AnimatePresence>
                       {error && (
                         <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -355,7 +356,6 @@ function AuthForm() {
               </motion.div>
             )}
           </AnimatePresence>
-
         </motion.div>
       </div>
 
