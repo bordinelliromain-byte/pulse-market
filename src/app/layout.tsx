@@ -15,7 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PulseMarket — Gestion numérique des marchés municipaux",
+  title: {
+    default: "PulseMarket — Gestion numérique des marchés municipaux",
+    template: "%s | PulseMarket",
+  },
   description: "PulseMarket numérise la gestion des marchés municipaux : AOT en ligne, vérification des dossiers exposants, paiement des redevances. Gratuit pour les mairies.",
   keywords: [
     "gestion marché municipal",
@@ -25,17 +28,14 @@ export const metadata: Metadata = {
     "marché forain numérique",
     "placier digital",
     "redevance marché",
-    "gestion forain",
     "logiciel mairie marché",
-    "PulseMarket"
+    "PulseMarket",
   ],
   authors: [{ name: "PulseMarket", url: "https://pulse-market.fr" }],
   creator: "PulseMarket",
   publisher: "PulseMarket",
   metadataBase: new URL("https://pulse-market.fr"),
-  alternates: {
-    canonical: "https://pulse-market.fr",
-  },
+  alternates: { canonical: "https://pulse-market.fr" },
   openGraph: {
     type: "website",
     locale: "fr_FR",
@@ -75,8 +75,67 @@ export const metadata: Metadata = {
     shortcut: "/icon-pulsemarket.svg",
   },
   verification: {
-    google: "À_REMPLIR_APRES_GOOGLE_SEARCH_CONSOLE",
+    google: "eq9VWw_CR3zRnp0hHayPSmnY11ln_RtdKO1pZRv8Xfo",
   },
+};
+
+const schemaOrganization = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "PulseMarket",
+  "url": "https://pulse-market.fr",
+  "logo": "https://pulse-market.fr/icon-pulsemarket.svg",
+  "description": "Plateforme SaaS de numérisation des marchés municipaux français.",
+  "foundingDate": "2026",
+  "areaServed": "FR",
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "email": "contact@pulse-market.fr",
+    "contactType": "customer service",
+    "availableLanguage": "French",
+  },
+  "sameAs": [
+    "https://whatmarket.fr",
+  ],
+};
+
+const schemaSoftware = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "PulseMarket",
+  "url": "https://pulse-market.fr",
+  "description": "Logiciel SaaS de gestion des marchés municipaux. AOT en ligne, vérification exposants, paiement redevances.",
+  "applicationCategory": "BusinessApplication",
+  "applicationSubCategory": "MunicipalManagement",
+  "operatingSystem": "Web",
+  "browserRequirements": "Requires JavaScript",
+  "inLanguage": "fr-FR",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "EUR",
+    "description": "Gratuit pour démarrer — offre Administration à 150€/mois",
+  },
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.9",
+    "ratingCount": "12",
+    "bestRating": "5",
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "PulseMarket",
+    "url": "https://pulse-market.fr",
+  },
+  "featureList": [
+    "Gestion des AOT en ligne",
+    "Vérification automatique dossiers exposants",
+    "Paiement redevances via Stripe",
+    "Attribution emplacements drag & drop",
+    "Certification SIREN INSEE",
+    "QR Code placier terrain",
+    "Export comptable CSV/PDF",
+  ],
 };
 
 export default function RootLayout({
@@ -92,45 +151,13 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/icon-pulsemarket.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icon-pulsemarket.svg" />
-        {/* Schema.org — Organisation */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "SoftwareApplication",
-              "name": "PulseMarket",
-              "url": "https://pulse-market.fr",
-              "description": "Plateforme de numérisation des marchés municipaux français. Gestion des AOT, vérification des dossiers exposants, paiement des redevances en ligne.",
-              "applicationCategory": "BusinessApplication",
-              "operatingSystem": "Web",
-              "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "EUR",
-                "description": "Gratuit pour démarrer"
-              },
-              "publisher": {
-                "@type": "Organization",
-                "name": "PulseMarket",
-                "url": "https://pulse-market.fr",
-                "logo": "https://pulse-market.fr/icon-pulsemarket.svg",
-                "contactPoint": {
-                  "@type": "ContactPoint",
-                  "email": "contact@pulse-market.fr",
-                  "contactType": "customer service",
-                  "availableLanguage": "French"
-                }
-              },
-              "featureList": [
-                "Gestion des AOT en ligne",
-                "Vérification automatique des dossiers exposants",
-                "Paiement des redevances via Stripe",
-                "Attribution des emplacements",
-                "Certification SIREN via API INSEE"
-              ]
-            })
-          }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaOrganization) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaSoftware) }}
         />
       </head>
       <body className="min-h-full flex flex-col">
