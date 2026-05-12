@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import type { Variants } from 'framer-motion'
 import Sidebar from '@/components/Sidebar'
-import { Download, CheckCircle, FileText, Zap, MapPin } from 'lucide-react'
+import { Download, CheckCircle, FileText, Zap, MapPin, Star, ExternalLink } from 'lucide-react'
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 12 },
@@ -36,13 +36,17 @@ type FacturePub = {
   id: string; nom: string; offre: string; event_title: string
   montant: number; type: 'boost' | 'exposant_boost'; stripe_session_id: string; created_at: string
 }
+type FacturePro = {
+  id: string; periode: string; montant: number; stripe_invoice_url: string; created_at: string
+}
 
 export default function Factures() {
   const [profile, setProfile] = useState<any>(null)
   const [facturesPlace, setFacturesPlace] = useState<FacturePlace[]>([])
   const [facturesPub, setFacturesPub] = useState<FacturePub[]>([])
+  const [facturesPro, setFacturesPro] = useState<FacturePro[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'place' | 'pub'>('place')
+  const [activeTab, setActiveTab] = useState<'place' | 'pub' | 'pro'>('place')
   const router = useRouter()
   const supabase = createClient()
   const isMobile = useIsMobile()
@@ -54,6 +58,7 @@ export default function Factures() {
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       setProfile(profileData)
 
+      // ── Droits de place
       const { data: apps } = await supabase.from('applications')
         .select(`*, events:event_id(title, start_date, location_name, price_per_spot)`)
         .eq('exposant_id', user.id).eq('status', 'paid').order('created_at', { ascending: false })
@@ -68,6 +73,7 @@ export default function Factures() {
         })))
       }
 
+      // ── Pubs Whatmarket
       const { data: boosts } = await supabase.from('boost_ads').select('*')
         .eq('email', profileData?.email || '').order('created_at', { ascending: false })
       const { data: expBoosts } = await supabase.from('exposant_boosts').select('*')
@@ -85,6 +91,29 @@ export default function Factures() {
         setFacturesPub(pubs.map(p => ({ ...p, event_title: eventMap[p.event_title] || p.event_title })))
       } else { setFacturesPub(pubs) }
 
+      // ── Abonnement Pro — depuis stripe_invoices ou construit depuis pro_expires_at
+      const { data: invoices } = await supabase.from('stripe_invoices')
+        .select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+
+      if (invoices && invoices.length > 0) {
+        setFacturesPro(invoices.map((inv: any) => ({
+          id: inv.id,
+          periode: new Date(inv.created_at).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+          montant: inv.amount || 20,
+          stripe_invoice_url: inv.hosted_invoice_url || '',
+          created_at: inv.created_at,
+        })))
+      } else if (profileData?.plan === 'pro' && profileData?.stripe_subscription_id) {
+        // Fallback : on sait qu'il est Pro mais pas d'historique
+        setFacturesPro([{
+          id: profileData.stripe_subscription_id,
+          periode: new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+          montant: 20,
+          stripe_invoice_url: '',
+          created_at: new Date().toISOString(),
+        }])
+      }
+
       setLoading(false)
     }
     getData()
@@ -92,6 +121,7 @@ export default function Factures() {
 
   const totalPlace = facturesPlace.reduce((acc, f) => acc + f.montant, 0)
   const totalPub = facturesPub.reduce((acc, f) => acc + f.montant, 0)
+  const totalPro = facturesPro.reduce((acc, f) => acc + f.montant, 0)
   const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
   const formatDateShort = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
   const formatRef = (id: string) => `FAC-${id.slice(0, 8).toUpperCase()}`
@@ -101,6 +131,7 @@ export default function Factures() {
       ['Référence', 'Type', 'Description', 'Date', 'Montant', 'Statut'],
       ...facturesPlace.map(f => [formatRef(f.id), 'Droit de place', f.event_title, formatDate(f.event_date), `${f.montant}€`, 'Payé']),
       ...facturesPub.map(f => [formatRef(f.id), f.type === 'boost' ? 'Pub commerçant' : 'Pub exposant', `${f.nom} — ${f.offre}`, formatDate(f.created_at), `${f.montant}€`, 'Payé']),
+      ...facturesPro.map(f => [formatRef(f.id), 'Abonnement Pro', `PulseMarket Pro — ${f.periode}`, formatDate(f.created_at), `${f.montant}€`, 'Payé']),
     ]
     const blob = new Blob([rows.map(r => r.join(';')).join('\n')], { type: 'text/csv' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'factures-PulseMarket.csv'; a.click()
@@ -111,6 +142,8 @@ export default function Factures() {
       if (type === 'place') {
         const { openFacturePDF } = require('@/lib/generateFacture')
         openFacturePDF({ candidatureId: formatRef(data.id), exposantNom: profile?.full_name || '', exposantEmail: profile?.email || '', exposantBusinessName: profile?.full_name, eventTitle: data.event_title, eventDate: formatDate(data.event_date), eventLocation: data.event_location, redevanceAOT: data.montant - 2, fraisPlateforme: 2 })
+      } else if (type === 'pro' && data.stripe_invoice_url) {
+        window.open(data.stripe_invoice_url, '_blank')
       } else {
         alert(`Facture ${formatRef(data.id)}\nMontant : ${data.montant}€\nEnvoyée par email lors du paiement.`)
       }
@@ -124,18 +157,17 @@ export default function Factures() {
     </div>
   )
 
-  // ── Rendu mobile d'une facture (card swipeable) ────────────────────────
-  const FactureCardMobile = ({ f, type }: { f: any; type: 'place' | 'pub' }) => (
+  const FactureCardMobile = ({ f, type }: { f: any; type: 'place' | 'pub' | 'pro' }) => (
     <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div style={{ width: 40, height: 40, borderRadius: 10, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <FileText size={17} style={{ color: '#4F46E5' }} />
+      <div style={{ width: 40, height: 40, borderRadius: 10, background: type === 'pro' ? '#FEF3C7' : '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        {type === 'pro' ? <Star size={17} style={{ color: '#D97706' }} /> : <FileText size={17} style={{ color: '#4F46E5' }} />}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {type === 'place' ? f.event_title : f.nom}
+          {type === 'place' ? f.event_title : type === 'pro' ? `PulseMarket Pro — ${f.periode}` : f.nom}
         </p>
         <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
-          {type === 'place' ? formatDateShort(f.event_date) : f.offre}
+          {type === 'place' ? formatDateShort(f.event_date) : type === 'pro' ? 'Abonnement mensuel' : f.offre}
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
           <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748B' }}>{formatRef(f.id)}</span>
@@ -147,14 +179,18 @@ export default function Factures() {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
         <p style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>{f.montant} €</p>
         <button onClick={() => openFacture(type, f)}
-          style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#4F46E5', color: 'white', border: 'none', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
-          <FileText size={10} /> PDF
+          style={{ display: 'flex', alignItems: 'center', gap: 4, background: type === 'pro' ? '#FEF3C7' : '#4F46E5', color: type === 'pro' ? '#D97706' : 'white', border: type === 'pro' ? '1px solid #FDE68A' : 'none', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+          <FileText size={10} /> {type === 'pro' && f.stripe_invoice_url ? 'Stripe' : 'PDF'}
         </button>
       </div>
     </div>
   )
 
-  const currentFactures = activeTab === 'place' ? facturesPlace : facturesPub
+  const tabs = [
+    { key: 'place', label: `Droits de place (${facturesPlace.length})`, icon: <MapPin size={13} /> },
+    { key: 'pub', label: `Pubs Whatmarket (${facturesPub.length})`, icon: <Zap size={13} /> },
+    { key: 'pro', label: `Abonnement Pro (${facturesPro.length})`, icon: <Star size={13} /> },
+  ]
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -179,8 +215,8 @@ export default function Factures() {
               {[
                 { label: 'Droits de place', value: `${totalPlace} €`, color: '#16A34A', bg: '#F0FDF4', icon: <MapPin size={13} style={{ color: '#16A34A' }} /> },
                 { label: 'Pubs Whatmarket', value: `${totalPub} €`, color: '#4F46E5', bg: '#EEF2FF', icon: <Zap size={13} style={{ color: '#4F46E5' }} /> },
-                { label: 'Total dépensé', value: `${totalPlace + totalPub} €`, color: '#0F172A', bg: '#F1F5F9', icon: <CheckCircle size={13} style={{ color: '#64748B' }} /> },
-                { label: 'Nb factures', value: `${facturesPlace.length + facturesPub.length}`, color: '#0F172A', bg: '#F1F5F9', icon: <FileText size={13} style={{ color: '#64748B' }} /> },
+                { label: 'Abonnement Pro', value: `${totalPro} €`, color: '#D97706', bg: '#FEF3C7', icon: <Star size={13} style={{ color: '#D97706' }} /> },
+                { label: 'Total dépensé', value: `${totalPlace + totalPub + totalPro} €`, color: '#0F172A', bg: '#F1F5F9', icon: <CheckCircle size={13} style={{ color: '#64748B' }} /> },
               ].map((s, i) => (
                 <div key={i} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
@@ -194,10 +230,7 @@ export default function Factures() {
 
             {/* Tabs */}
             <motion.div variants={fadeUp} style={{ display: 'flex', gap: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', paddingBottom: 2 }}>
-              {[
-                { key: 'place', label: `Droits de place (${facturesPlace.length})`, icon: <MapPin size={13} /> },
-                { key: 'pub', label: `Pubs Whatmarket (${facturesPub.length})`, icon: <Zap size={13} /> },
-              ].map(tab => (
+              {tabs.map(tab => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'Inter', sans-serif", background: activeTab === tab.key ? '#111827' : 'white', color: activeTab === tab.key ? 'white' : '#64748B', whiteSpace: 'nowrap', flexShrink: 0 }}>
                   {tab.icon} {tab.label}
@@ -205,16 +238,16 @@ export default function Factures() {
               ))}
             </motion.div>
 
-            {/* ── MOBILE : cards scrollables ── */}
+            {/* MOBILE */}
             {isMobile && (
               <motion.div variants={fadeUp}>
-                {currentFactures.length === 0 ? (
+                {(activeTab === 'place' ? facturesPlace : activeTab === 'pub' ? facturesPub : facturesPro).length === 0 ? (
                   <div style={{ padding: '40px 0', textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>
-                    {activeTab === 'place' ? 'Aucun droit de place payé' : 'Aucune pub Whatmarket'}
+                    {activeTab === 'place' ? 'Aucun droit de place payé' : activeTab === 'pub' ? 'Aucune pub Whatmarket' : 'Aucune facture Pro'}
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {currentFactures.map((f) => (
+                    {(activeTab === 'place' ? facturesPlace : activeTab === 'pub' ? facturesPub : facturesPro).map((f: any) => (
                       <FactureCardMobile key={f.id} f={f} type={activeTab} />
                     ))}
                   </div>
@@ -222,7 +255,7 @@ export default function Factures() {
               </motion.div>
             )}
 
-            {/* ── DESKTOP : tables ── */}
+            {/* DESKTOP — Droits de place */}
             {!isMobile && activeTab === 'place' && (
               <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                 <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -242,7 +275,7 @@ export default function Factures() {
                     </thead>
                     <tbody>
                       {facturesPlace.map((f, i) => (
-                        <tr key={f.id} style={{ borderBottom: i < facturesPlace.length - 1 ? '1px solid #F8FAFC' : 'none', transition: 'background 0.1s' }}
+                        <tr key={f.id} style={{ borderBottom: i < facturesPlace.length - 1 ? '1px solid #F8FAFC' : 'none' }}
                           onMouseEnter={e => e.currentTarget.style.background = '#FAFAFA'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                           <td style={{ padding: '13px 16px' }}><p style={{ fontSize: 11, fontWeight: 600, color: '#0F172A', fontFamily: 'monospace' }}>{formatRef(f.id)}</p></td>
@@ -257,7 +290,7 @@ export default function Factures() {
                           </td>
                           <td style={{ padding: '13px 16px' }}>
                             <button onClick={() => openFacture('place', f)}
-                              style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 11, color: '#4F46E5', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                              style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 11, color: '#4F46E5', fontWeight: 600 }}>
                               <FileText size={10} /> Facture
                             </button>
                           </td>
@@ -269,6 +302,7 @@ export default function Factures() {
               </motion.div>
             )}
 
+            {/* DESKTOP — Pubs */}
             {!isMobile && activeTab === 'pub' && (
               <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                 <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -293,7 +327,7 @@ export default function Factures() {
                     </thead>
                     <tbody>
                       {facturesPub.map((f, i) => (
-                        <tr key={f.id} style={{ borderBottom: i < facturesPub.length - 1 ? '1px solid #F8FAFC' : 'none', transition: 'background 0.1s' }}
+                        <tr key={f.id} style={{ borderBottom: i < facturesPub.length - 1 ? '1px solid #F8FAFC' : 'none' }}
                           onMouseEnter={e => e.currentTarget.style.background = '#FAFAFA'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                           <td style={{ padding: '13px 16px' }}><p style={{ fontSize: 11, fontWeight: 600, color: '#0F172A', fontFamily: 'monospace' }}>{formatRef(f.id)}</p></td>
@@ -308,9 +342,67 @@ export default function Factures() {
                           <td style={{ padding: '13px 16px' }}><p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>{f.montant} €</p></td>
                           <td style={{ padding: '13px 16px' }}>
                             <button onClick={() => openFacture('pub', f)}
-                              style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 11, color: '#4F46E5', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                              style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 11, color: '#4F46E5', fontWeight: 600 }}>
                               <FileText size={10} /> Facture
                             </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </motion.div>
+            )}
+
+            {/* DESKTOP — Abonnement Pro */}
+            {!isMobile && activeTab === 'pro' && (
+              <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Star size={14} style={{ color: '#D97706' }} />
+                    <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Abonnement Pro mensuel</p>
+                  </div>
+                  <span style={{ fontSize: 11, color: '#94A3B8' }}>{facturesPro.length} paiement(s)</span>
+                </div>
+                {facturesPro.length === 0 ? (
+                  <div style={{ padding: '40px', textAlign: 'center' }}>
+                    <p style={{ color: '#94A3B8', fontSize: 13, marginBottom: 12 }}>Pas encore d'abonnement Pro</p>
+                    <button onClick={() => router.push('/dashboard/parametres')} style={{ background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      ⚡ Passer Pro — 20€/mois
+                    </button>
+                  </div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #F1F5F9', background: '#FAFAFA' }}>
+                        {['Référence', 'Période', 'Date', 'Montant', 'Statut', ''].map((h, i) => (
+                          <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {facturesPro.map((f, i) => (
+                        <tr key={f.id} style={{ borderBottom: i < facturesPro.length - 1 ? '1px solid #F8FAFC' : 'none' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#FAFAFA'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <td style={{ padding: '13px 16px' }}><p style={{ fontSize: 11, fontWeight: 600, color: '#0F172A', fontFamily: 'monospace' }}>{formatRef(f.id)}</p></td>
+                          <td style={{ padding: '13px 16px' }}><p style={{ fontSize: 12, fontWeight: 600, color: '#0F172A' }}>PulseMarket Pro — {f.periode}</p></td>
+                          <td style={{ padding: '13px 16px', fontSize: 11, color: '#64748B', whiteSpace: 'nowrap' }}>{formatDate(f.created_at)}</td>
+                          <td style={{ padding: '13px 16px' }}><p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>{f.montant} €</p></td>
+                          <td style={{ padding: '13px 16px' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#F0FDF4', color: '#16A34A', fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 100, border: '1px solid #BBF7D0' }}>
+                              <CheckCircle size={9} /> Payé
+                            </span>
+                          </td>
+                          <td style={{ padding: '13px 16px' }}>
+                            {f.stripe_invoice_url ? (
+                              <button onClick={() => window.open(f.stripe_invoice_url, '_blank')}
+                                style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 11, color: '#D97706', fontWeight: 600 }}>
+                                <ExternalLink size={10} /> Stripe
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: 11, color: '#94A3B8' }}>Envoyée par email</span>
+                            )}
                           </td>
                         </tr>
                       ))}
