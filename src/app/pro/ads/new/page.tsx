@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 
 type Step = 1 | 2 | 3 | 4
 
@@ -59,7 +60,7 @@ function Step1({ data, onChange, onNext }: { data: AdData; onChange: (d: Partial
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
       <p style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: 22, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Votre photo</p>
-      <p style={{ fontSize: 14, color: '#6B7280', marginBottom: 24, lineHeight: 1.6 }}>Elle s'affichera dans l'app Whatmarket à la place des emojis. Choisissez une belle photo de votre stand ou produits.</p>
+      <p style={{ fontSize: 14, color: '#6B7280', marginBottom: 24, lineHeight: 1.6 }}>Elle s'affichera dans l'app Whatmarket à la place des icônes. Choisissez une belle photo de votre stand ou produits.</p>
       <div onClick={() => inputRef.current?.click()} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
         style={{ border: `2px dashed ${data.photoPreview ? '#10B981' : '#E5E7EB'}`, borderRadius: 20, overflow: 'hidden', cursor: 'pointer', background: data.photoPreview ? 'transparent' : '#FAFAFA', minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
         {data.photoPreview ? (
@@ -96,8 +97,6 @@ function Step2({ data, onChange, onNext, onBack }: { data: AdData; onChange: (d:
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
       <p style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: 22, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Votre message</p>
       <p style={{ fontSize: 14, color: '#6B7280', marginBottom: 24, lineHeight: 1.6 }}>Ce texte apparaîtra sur votre pub dans Whatmarket.</p>
-
-      {/* Preview */}
       <div style={{ borderRadius: 18, overflow: 'hidden', background: '#F3F4F6', marginBottom: 24, display: 'flex', alignItems: 'stretch', minHeight: 80 }}>
         <div style={{ width: 80, flexShrink: 0 }}>
           {data.photoPreview
@@ -117,7 +116,6 @@ function Step2({ data, onChange, onNext, onBack }: { data: AdData; onChange: (d:
           )}
         </div>
       </div>
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
         {[
           { label: 'Nom de votre commerce *', key: 'nom', placeholder: 'Ex: Rôtisserie Santini', maxLength: 40 },
@@ -148,7 +146,6 @@ function Step2({ data, onChange, onNext, onBack }: { data: AdData; onChange: (d:
 function Step3({ data, onChange, onNext, onBack }: { data: AdData; onChange: (d: Partial<AdData>) => void; onNext: () => void; onBack: () => void }) {
   const [events, setEvents] = useState<EventWithSlots[]>([])
   const [loading, setLoading] = useState(true)
-
   useEffect(() => {
     const load = async () => {
       try {
@@ -169,7 +166,6 @@ function Step3({ data, onChange, onNext, onBack }: { data: AdData; onChange: (d:
     }
     load()
   }, [])
-
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
       <p style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: 22, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Choisir le marché</p>
@@ -239,18 +235,12 @@ function Step4({ data, onBack }: { data: AdData; onBack: () => void }) {
       const supabase = createClient()
       const ext = data.photo.name.split('.').pop()
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error: uploadError } = await supabase.storage
-        .from('boost-photos')
-        .upload(fileName, data.photo, { contentType: data.photo.type, upsert: false })
+      const { error: uploadError } = await supabase.storage.from('boost-photos').upload(fileName, data.photo, { contentType: data.photo.type, upsert: false })
       if (uploadError) throw uploadError
       const { data: urlData } = supabase.storage.from('boost-photos').getPublicUrl(fileName)
       return urlData.publicUrl
-    } catch (err) {
-      console.error('Upload error:', err)
-      return ''
-    } finally {
-      setUploading(false)
-    }
+    } catch (err) { console.error('Upload error:', err); return '' }
+    finally { setUploading(false) }
   }
 
   const handlePay = async () => {
@@ -258,38 +248,29 @@ function Step4({ data, onBack }: { data: AdData; onBack: () => void }) {
     setPaying(true)
     setError('')
     try {
-      // Upload photo d'abord
       const photoUrl = await uploadPhoto()
-
       const res = await fetch('/api/create-boost-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nom: data.nom,
-          offre: data.offre,
-          detail: data.detail,
-          adresse: data.adresse,
-          photoUrl,
-          eventId: data.eventId,
-          eventTitle: data.eventTitle,
-          email,
-        })
+        body: JSON.stringify({ nom: data.nom, offre: data.offre, detail: data.detail, adresse: data.adresse, photoUrl, eventId: data.eventId, eventTitle: data.eventTitle, email })
       })
       const { url, error: stripeError } = await res.json()
       if (stripeError) throw new Error(stripeError)
       window.location.href = url
-    } catch (err: any) {
-      setError(err.message || 'Erreur lors du paiement')
-      setPaying(false)
-    }
+    } catch (err: any) { setError(err.message || 'Erreur lors du paiement'); setPaying(false) }
   }
+
+  // ✅ Icônes SVG au lieu des emojis
+  const guarantees = [
+    { icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>, text: 'Paiement sécurisé Stripe' },
+    { icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>, text: 'Publication immédiate' },
+    { icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>, text: 'Confirmation par email' },
+  ]
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
       <p style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: 22, fontWeight: 700, color: '#111827', marginBottom: 6 }}>Finaliser la publication</p>
       <p style={{ fontSize: 14, color: '#6B7280', marginBottom: 24, lineHeight: 1.6 }}>Votre pub sera visible dans Whatmarket dès validation du paiement.</p>
-
-      {/* Récap avec vraie photo */}
       <div style={{ borderRadius: 18, overflow: 'hidden', background: '#F3F4F6', display: 'flex', alignItems: 'stretch', marginBottom: 20, minHeight: 80 }}>
         <div style={{ width: 90, flexShrink: 0 }}>
           {data.photoPreview
@@ -308,7 +289,6 @@ function Step4({ data, onBack }: { data: AdData; onBack: () => void }) {
           )}
         </div>
       </div>
-
       <div style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 14, padding: '14px 18px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <p style={{ fontSize: 13, fontWeight: 600, color: '#4338CA' }}>Publication sponsorisée</p>
@@ -316,7 +296,6 @@ function Step4({ data, onBack }: { data: AdData; onBack: () => void }) {
         </div>
         <p style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: 24, fontWeight: 700, color: '#4338CA' }}>20€</p>
       </div>
-
       <div style={{ marginBottom: 16 }}>
         <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 7 }}>Email de confirmation</label>
         <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="votre@email.fr"
@@ -324,27 +303,25 @@ function Step4({ data, onBack }: { data: AdData; onBack: () => void }) {
           onFocus={e => { e.target.style.borderColor = '#4F46E5'; e.target.style.background = 'white' }}
           onBlur={e => { e.target.style.borderColor = '#E5E7EB'; e.target.style.background = '#FAFAFA' }} />
       </div>
-
       {error && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#DC2626' }}>{error}</div>}
-
+      {/* ✅ Garanties avec icônes SVG */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
-        {[{ icon: '🔒', text: 'Paiement sécurisé Stripe' }, { icon: '⚡', text: 'Publication immédiate' }, { icon: '📧', text: 'Confirmation par email' }].map((t, i) => (
+        {guarantees.map((t, i) => (
           <div key={i} style={{ flex: 1, textAlign: 'center' }}>
-            <span style={{ fontSize: 18, display: 'block', marginBottom: 3 }}>{t.icon}</span>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{t.icon}</div>
             <span style={{ fontSize: 10, color: '#9CA3AF', lineHeight: 1.4 }}>{t.text}</span>
           </div>
         ))}
       </div>
-
       <div style={{ display: 'flex', gap: 10 }}>
         <button onClick={onBack} style={{ flex: 1, background: '#F9FAFB', color: '#374151', border: '1px solid #E5E7EB', borderRadius: 14, padding: '14px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: '"DM Sans", sans-serif' }}>← Retour</button>
         <button onClick={handlePay} disabled={!email || paying || uploading}
           style={{ flex: 2, background: !email ? '#F3F4F6' : 'linear-gradient(135deg, #4F46E5, #7C3AED)', color: !email ? '#9CA3AF' : 'white', border: 'none', borderRadius: 14, padding: '14px', fontSize: 14, fontWeight: 700, cursor: !email ? 'not-allowed' : 'pointer', fontFamily: '"DM Sans", sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.2s' }}>
           {uploading
-            ? <><div style={{ width: 15, height: 15, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Upload en cours...</>
+            ? <><div style={{ width: 15, height: 15, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Upload...</>
             : paying
             ? <><div style={{ width: 15, height: 15, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Redirection...</>
-            : '🔒 Payer 20€ et Publier'
+            : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Payer 20€ et Publier</>
           }
         </button>
       </div>
@@ -356,6 +333,7 @@ export default function BoostMyBusiness() {
   const [step, setStep] = useState<Step>(1)
   const [adData, setAdData] = useState<AdData>({ photo: null, photoPreview: '', photoUrl: '', nom: '', offre: '', detail: '', adresse: '', eventId: '', eventTitle: '' })
   const update = (d: Partial<AdData>) => setAdData(prev => ({ ...prev, ...d }))
+  const router = useRouter()
 
   return (
     <>
@@ -366,16 +344,36 @@ export default function BoostMyBusiness() {
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
       <div style={{ minHeight: '100vh', background: '#F9F8F6', fontFamily: '"DM Sans", system-ui, sans-serif' }}>
+
+        {/* ✅ Header avec bouton retour explicite */}
         <div style={{ background: 'white', borderBottom: '0.5px solid #E5E7EB', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 10 }}>
-          <a href="/whatmarket" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 7 }}>
-            <div style={{ width: 28, height: 28, background: '#111827', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontFamily: '"Playfair Display", serif', color: 'white', fontSize: 11, fontWeight: 700 }}>W</span>
-            </div>
-            <span style={{ fontFamily: '"Playfair Display", serif', fontSize: 15, fontWeight: 700, color: '#111827' }}>whatmarket</span>
-          </a>
+          {/* ✅ Bouton retour */}
+          <button onClick={() => router.push('/whatmarket')}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F3F4F6', border: 'none', borderRadius: 10, padding: '7px 12px', cursor: 'pointer', color: '#374151', fontSize: 13, fontWeight: 600, fontFamily: '"DM Sans", sans-serif' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Accueil
+          </button>
+
           <div style={{ width: 1, height: 16, background: '#E5E7EB' }} />
+
+          <a href="/whatmarket" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <div style={{ width: 28, height: 28, background: '#0EA5E9', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="16" height="16" viewBox="0 0 40 40" fill="none">
+                <path d="M4 8L9 22L16 12L23 22L28 8" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <span style={{ fontFamily: '"DM Sans", sans-serif', fontSize: 15, fontWeight: 700, color: '#111827' }}>
+              What<span style={{ color: '#0EA5E9', fontWeight: 400 }}>market</span>
+            </span>
+          </a>
+
           <span style={{ fontSize: 13, color: '#6B7280' }}>Boost My Business</span>
-          <div style={{ marginLeft: 'auto', background: '#FEF3C7', color: '#92400E', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100 }}>🚀 Pro</div>
+
+          {/* ✅ Badge Pro sans emoji */}
+          <div style={{ marginLeft: 'auto', background: '#EFF6FF', color: '#1D4ED8', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="#1D4ED8"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Pro
+          </div>
         </div>
 
         <div style={{ maxWidth: 480, margin: '0 auto', padding: '32px 20px 60px' }}>
