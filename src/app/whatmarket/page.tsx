@@ -104,76 +104,6 @@ const REGIONS = [
   { id: 'cvl', label: 'Centre-Val de Loire', dept: '45', cx: 228, cy: 200 },
 ]
 
-// ── Carte France interactive ───────────────────────────────────────────
-function FranceMap({ selected, onSelect }: { selected: string | null; onSelect: (id: string | null) => void }) {
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <p style={{ fontFamily: '"Playfair Display",Georgia,serif', fontSize: 16, fontWeight: 700, color: '#111827' }}>Explorer par région</p>
-        {selected && (
-          <button onClick={() => onSelect(null)}
-            style={{ fontSize: 11, fontWeight: 600, color: '#0EA5E9', background: '#E0F2FE', border: 'none', borderRadius: 100, padding: '4px 10px', cursor: 'pointer' }}>
-            Tout voir
-          </button>
-        )}
-      </div>
-
-      {/* SVG France */}
-      <div style={{ background: 'white', borderRadius: 20, overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,0.06)', position: 'relative' }}>
-        <svg viewBox="0 0 480 460" style={{ width: '100%', display: 'block' }}>
-          {/* France outline */}
-          <path d="M230,22 L295,46 L355,82 L388,138 L392,198 L387,264 L408,355 L362,398 L300,418 L238,428 L165,410 L122,368 L102,312 L108,256 L98,206 L113,166 L80,144 L22,157 L48,107 L102,66 L175,36 Z"
-            fill="#F0F9FF" stroke="#BAE6FD" strokeWidth="1.5"/>
-          {/* Corse */}
-          <ellipse cx="420" cy="408" rx="14" ry="20" fill="#F0F9FF" stroke="#BAE6FD" strokeWidth="1.5"/>
-
-          {/* Dots régions */}
-          {REGIONS.map(r => {
-            const isSelected = selected === r.id
-            const isPACA = r.id === 'paca'
-            return (
-              <g key={r.id} onClick={() => onSelect(isSelected ? null : r.id)} style={{ cursor: 'pointer' }}>
-                {/* Halo */}
-                {(isSelected || isPACA) && (
-                  <circle cx={r.cx} cy={r.cy} r={isSelected ? 16 : 12} fill={isSelected ? 'rgba(14,165,233,0.15)' : 'rgba(14,165,233,0.08)'}/>
-                )}
-                {/* Dot */}
-                <circle cx={r.cx} cy={r.cy} r={isSelected ? 7 : isPACA ? 6 : 5}
-                  fill={isSelected ? '#0EA5E9' : isPACA ? '#38BDF8' : '#CBD5E1'}
-                  stroke="white" strokeWidth="1.5"/>
-                {/* Label si sélectionné */}
-                {isSelected && (
-                  <text x={r.cx} y={r.cy - 14} textAnchor="middle" fontSize="9" fontWeight="700" fill="#0369A1" fontFamily="DM Sans, sans-serif">
-                    {r.label.split(' ').slice(-1)[0]}
-                  </text>
-                )}
-              </g>
-            )
-          })}
-        </svg>
-
-        {/* Label région sélectionnée */}
-        {selected && (
-          <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', background: '#0EA5E9', color: 'white', borderRadius: 100, padding: '5px 14px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
-            {REGIONS.find(r => r.id === selected)?.label}
-          </div>
-        )}
-      </div>
-
-      {/* Chips régions scrollables */}
-      <div style={{ display: 'flex', gap: 7, overflowX: 'auto', padding: '10px 0 4px', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
-        {REGIONS.map(r => (
-          <button key={r.id} onClick={() => onSelect(selected === r.id ? null : r.id)}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 100, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, transition: 'all 0.2s', background: selected === r.id ? '#0EA5E9' : 'white', color: selected === r.id ? 'white' : '#6B7280', boxShadow: selected === r.id ? '0 2px 8px rgba(14,165,233,0.35)' : '0 1px 4px rgba(0,0,0,0.06)' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: selected === r.id ? 'rgba(255,255,255,0.8)' : '#0EA5E9', flexShrink: 0 }} />
-            {r.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ── VedetteSlot sans emoji ─────────────────────────────────────────────
 function VedetteSlot({ marketId }: { marketId: string }) {
   const [vedette, setVedette] = useState<VedetteData>(null)
@@ -493,7 +423,6 @@ export default function WhatmarketHome() {
   const [filter, setFilter] = useState<'bientot'|'proche'|'tous'>('bientot')
   const [sponsoredMarket, setSponsoredMarket] = useState<Market | null>(null)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
-  const [showMap, setShowMap] = useState(false)
 
   const loadMarkets = useCallback(async (lat?: number, lng?: number) => {
     setLoading(true)
@@ -580,15 +509,6 @@ export default function WhatmarketHome() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {/* ✅ Bouton carte France */}
-              <button onClick={() => setShowMap(!showMap)}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, background: showMap ? '#0EA5E9' : 'white', border: showMap ? 'none' : '1px solid #E5E7EB', borderRadius: 100, padding: '7px 12px', cursor: 'pointer', transition: 'all 0.2s' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={showMap ? 'white' : '#6B7280'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16"/>
-                </svg>
-                <span style={{ fontSize: 11, fontWeight: 600, color: showMap ? 'white' : '#6B7280' }}>Régions</span>
-              </button>
-
               <button onClick={geoStatus==='idle'||geoStatus==='denied'?requestGeo:undefined}
                 className={geoStatus==='requesting'?'pulse-ring':''}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: geoStatus==='ok'?'#ECFDF5':'#0EA5E9', border: 'none', borderRadius: 100, padding: '9px 14px', cursor: geoStatus==='requesting'?'default':'pointer', transition: 'all 0.3s' }}>
@@ -611,21 +531,27 @@ export default function WhatmarketHome() {
               </button>
             ))}
           </div>
+
+          {/* ✅ Chips régions scrollables */}
+          <div style={{ display: 'flex', gap: 7, overflowX: 'auto', padding: '10px 0 0', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+            <button onClick={() => setSelectedRegion(null)}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 100, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, transition: 'all 0.2s', background: !selectedRegion ? '#111827' : 'white', color: !selectedRegion ? 'white' : '#6B7280', boxShadow: !selectedRegion ? '0 2px 8px rgba(0,0,0,0.18)' : '0 1px 4px rgba(0,0,0,0.06)' }}>
+              Toute la France
+            </button>
+            {REGIONS.map(r => (
+              <button key={r.id} onClick={() => setSelectedRegion(selectedRegion === r.id ? null : r.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 100, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, transition: 'all 0.2s', background: selectedRegion === r.id ? '#0EA5E9' : 'white', color: selectedRegion === r.id ? 'white' : '#6B7280', boxShadow: selectedRegion === r.id ? '0 2px 8px rgba(14,165,233,0.35)' : '0 1px 4px rgba(0,0,0,0.06)' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: selectedRegion === r.id ? 'rgba(255,255,255,0.8)' : '#0EA5E9', flexShrink: 0 }} />
+                {r.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div style={{ padding: '16px 16px 100px', overflowY: 'auto' }}>
 
-          {/* ✅ Carte France */}
           <AnimatePresence>
-            {showMap && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.3 }}>
-                <FranceMap selected={selectedRegion} onSelect={setSelectedRegion} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {geoStatus==='idle' && !showMap && (
+            {geoStatus==='idle' && (
               <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}
                 style={{ background: '#111827', borderRadius: 20, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.08)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
