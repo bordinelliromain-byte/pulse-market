@@ -94,10 +94,7 @@ export default function Sidebar({ profile }: SidebarProps) {
         {/* ✅ Logo SVG inline */}
         <div style={{ padding: '18px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => router.push('/dashboard')}>
-            <svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="40" height="40" rx="10" fill="#4F46E5"/>
-              <path d="M6 20L12 20L14 11L17 29L20 14L22 20L34 20" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <img src="logo-pulsemarket.svg" width={32} height={32} alt="PulseMarket" style={{ borderRadius: 10 }} />
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
               <span style={{ color: 'white', fontWeight: 700, fontSize: 15, letterSpacing: '-0.03em', fontFamily: "'Inter', system-ui, sans-serif" }}>Pulse</span>
               <span style={{ color: '#818CF8', fontWeight: 400, fontSize: 15, letterSpacing: '-0.03em', fontFamily: "'Inter', system-ui, sans-serif" }}>Market</span>
