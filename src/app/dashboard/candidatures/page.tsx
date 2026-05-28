@@ -204,8 +204,22 @@ export default function Candidatures() {
         redevanceAOT: candidature.events?.price_per_spot || 0, fraisPlateforme: 2,
       })
     }
-    setToast({ message: 'Dossier approuvé — facture générée', type: 'success' })
-    setUpdating(null); setShowRejectInput(false)
+    if (candidature?.profiles?.email) {
+  await fetch('/api/send-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'candidature_validee',
+      to: candidature.profiles.email,
+      data: {
+        exposantNom: candidature.profiles?.full_name || '',
+        eventTitle: candidature.events?.title || '',
+      }
+    })
+  })
+}
+setToast({ message: 'Dossier approuvé — email envoyé — facture générée', type: 'success' })
+setUpdating(null); setShowRejectInput(false)
   }
 
   const handleReject = async (id: string) => {
