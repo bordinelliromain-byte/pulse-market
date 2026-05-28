@@ -51,7 +51,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https://*.supabase.co https://client.crisp.chat https://*.crisp.chat https://image.crisp.chat https://images.unsplash.com https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://api.qrserver.com",
               "font-src 'self' https://client.crisp.chat https://fonts.gstatic.com",
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://client.crisp.chat wss://client.crisp.chat wss://client.relay.crisp.chat wss://client.relay.rescue.crisp.chat https://maps.googleapis.com https://api-adresse.data.gouv.fr",
-              "frame-src https://js.stripe.com https://hooks.stripe.com https://www.google.com https://maps.google.com",
+              "frame-src https://js.stripe.com https://hooks.stripe.com https://www.google.com https://maps.google.com https://www.openstreetmap.org",
               "worker-src blob:",
             ].join('; ')
           },
