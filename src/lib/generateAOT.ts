@@ -37,8 +37,25 @@ export async function generateAOTHTML(data: AOTData): Promise<string> {
   const verifUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://pulse-market.fr'}/verif/${data.candidatureId}`
   const qrDataUrl = await generateQRDataUrl(verifUrl)
 
-  const mairieNomClean = data.mairieNom?.replace(/^Mairie d['e]\s*/i, '').replace(/^Mairie\s+/i, '') || 'Aubagne'
+  // ✅ Fix 1 : Nettoyage du nom de mairie et élision automatique (d' / de)
+  const mairieNomClean = data.mairieNom
+    ?.replace(/^Mairie\s+d['e]\s*/i, '')
+    .replace(/^Mairie\s+/i, '')
+    .replace(/^Commune\s+d['e]\s*/i, '')
+    .replace(/^Commune\s+/i, '')
+    .trim() || 'la Commune'
+
+  const firstLetter = mairieNomClean.charAt(0).toLowerCase()
+  const isVoyelle = ['a', 'e', 'i', 'o', 'u', 'y', 'h'].includes(firstLetter)
+  const elision = isVoyelle ? "d'" : 'de '
+
   const dept = data.departementNom || 'Bouches-du-Rhône'
+
+  // ✅ Fix 2 : Logique SIREN — affichage dynamique
+  const sirenDisplay = data.exposantSiren && data.exposantSiren.trim().length > 0
+    ? data.exposantSiren
+    : '⚠ En cours de validation'
+  const sirenMissing = !data.exposantSiren || data.exposantSiren.trim().length === 0
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -143,6 +160,7 @@ body { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; color: #0F172A
   text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px;
 }
 .benef-value { font-size: 11px; color: #0F172A; font-weight: 500; }
+.benef-value.warning { color: #DC2626; font-style: italic; font-weight: 600; }
 
 /* === EMPLACEMENT === */
 .location-box {
@@ -225,7 +243,7 @@ body { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; color: #0F172A
       <div class="header-titles">
         <div class="republique">République Française</div>
         <div class="departement">Département des ${dept}</div>
-        <div class="commune">Commune ${mairieNomClean.startsWith('d') || mairieNomClean.startsWith('D') ? '' : 'de '}${mairieNomClean}</div>
+        <div class="commune">Commune ${elision}${mairieNomClean}</div>
       </div>
     </div>
     <div class="header-right">
@@ -248,7 +266,7 @@ body { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; color: #0F172A
 
   <!-- ======= VISAS ======= -->
   <div class="visas">
-    <div class="visas-label">Le Maire de la Commune de ${mairieNomClean},</div>
+    <div class="visas-label">Le Maire de la Commune ${elision}${mairieNomClean},</div>
     <div class="visa-item"><strong>VU</strong> le Code Général de la Propriété des Personnes Publiques, notamment ses articles L. 2122-1 et suivants ;</div>
     <div class="visa-item"><strong>VU</strong> le Code Général des Collectivités Territoriales, notamment l'article L. 2212-2 relatif aux pouvoirs de police du Maire ;</div>
     <div class="visa-item"><strong>VU</strong> le Règlement Intérieur des Marchés Municipaux de la Commune en vigueur ;</div>
@@ -265,7 +283,7 @@ body { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; color: #0F172A
       <span class="article-title">Objet de l'autorisation</span>
     </div>
     <div class="article-body">
-      Le Maire de la Commune de <strong>${mairieNomClean}</strong> autorise la personne physique ou morale désignée ci-après à occuper temporairement un emplacement sur le domaine public communal :
+      Le Maire de la Commune ${elision}<strong>${mairieNomClean}</strong> autorise la personne physique ou morale désignée ci-après à occuper temporairement un emplacement sur le domaine public communal :
     </div>
     <div class="benef-box">
       <div class="benef-field">
@@ -278,7 +296,7 @@ body { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; color: #0F172A
       </div>
       <div class="benef-field">
         <div class="benef-label">Immatriculation (SIREN)</div>
-        <div class="benef-value">${data.exposantSiren || 'Non renseigné'}</div>
+        <div class="benef-value${sirenMissing ? ' warning' : ''}">${sirenDisplay}</div>
       </div>
       <div class="benef-field">
         <div class="benef-label">Activité déclarée</div>
