@@ -3,7 +3,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
 import { motion } from 'framer-motion'
 
 type CandidatureData = {
@@ -32,45 +31,18 @@ export default function VerifPage() {
     const verify = async () => {
       if (!id) { setState('not_found'); return }
       try {
-        const supabase = createClient()
-        const { data: app, error } = await supabase
-          .from('applications')
-          .select(`
-            id, status, case_number, paid_at,
-            profiles:exposant_id(full_name),
-            events:event_id(title, start_date, location_name)
-          `)
-          .eq('id', id)
-          .single()
-
-        if (error || !app) { setState('not_found'); return }
-
-        const { data: expData } = await supabase
-          .from('exposant_data')
-          .select('business_name, siren, description')
-          .eq('user_id', (app as any).exposant_id)
-          .single()
-
-        const fullData: CandidatureData = {
-          id: app.id,
-          status: app.status,
-          exposant_nom: (app as any).profiles?.full_name || '',
-          exposant_business: expData?.business_name || '',
-          exposant_siren: expData?.siren || '',
-          exposant_produits: expData?.description || '',
-          event_title: (app as any).events?.title || '',
-          event_date: (app as any).events?.start_date || '',
-          event_location: (app as any).events?.location_name || '',
-          case_number: app.case_number,
-          paid_at: app.paid_at,
-        }
+        // ✅ Appel de l'API route serveur (utilise service_role)
+        const res = await fetch(`/api/verif/${id}`)
+        if (!res.ok) { setState('not_found'); return }
+        const fullData: CandidatureData = await res.json()
         setData(fullData)
 
         // Logique de validation
-        if (app.status !== 'paid') { setState('not_paid'); return }
+        if (!fullData) { setState('not_found'); return }
+        if (fullData.status !== 'paid') { setState('not_paid'); return }
 
         // Vérification de la date du marché (tolérance 24h avant + 24h après)
-        const eventDate = new Date((app as any).events?.start_date)
+        const eventDate = new Date(fullData.event_date)
         const now = new Date()
         const dayBefore = new Date(eventDate.getTime() - 24 * 60 * 60 * 1000)
         const dayAfter = new Date(eventDate.getTime() + 24 * 60 * 60 * 1000)
