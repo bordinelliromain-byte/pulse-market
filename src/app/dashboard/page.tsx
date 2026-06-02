@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { downloadAOT } from '@/lib/generateAOT'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import type { Variants } from 'framer-motion'
@@ -440,13 +441,31 @@ function DashboardContent() {
                           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                             <CandidatureTimeline status={c.status} />
                           </div>
-                          {/* ✅ Bouton Instagram uniquement si paid */}
+                          {/* ✅ Boutons Instagram + AOT uniquement si paid */}
                           {c.status === 'paid' && (
-                            <button onClick={() => router.push(`/dashboard/partage?eventName=${encodeURIComponent(c.events?.title || '')}&eventDate=${encodeURIComponent(new Date(c.events?.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(c.events?.location_name || '')}`)}
-                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'linear-gradient(135deg, #E1306C, #833AB4)', color: 'white', border: 'none', borderRadius: 8, padding: '9px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', marginTop: 10, width: '100%' }}>
-                              📸 Préparer mon post Instagram
+                            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                              <button onClick={() => downloadAOT({
+                              candidatureId: c.id,
+                              exposantNom: profile?.full_name || '',
+                              exposantSiren: undefined,
+                              exposantBusinessName: undefined,
+                              exposantProduits: undefined,
+                              eventTitle: c.events?.title || '',
+                              eventDate: c.events?.start_date ? new Date(c.events.start_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '',
+                              eventLocation: c.events?.location_name || '',
+                              caseNumber: c.case_number,
+                              mairieNom: 'Mairie',
+                              paidAt: c.paid_at ? new Date(c.paid_at).toLocaleDateString('fr-FR') : '',
+                            })}
+                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#0F172A', color: 'white', border: 'none', borderRadius: 8, padding: '9px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                📄 Télécharger mon AOT
                             </button>
-                          )}
+                            <button onClick={() => router.push(`/dashboard/partage?eventName=${encodeURIComponent(c.events?.title || '')}&eventDate=${encodeURIComponent(new Date(c.events?.start_date).toLocaleDateString('fr-FR'))}&eventLocation=${encodeURIComponent(c.events?.location_name || '')}`)}
+                                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'linear-gradient(135deg, #E1306C, #833AB4)', color: 'white', border: 'none', borderRadius: 8, padding: '9px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                  📸 Instagram
+                            </button>
+                          </div>
+                        )}
                         </div>
                       ))}
                     </div>
