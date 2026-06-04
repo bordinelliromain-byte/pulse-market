@@ -183,7 +183,7 @@ function DashboardContent() {
     setNearbyEvents(eventsData || [])
     const { data: apps } = await supabase.from('applications').select(`*, events:event_id(title, start_date, location_name, price_per_spot)`).eq('exposant_id', user.id).order('created_at', { ascending: false })
     setCandidatures(apps || [])
-    const { data: expData } = await supabase.from('exposant_data').select('plan, is_verified, kbis_url, rcpro_url').eq('user_id', user.id).single()
+    const { data: expData } = await supabase.from('exposant_data').select('plan, is_verified, kbis_url, assurance_url').eq('user_id', user.id).single()
     setStats({
       total: apps?.length || 0,
       validated: apps?.filter((a: any) => a.status === 'validated').length || 0,
@@ -192,7 +192,7 @@ function DashboardContent() {
       plan: expData?.plan || 'gratuit',
       isVerified: expData?.is_verified || false,
       kbisUrl: expData?.kbis_url || null,
-      rcproUrl: expData?.rcpro_url || null,
+      rcproUrl: expData?.assurance_url || null,
     })
     setLoading(false)
 
