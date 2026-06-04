@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import type { Variants } from 'framer-motion'
 import Sidebar from '@/components/Sidebar'
+import OnboardingTour from '@/components/OnboardingTour'
 import {
   ChevronRight, CheckCircle, Clock, Star,
   Bell, MapPin, ArrowUpRight,
@@ -165,6 +166,7 @@ function DashboardContent() {
   const [loading, setLoading] = useState(true)
   const [payingId, setPayingId] = useState<string | null>(null)
   const [upgradingPro, setUpgradingPro] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
@@ -176,11 +178,11 @@ function DashboardContent() {
     const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     setProfile(profileData)
     if (profileData?.role === 'organisateur') { router.push('/dashboard/organisateur'); return }
+
     const { data: eventsData } = await supabase.from('events').select('*').eq('status', 'published').order('start_date', { ascending: true }).limit(5)
     setNearbyEvents(eventsData || [])
     const { data: apps } = await supabase.from('applications').select(`*, events:event_id(title, start_date, location_name, price_per_spot)`).eq('exposant_id', user.id).order('created_at', { ascending: false })
     setCandidatures(apps || [])
-    // ✅ Fix : lecture kbis_url et rcpro_url depuis exposant_data
     const { data: expData } = await supabase.from('exposant_data').select('plan, is_verified, kbis_url, rcpro_url').eq('user_id', user.id).single()
     setStats({
       total: apps?.length || 0,
@@ -193,6 +195,12 @@ function DashboardContent() {
       rcproUrl: expData?.rcpro_url || null,
     })
     setLoading(false)
+
+    // ✅ Onboarding : déclenche le tour si jamais fait
+    if (profileData?.role !== 'organisateur' && !profileData?.onboarding_completed) {
+      // Petit délai pour laisser le dashboard s'afficher avant le tour
+      setTimeout(() => setShowOnboarding(true), 600)
+    }
   }
 
   useEffect(() => { loadData() }, [searchParams])
@@ -280,6 +288,9 @@ function DashboardContent() {
           </motion.div>
         </main>
       </div>
+
+      {/* ✅ Onboarding tour pour nouveaux users (aussi sur new user screen) */}
+      {showOnboarding && <OnboardingTour onComplete={() => setShowOnboarding(false)} />}
     </div>
   )
 
@@ -365,7 +376,8 @@ function DashboardContent() {
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 300px', gap: 16 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
-                <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
+                {/* ✅ data-tour="marches" — pour l'onboarding tour */}
+                <motion.div data-tour="marches" variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Marchés à proximité</p>
                     <button onClick={() => router.push('/dashboard/evenements')} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#4F46E5', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
@@ -413,7 +425,8 @@ function DashboardContent() {
                   )}
                 </motion.div>
 
-                <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
+                {/* ✅ data-tour="suivi" — pour l'onboarding tour */}
+                <motion.div data-tour="suivi" variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Suivi de mes dossiers</p>
                     <span style={{ fontSize: 11, color: '#94A3B8' }}>{candidatures.length} dossier(s)</span>
@@ -488,7 +501,8 @@ function DashboardContent() {
                 </div>
 
                 {!isPro && (
-                  <div style={{ background: '#0F172A', borderRadius: 12, padding: '14px 16px' }}>
+                  // ✅ data-tour="pro" — pour l'onboarding tour
+                  <div data-tour="pro" style={{ background: '#0F172A', borderRadius: 12, padding: '14px 16px' }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 10 }}>
                       <Zap size={14} style={{ color: '#FBBF24', flexShrink: 0, marginTop: 1 }} />
                       <div>
@@ -527,11 +541,11 @@ function DashboardContent() {
                   </div>
                 )}
 
-                <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
+                {/* ✅ data-tour="dossier" — pour l'onboarding tour */}
+                <div data-tour="dossier" style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Mon dossier exposant</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                     {[
-                      // ✅ Fix : lecture depuis exposant_data
                       { label: 'Extrait Kbis', status: !!stats.kbisUrl },
                       { label: 'Attestation RC Pro', status: !!stats.rcproUrl },
                       { label: 'Vérification SIREN', status: stats.isVerified },
@@ -564,6 +578,9 @@ function DashboardContent() {
           </motion.div>
         </main>
       </div>
+
+      {/* ✅ Onboarding tour pour nouveaux users */}
+      {showOnboarding && <OnboardingTour onComplete={() => setShowOnboarding(false)} />}
     </div>
   )
 }
