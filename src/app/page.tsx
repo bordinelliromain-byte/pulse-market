@@ -1,13 +1,13 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { motion, useInView, AnimatePresence } from 'framer-motion'
 import type { Variants } from 'framer-motion'
 import {
   ArrowRight, FileCheck, Building2, Store, ShieldCheck,
   Zap, MapPin, Bell, CheckCircle, ChevronRight, ChevronDown,
-  BarChart3, Clock, Users, Euro, Map, Lock, Server
+  BarChart3, Clock, Users, Euro, Map, Lock, Server, X
 } from 'lucide-react'
 
 const fadeUp: Variants = {
@@ -62,6 +62,70 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   )
 }
 
+// ✅ BANNER SUCCÈS APRÈS DEVIS
+function DevisSuccessBanner() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const [show, setShow] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('devis') === 'success') {
+      setShow(true)
+      // Nettoie l'URL après 1s pour éviter de rejouer au refresh
+      const cleanTimer = setTimeout(() => {
+        router.replace('/', { scroll: false })
+      }, 1000)
+      // Cache le banner après 10s
+      const hideTimer = setTimeout(() => setShow(false), 10000)
+      return () => {
+        clearTimeout(cleanTimer)
+        clearTimeout(hideTimer)
+      }
+    }
+  }, [searchParams, router])
+
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ y: -120, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -120, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+          style={{
+            position: 'fixed',
+            top: 80,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 100,
+            background: 'linear-gradient(135deg, #10B981, #059669)',
+            color: 'white',
+            padding: '16px 22px',
+            borderRadius: 14,
+            boxShadow: '0 20px 50px rgba(16,185,129,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            maxWidth: 'calc(100% - 32px)',
+            minWidth: 320,
+          }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <CheckCircle size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>Votre demande a bien été envoyée ✨</p>
+            <p style={{ fontSize: 12, opacity: 0.92, lineHeight: 1.4 }}>Notre équipe vous rappelle sous 24h ouvrées avec votre devis officiel.</p>
+          </div>
+          <button onClick={() => setShow(false)}
+            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', cursor: 'pointer', borderRadius: 8, padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <X size={14} />
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 export default function Landing() {
   const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
@@ -74,6 +138,11 @@ export default function Landing() {
 
   return (
     <div style={{ background: '#F8FAFC', color: '#0F172A', fontFamily: 'system-ui, sans-serif' }} className="min-h-screen">
+
+      {/* ✅ Banner succès au-dessus de tout */}
+      <Suspense fallback={null}>
+        <DevisSuccessBanner />
+      </Suspense>
 
       {/* NAV */}
       <motion.header initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.4 }}
@@ -105,7 +174,7 @@ export default function Landing() {
         </div>
       </motion.header>
 
-      {/* ✅ HERO — institutionnel, sans stats invérifiables */}
+      {/* HERO */}
       <section className="pt-36 pb-24 px-6" style={{ borderBottom: '1px solid #E2E8F0', background: 'white' }}>
         <div className="max-w-5xl mx-auto">
           <AnimatedSection>
@@ -134,10 +203,10 @@ export default function Landing() {
             </motion.p>
 
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <button onClick={() => router.push('/auth/mairie')}
+              <button onClick={() => router.push('/devis')}
                 style={{ background: '#4F46E5', color: 'white', padding: '14px 28px', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 24px rgba(79,70,229,0.28)' }}
                 className="hover:opacity-90 transition-opacity flex items-center gap-2 whitespace-nowrap">
-                <Building2 size={16} /> Démarrer PulseMarket
+                <Building2 size={16} /> Demander un devis
               </button>
               <button onClick={() => router.push('/auth?tab=signup')}
                 style={{ background: 'transparent', color: '#64748B', padding: '14px 0', fontWeight: 500, fontSize: 14, cursor: 'pointer', border: 'none' }}
@@ -150,7 +219,7 @@ export default function Landing() {
             </motion.div>
           </AnimatedSection>
 
-          {/* ✅ Stats — uniquement données publiques vérifiables */}
+          {/* Stats */}
           <AnimatedSection className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-10" style={{ borderTop: '1px solid #F1F5F9' }}>
             {[
               { n: '36 000', l: 'communes françaises avec marchés' },
@@ -269,10 +338,10 @@ export default function Landing() {
                 <p style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 6 }}>Vous êtes une mairie, un comité des fêtes ou une association ?</p>
                 <p style={{ fontSize: 14, color: '#64748B' }}>Créez votre espace en 2 minutes — gratuit pour démarrer, aucune carte bancaire requise</p>
               </div>
-              <button onClick={() => router.push('/auth/mairie')}
+              <button onClick={() => router.push('/devis')}
                 style={{ background: '#4F46E5', color: 'white', padding: '13px 28px', borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
                 className="hover:opacity-90 transition-opacity">
-                <Building2 size={15} /> Créer mon espace organisateur <ArrowRight size={14} />
+                <Building2 size={15} /> Obtenir un devis gratuit <ArrowRight size={14} />
               </button>
             </motion.div>
           </AnimatedSection>
@@ -314,7 +383,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ✅ TARIFS — Administration sur devis, ordre changé */}
+      {/* TARIFS */}
       <section id="tarifs" className="py-20 px-6" style={{ borderBottom: '1px solid #E2E8F0' }}>
         <div className="max-w-4xl mx-auto">
           <AnimatedSection>
@@ -333,7 +402,7 @@ export default function Landing() {
                 features: ['Événements illimités', 'Vérification automatique des dossiers', 'Attribution terrain drag & drop', 'Collecte des redevances AOT', 'Export comptable CSV / PDF', 'Support dédié'],
                 cta: 'Demander un devis',
                 accent: true,
-                path: '/auth/mairie',
+                path: '/devis',
                 highlight: 'RECOMMANDÉ'
               },
               {
@@ -390,7 +459,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ✅ FAQ — répond aux objections avant le RDV */}
+      {/* FAQ */}
       <section id="faq" className="py-20 px-6" style={{ borderBottom: '1px solid #E2E8F0', background: 'white' }}>
         <div className="max-w-3xl mx-auto">
           <AnimatedSection>
@@ -450,7 +519,7 @@ export default function Landing() {
               Rejoignez les premiers organisateurs et exposants qui font confiance à PulseMarket. Demande de devis gratuite, sans engagement.
             </motion.p>
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <button onClick={() => router.push('/auth/mairie')}
+              <button onClick={() => router.push('/devis')}
                 style={{ background: '#4F46E5', color: 'white', padding: '14px 32px', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 24px rgba(79,70,229,0.28)' }}
                 className="hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-2">
                 <Building2 size={16} /> Demander un devis <ArrowRight size={16} />
@@ -468,7 +537,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ✅ FOOTER LÉGAL COMPLET */}
+      {/* FOOTER */}
       <footer style={{ borderTop: '1px solid #E2E8F0', background: 'white', padding: '32px 24px 24px' }}>
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
@@ -485,7 +554,6 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Bloc légal complet */}
           <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 20 }}>
             <div className="flex flex-col md:flex-row justify-between gap-4">
               <div style={{ fontSize: 11, color: '#94A3B8', lineHeight: 1.7 }}>
