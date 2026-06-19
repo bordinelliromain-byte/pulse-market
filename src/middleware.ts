@@ -12,8 +12,7 @@ const PROTECTED_ORGANISATEUR = [
 
 const PROTECTED_PLACIER = ['/dashboard/placier']
 
-const PUBLIC_ROUTES = ['/', '/auth', '/auth/mairie', '/whatmarket', '/paiement-express', '/pro', '/commercial', '/mentions-legales', '/cgu', '/confidentialite', '/cgv']
-
+const PUBLIC_ROUTES = ['/', '/auth', '/auth/mairie', '/devis', '/whatmarket', '/paiement-express', '/pro', '/commercial', '/mentions-legales', '/cgu', '/confidentialite', '/cgv']
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
