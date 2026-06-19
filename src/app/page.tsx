@@ -7,8 +7,10 @@ import type { Variants } from 'framer-motion'
 import {
   ArrowRight, FileCheck, Building2, Store, ShieldCheck,
   Zap, MapPin, Bell, CheckCircle, ChevronRight, ChevronDown,
-  BarChart3, Clock, Users, Euro, Map, Lock, Server, X
+  BarChart3, Clock, Users, Euro, Map, Lock, Server, Sparkles
 } from 'lucide-react'
+
+const BRAND = '#4F46E5'
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -33,12 +35,11 @@ function LogoWordmark({ size = 15 }: { size?: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
       <span style={{ fontWeight: 700, fontSize: size, letterSpacing: '-0.02em', color: '#0F172A' }}>Pulse</span>
-      <span style={{ fontWeight: 400, fontSize: size, letterSpacing: '-0.02em', color: '#4F46E5' }}>Market</span>
+      <span style={{ fontWeight: 400, fontSize: size, letterSpacing: '-0.02em', color: BRAND }}>Market</span>
     </div>
   )
 }
 
-// ✅ FAQ component
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false)
   return (
@@ -62,8 +63,8 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   )
 }
 
-// ✅ BANNER SUCCÈS APRÈS DEVIS
-function DevisSuccessBanner() {
+// ✅ MODALE PLEIN ÉCRAN VIOLETTE CENTRÉE
+function DevisSuccessModal() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [show, setShow] = useState(false)
@@ -71,55 +72,144 @@ function DevisSuccessBanner() {
   useEffect(() => {
     if (searchParams.get('devis') === 'success') {
       setShow(true)
-      // Nettoie l'URL après 1s pour éviter de rejouer au refresh
-      const cleanTimer = setTimeout(() => {
-        router.replace('/', { scroll: false })
-      }, 1000)
-      // Cache le banner après 10s
-      const hideTimer = setTimeout(() => setShow(false), 10000)
-      return () => {
-        clearTimeout(cleanTimer)
-        clearTimeout(hideTimer)
-      }
+      document.body.style.overflow = 'hidden'
     }
-  }, [searchParams, router])
+    return () => { document.body.style.overflow = '' }
+  }, [searchParams])
+
+  const handleClose = () => {
+    setShow(false)
+    document.body.style.overflow = ''
+    router.replace('/', { scroll: false })
+  }
 
   return (
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ y: -120, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -120, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
           style={{
             position: 'fixed',
-            top: 80,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 100,
-            background: 'linear-gradient(135deg, #10B981, #059669)',
-            color: 'white',
-            padding: '16px 22px',
-            borderRadius: 14,
-            boxShadow: '0 20px 50px rgba(16,185,129,0.35)',
+            inset: 0,
+            zIndex: 200,
+            background: 'rgba(15, 23, 42, 0.7)',
+            backdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
-            gap: 14,
-            maxWidth: 'calc(100% - 32px)',
-            minWidth: 320,
+            justifyContent: 'center',
+            padding: 20,
           }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <CheckCircle size={20} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>Votre demande a bien été envoyée ✨</p>
-            <p style={{ fontSize: 12, opacity: 0.92, lineHeight: 1.4 }}>Notre équipe vous rappelle sous 24h ouvrées avec votre devis officiel.</p>
-          </div>
-          <button onClick={() => setShow(false)}
-            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', cursor: 'pointer', borderRadius: 8, padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <X size={14} />
-          </button>
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.85, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 220, damping: 22 }}
+            style={{
+              background: 'linear-gradient(135deg, #4F46E5, #7C3AED)',
+              borderRadius: 24,
+              padding: '48px 36px',
+              maxWidth: 460,
+              width: '100%',
+              textAlign: 'center',
+              boxShadow: '0 30px 80px rgba(79, 70, 229, 0.4)',
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+
+            {/* Sparkles déco */}
+            <div style={{ position: 'absolute', top: 20, right: 24, opacity: 0.15 }}>
+              <Sparkles size={80} style={{ color: 'white' }} />
+            </div>
+            <div style={{ position: 'absolute', bottom: 20, left: 24, opacity: 0.1 }}>
+              <Sparkles size={60} style={{ color: 'white' }} />
+            </div>
+
+            {/* Icône check animée */}
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 18 }}
+              style={{
+                width: 88,
+                height: 88,
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 24px',
+                border: '3px solid rgba(255, 255, 255, 0.3)',
+                position: 'relative',
+                zIndex: 1,
+              }}>
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ delay: 0.35, type: 'spring', stiffness: 200 }}>
+                <CheckCircle size={48} style={{ color: 'white' }} strokeWidth={2.5} />
+              </motion.div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              style={{ position: 'relative', zIndex: 1 }}>
+              <h2 style={{ fontSize: 26, fontWeight: 800, color: 'white', marginBottom: 12, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                Votre demande a bien été envoyée
+              </h2>
+              <p style={{ fontSize: 15, color: 'rgba(255, 255, 255, 0.9)', lineHeight: 1.6, marginBottom: 28 }}>
+                Notre équipe étudie votre demande et vous rappelle <strong style={{ color: 'white' }}>sous 24h ouvrées</strong> avec votre devis officiel.
+              </p>
+
+              {/* Info supplémentaire */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.12)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: 12,
+                padding: '14px 18px',
+                marginBottom: 24,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                textAlign: 'left',
+              }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Clock size={18} style={{ color: 'white' }} />
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, color: 'white', fontWeight: 700, marginBottom: 2 }}>Prochaine étape</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.85)', lineHeight: 1.4 }}>
+                    Un de nos conseillers vous contactera bientôt
+                  </p>
+                </div>
+              </div>
+
+              <button onClick={handleClose}
+                style={{
+                  background: 'white',
+                  color: BRAND,
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '14px 28px',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}>
+                Retour à l'accueil <ArrowRight size={14} />
+              </button>
+            </motion.div>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -139,9 +229,9 @@ export default function Landing() {
   return (
     <div style={{ background: '#F8FAFC', color: '#0F172A', fontFamily: 'system-ui, sans-serif' }} className="min-h-screen">
 
-      {/* ✅ Banner succès au-dessus de tout */}
+      {/* ✅ Modale plein écran succès */}
       <Suspense fallback={null}>
-        <DevisSuccessBanner />
+        <DevisSuccessModal />
       </Suspense>
 
       {/* NAV */}
@@ -174,19 +264,19 @@ export default function Landing() {
         </div>
       </motion.header>
 
-      {/* HERO */}
+      {/* ✅ HERO — badges avec icônes VIOLETTES (plus d'emojis) */}
       <section className="pt-36 pb-24 px-6" style={{ borderBottom: '1px solid #E2E8F0', background: 'white' }}>
         <div className="max-w-5xl mx-auto">
           <AnimatedSection>
             <motion.div variants={fadeUp} className="mb-6 flex flex-wrap gap-2">
-              <span style={{ background: '#EEF2FF', color: '#4F46E5', padding: '4px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: '1px solid #C7D2FE' }}>
-                🇫🇷 Plateforme française
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#EEF2FF', color: BRAND, padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: '1px solid #C7D2FE' }}>
+                <Server size={11} /> Plateforme française
               </span>
-              <span style={{ background: '#F0FDF4', color: '#16A34A', padding: '4px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: '1px solid #BBF7D0' }}>
-                Conforme RGPD
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#EEF2FF', color: BRAND, padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: '1px solid #C7D2FE' }}>
+                <Lock size={11} /> Conforme RGPD
               </span>
-              <span style={{ background: '#FFFBEB', color: '#B45309', padding: '4px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: '1px solid #FDE68A' }}>
-                AOT conforme CGPPP
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#EEF2FF', color: BRAND, padding: '5px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: '1px solid #C7D2FE' }}>
+                <ShieldCheck size={11} /> AOT conforme CGPPP
               </span>
             </motion.div>
 
@@ -204,7 +294,7 @@ export default function Landing() {
 
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <button onClick={() => router.push('/devis')}
-                style={{ background: '#4F46E5', color: 'white', padding: '14px 28px', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 24px rgba(79,70,229,0.28)' }}
+                style={{ background: BRAND, color: 'white', padding: '14px 28px', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 24px rgba(79,70,229,0.28)' }}
                 className="hover:opacity-90 transition-opacity flex items-center gap-2 whitespace-nowrap">
                 <Building2 size={16} /> Demander un devis
               </button>
@@ -213,22 +303,26 @@ export default function Landing() {
                 className="hover:text-slate-900 transition-colors flex items-center gap-1.5 whitespace-nowrap">
                 <Store size={14} style={{ color: '#94A3B8' }} />
                 Vous êtes exposant ?&nbsp;
-                <span style={{ color: '#4F46E5', fontWeight: 600 }}>Inscrivez-vous ici</span>
-                <ArrowRight size={13} style={{ color: '#4F46E5' }} />
+                <span style={{ color: BRAND, fontWeight: 600 }}>Inscrivez-vous ici</span>
+                <ArrowRight size={13} style={{ color: BRAND }} />
               </button>
             </motion.div>
           </AnimatedSection>
 
-          {/* Stats */}
+          {/* ✅ Stats — emojis remplacés par icônes violettes */}
           <AnimatedSection className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-10" style={{ borderTop: '1px solid #F1F5F9' }}>
             {[
-              { n: '36 000', l: 'communes françaises avec marchés' },
-              { n: '600 k', l: 'commerçants non-sédentaires en France' },
-              { n: '🇫🇷', l: 'Hébergement 100% France (RGPD)' },
-              { n: '🛡️', l: 'AOT conformes CGPPP art. L.2122-1' },
+              { n: '36 000', l: 'communes françaises avec marchés', isNumber: true },
+              { n: '600 k', l: 'commerçants non-sédentaires en France', isNumber: true },
+              { icon: <Server size={28} style={{ color: BRAND }} />, l: 'Hébergement 100% France (RGPD)', isNumber: false },
+              { icon: <ShieldCheck size={28} style={{ color: BRAND }} />, l: 'AOT conformes CGPPP art. L.2122-1', isNumber: false },
             ].map((s, i) => (
-              <motion.div key={i} variants={fadeUp} style={{ borderLeft: '2px solid #E2E8F0', paddingLeft: 16 }}>
-                <p style={{ fontSize: 28, fontWeight: 700, color: '#0F172A' }}>{s.n}</p>
+              <motion.div key={i} variants={fadeUp} style={{ borderLeft: `2px solid ${BRAND}`, paddingLeft: 16 }}>
+                {s.isNumber ? (
+                  <p style={{ fontSize: 28, fontWeight: 700, color: '#0F172A' }}>{s.n}</p>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', height: 34 }}>{s.icon}</div>
+                )}
                 <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 4, lineHeight: 1.5 }}>{s.l}</p>
               </motion.div>
             ))}
@@ -245,7 +339,7 @@ export default function Landing() {
           <div className="flex flex-wrap justify-center gap-8">
             {['Mairies', 'Comités des fêtes', 'Associations', 'Offices de tourisme', 'Syndicats de marchés'].map((item, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#64748B', fontSize: 13, fontWeight: 500 }}>
-                <CheckCircle size={14} style={{ color: '#4F46E5' }} /> {item}
+                <CheckCircle size={14} style={{ color: BRAND }} /> {item}
               </div>
             ))}
           </div>
@@ -264,10 +358,10 @@ export default function Landing() {
           </AnimatedSection>
           <AnimatedSection className="grid md:grid-cols-4 gap-4">
             {[
-              { step: '01', icon: <FileCheck size={18} style={{ color: '#4F46E5' }} />, title: 'Dépôt du dossier', desc: "L'exposant dépose son Kbis et son attestation RC Pro directement en ligne. Les documents sont chiffrés et stockés de manière sécurisée." },
-              { step: '02', icon: <ShieldCheck size={18} style={{ color: '#4F46E5' }} />, title: 'Vérification automatique', desc: "Notre IA analyse les documents et vérifie le SIREN via l'API INSEE en temps réel. Faux dossiers et entreprises radiées détectés automatiquement." },
-              { step: '03', icon: <CheckCircle size={18} style={{ color: '#4F46E5' }} />, title: 'Validation en 1 clic', desc: "Vous consultez le dossier certifié et validez ou refusez. La décision est notifiée instantanément à l'exposant par email." },
-              { step: '04', icon: <Euro size={18} style={{ color: '#4F46E5' }} />, title: 'Paiement & AOT', desc: "La redevance AOT est collectée via Stripe. La facture et l'autorisation d'occupation sont générées et envoyées automatiquement." },
+              { step: '01', icon: <FileCheck size={18} style={{ color: BRAND }} />, title: 'Dépôt du dossier', desc: "L'exposant dépose son Kbis et son attestation RC Pro directement en ligne. Les documents sont chiffrés et stockés de manière sécurisée." },
+              { step: '02', icon: <ShieldCheck size={18} style={{ color: BRAND }} />, title: 'Vérification automatique', desc: "Notre IA analyse les documents et vérifie le SIREN via l'API INSEE en temps réel. Faux dossiers et entreprises radiées détectés automatiquement." },
+              { step: '03', icon: <CheckCircle size={18} style={{ color: BRAND }} />, title: 'Validation en 1 clic', desc: "Vous consultez le dossier certifié et validez ou refusez. La décision est notifiée instantanément à l'exposant par email." },
+              { step: '04', icon: <Euro size={18} style={{ color: BRAND }} />, title: 'Paiement & AOT', desc: "La redevance AOT est collectée via Stripe. La facture et l'autorisation d'occupation sont générées et envoyées automatiquement." },
             ].map((item, i) => (
               <motion.div key={i} variants={fadeUp} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24, position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
@@ -283,12 +377,12 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ADMINISTRATION */}
+      {/* ADMINISTRATION — badge en violet maintenant */}
       <section id="administration" className="py-20 px-6" style={{ borderBottom: '1px solid #E2E8F0' }}>
         <div className="max-w-6xl mx-auto">
           <AnimatedSection>
             <motion.div variants={fadeUp} className="mb-3">
-              <span style={{ background: '#F0FDF4', color: '#16A34A', padding: '4px 12px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: '1px solid #BBF7D0' }}>Pour les administrations</span>
+              <span style={{ background: '#EEF2FF', color: BRAND, padding: '4px 12px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: '1px solid #C7D2FE' }}>Pour les administrations</span>
             </motion.div>
             <motion.h2 variants={fadeUp} style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.02em', maxWidth: 600 }} className="mb-4">
               Tout ce dont votre agent placier a besoin
@@ -311,22 +405,22 @@ export default function Landing() {
               </div>
             </motion.div>
             <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24 }}>
-              <Clock size={18} style={{ color: '#4F46E5', marginBottom: 16 }} />
+              <Clock size={18} style={{ color: BRAND, marginBottom: 16 }} />
               <h3 style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Gain de temps significatif</h3>
               <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>Réduction du temps administratif par événement. Plus d'appels, de relances email ni de dossiers papier manquants.</p>
             </motion.div>
             <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24 }}>
-              <ShieldCheck size={18} style={{ color: '#16A34A', marginBottom: 16 }} />
+              <ShieldCheck size={18} style={{ color: BRAND, marginBottom: 16 }} />
               <h3 style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Sécurité juridique totale</h3>
               <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>Chaque dossier est archivé avec horodatage légal. RC Pro vérifiées à date de validité. Votre responsabilité est couverte.</p>
             </motion.div>
             <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24 }}>
-              <Euro size={18} style={{ color: '#F59E0B', marginBottom: 16 }} />
+              <Euro size={18} style={{ color: BRAND, marginBottom: 16 }} />
               <h3 style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Trésorerie automatisée</h3>
               <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>Les redevances AOT sont collectées en ligne via Stripe. Exports comptables CSV/PDF générés en un clic pour votre service financier.</p>
             </motion.div>
             <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24 }}>
-              <Bell size={18} style={{ color: '#8B5CF6', marginBottom: 16 }} />
+              <Bell size={18} style={{ color: BRAND, marginBottom: 16 }} />
               <h3 style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Communication groupée</h3>
               <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>Envoyez un message à tous vos exposants en un clic. Alertes météo, changement de placement, report de date — tout le monde est notifié.</p>
             </motion.div>
@@ -336,10 +430,10 @@ export default function Landing() {
               <Building2 size={24} style={{ color: '#818CF8' }} />
               <div>
                 <p style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 6 }}>Vous êtes une mairie, un comité des fêtes ou une association ?</p>
-                <p style={{ fontSize: 14, color: '#64748B' }}>Créez votre espace en 2 minutes — gratuit pour démarrer, aucune carte bancaire requise</p>
+                <p style={{ fontSize: 14, color: '#64748B' }}>Obtenez votre devis personnalisé en 2 minutes — sans engagement</p>
               </div>
               <button onClick={() => router.push('/devis')}
-                style={{ background: '#4F46E5', color: 'white', padding: '13px 28px', borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+                style={{ background: BRAND, color: 'white', padding: '13px 28px', borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
                 className="hover:opacity-90 transition-opacity">
                 <Building2 size={15} /> Obtenir un devis gratuit <ArrowRight size={14} />
               </button>
@@ -348,12 +442,12 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* EXPOSANTS */}
+      {/* EXPOSANTS — badge violet aussi */}
       <section id="exposants" className="py-20 px-6" style={{ borderBottom: '1px solid #E2E8F0', background: 'white' }}>
         <div className="max-w-6xl mx-auto">
           <AnimatedSection>
             <motion.div variants={fadeUp} className="mb-3">
-              <span style={{ background: '#EFF6FF', color: '#2563EB', padding: '4px 12px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: '1px solid #BFDBFE' }}>Pour les exposants</span>
+              <span style={{ background: '#EEF2FF', color: BRAND, padding: '4px 12px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: '1px solid #C7D2FE' }}>Pour les exposants</span>
             </motion.div>
             <motion.h2 variants={fadeUp} style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.02em', maxWidth: 560 }} className="mb-4">
               Trouvez et postulez aux marchés près de chez vous
@@ -364,12 +458,12 @@ export default function Landing() {
           </AnimatedSection>
           <AnimatedSection className="grid md:grid-cols-2 gap-4">
             {[
-              { icon: <FileCheck size={16} style={{ color: '#4F46E5' }} />, title: 'Un dossier, partout', desc: "Déposez votre Kbis et RC Pro une seule fois. Notre système les réutilise automatiquement pour chaque candidature. Fini les copies papier." },
-              { icon: <Zap size={16} style={{ color: '#4F46E5' }} />, title: 'Candidature en 1 clic', desc: "Lorsqu'un marché vous correspond, postulez instantanément. Votre dossier certifié est transmis automatiquement à l'organisateur." },
-              { icon: <MapPin size={16} style={{ color: '#4F46E5' }} />, title: 'Alertes dans votre zone', desc: "Définissez votre zone et recevez une notification dès qu'un marché est publié près de chez vous. Ne ratez plus aucune opportunité." },
-              { icon: <ShieldCheck size={16} style={{ color: '#4F46E5' }} />, title: 'Badge Dossier Vérifié', desc: "Après vérification de votre SIREN et de vos documents, un badge officiel est affiché sur votre profil. Les organisateurs vous font confiance." },
-              { icon: <Map size={16} style={{ color: '#4F46E5' }} />, title: 'Visible sur Whatmarket', desc: "Votre profil et vos produits sont visibles par des milliers de visiteurs sur Whatmarket, notre portail B2C dédié aux marchés locaux." },
-              { icon: <Users size={16} style={{ color: '#4F46E5' }} />, title: 'Suivi de vos candidatures', desc: "Un tableau de bord clair pour suivre l'état de chaque candidature en temps réel — en attente, validé, payé. Zéro incertitude." },
+              { icon: <FileCheck size={16} style={{ color: BRAND }} />, title: 'Un dossier, partout', desc: "Déposez votre Kbis et RC Pro une seule fois. Notre système les réutilise automatiquement pour chaque candidature. Fini les copies papier." },
+              { icon: <Zap size={16} style={{ color: BRAND }} />, title: 'Candidature en 1 clic', desc: "Lorsqu'un marché vous correspond, postulez instantanément. Votre dossier certifié est transmis automatiquement à l'organisateur." },
+              { icon: <MapPin size={16} style={{ color: BRAND }} />, title: 'Alertes dans votre zone', desc: "Définissez votre zone et recevez une notification dès qu'un marché est publié près de chez vous. Ne ratez plus aucune opportunité." },
+              { icon: <ShieldCheck size={16} style={{ color: BRAND }} />, title: 'Badge Dossier Vérifié', desc: "Après vérification de votre SIREN et de vos documents, un badge officiel est affiché sur votre profil. Les organisateurs vous font confiance." },
+              { icon: <Map size={16} style={{ color: BRAND }} />, title: 'Visible sur Whatmarket', desc: "Votre profil et vos produits sont visibles par des milliers de visiteurs sur Whatmarket, notre portail B2C dédié aux marchés locaux." },
+              { icon: <Users size={16} style={{ color: BRAND }} />, title: 'Suivi de vos candidatures', desc: "Un tableau de bord clair pour suivre l'état de chaque candidature en temps réel — en attente, validé, payé. Zéro incertitude." },
             ].map((item, i) => (
               <motion.div key={i} variants={fadeUp} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 20, display: 'flex', gap: 16 }}>
                 <div style={{ background: '#EEF2FF', borderRadius: 8, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{item.icon}</div>
@@ -427,7 +521,7 @@ export default function Landing() {
               <motion.div key={i} variants={fadeUp}
                 style={{ background: plan.accent ? '#0F172A' : 'white', border: `1px solid ${plan.accent ? '#0F172A' : '#E2E8F0'}`, borderRadius: 12, padding: 28, position: 'relative' }}>
                 {plan.highlight && (
-                  <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#4F46E5', color: 'white', fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 100 }}>{plan.highlight}</div>
+                  <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: BRAND, color: 'white', fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 100 }}>{plan.highlight}</div>
                 )}
                 <p style={{ fontSize: 13, fontWeight: 600, color: plan.accent ? '#94A3B8' : '#64748B', marginBottom: 8 }}>{plan.name}</p>
                 <p style={{ fontSize: plan.price === 'Sur devis' ? 28 : 36, fontWeight: 700, color: plan.accent ? 'white' : '#0F172A' }}>{plan.price}</p>
@@ -435,13 +529,13 @@ export default function Landing() {
                 <ul className="space-y-3 mb-8">
                   {plan.features.map((f, j) => (
                     <li key={j} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                      <CheckCircle size={14} style={{ color: plan.accent ? '#818CF8' : '#4F46E5', flexShrink: 0, marginTop: 2 }} />
+                      <CheckCircle size={14} style={{ color: plan.accent ? '#818CF8' : BRAND, flexShrink: 0, marginTop: 2 }} />
                       <span style={{ fontSize: 13, color: plan.accent ? '#94A3B8' : '#475569', lineHeight: 1.5 }}>{f}</span>
                     </li>
                   ))}
                 </ul>
                 <button onClick={() => router.push(plan.path)}
-                  style={{ width: '100%', background: plan.accent ? '#4F46E5' : 'transparent', color: plan.accent ? 'white' : '#0F172A', border: plan.accent ? 'none' : '1px solid #E2E8F0', padding: '11px 0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                  style={{ width: '100%', background: plan.accent ? BRAND : 'transparent', color: plan.accent ? 'white' : '#0F172A', border: plan.accent ? 'none' : '1px solid #E2E8F0', padding: '11px 0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                   className="hover:opacity-90 transition-opacity">
                   {plan.cta}
                 </button>
@@ -449,9 +543,9 @@ export default function Landing() {
             ))}
           </AnimatedSection>
           <AnimatedSection className="mt-8">
-            <motion.div variants={fadeUp} style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <CheckCircle size={18} style={{ color: '#16A34A', flexShrink: 0 }} />
-              <p style={{ fontSize: 13, color: '#15803D', lineHeight: 1.6 }}>
+            <motion.div variants={fadeUp} style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 12, padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <CheckCircle size={18} style={{ color: BRAND, flexShrink: 0 }} />
+              <p style={{ fontSize: 13, color: '#4338CA', lineHeight: 1.6 }}>
                 <strong>Tarif sur mesure pour les administrations.</strong> Notre équipe vous prépare un devis adapté à la taille de votre commune et au nombre de marchés. Aucun engagement de durée minimum.
               </p>
             </motion.div>
@@ -471,38 +565,14 @@ export default function Landing() {
           </AnimatedSection>
           <AnimatedSection>
             <motion.div variants={fadeUp}>
-              <FAQItem
-                q="Mes données sont-elles hébergées en France ?"
-                a="Oui. PulseMarket héberge l'ensemble des données sur des serveurs situés en Union européenne (France et Irlande). Nous sommes 100% conformes au RGPD et nous fournissons un Accord de Traitement des Données (DPA) en annexe de tous nos contrats."
-              />
-              <FAQItem
-                q="Les AOT générées sont-elles juridiquement valables ?"
-                a="Oui. Chaque AOT générée par PulseMarket respecte les articles L. 2122-1 et suivants du Code Général de la Propriété des Personnes Publiques (CGPPP), ainsi que l'article L. 2212-2 du CGCT relatif aux pouvoirs de police du maire. Le format reproduit fidèlement la structure d'un arrêté municipal."
-              />
-              <FAQItem
-                q="Nous avons déjà un logiciel comptable. PulseMarket peut-il s'y intégrer ?"
-                a="Absolument. PulseMarket ne remplace pas votre logiciel de gestion comptable (Berger-Levrault, Cegid, etc.). Notre solution se concentre exclusivement sur la gestion opérationnelle des marchés. Nous exportons automatiquement les données financières au format CSV/PDF compatibles avec votre logiciel comptable."
-              />
-              <FAQItem
-                q="Combien de temps prend la mise en place ?"
-                a="Entre 7 et 15 jours en moyenne. Nous prenons en charge la configuration de votre compte mairie, le paramétrage de vos marchés, la formation de vos équipes (1h30) et l'accompagnement lors du premier marché digital. Notre objectif est zéro effort pour vos agents."
-              />
-              <FAQItem
-                q="Que devient notre régie municipale ?"
-                a="Elle reste intacte. PulseMarket ne se substitue pas à votre régie : les redevances perçues sont reversées directement sur votre compte municipal via Stripe Connect. Vous gardez la maîtrise complète de votre comptabilité publique. Nous facturons un frais de service plateforme distinctement, sans impacter votre régie."
-              />
-              <FAQItem
-                q="Peut-on résilier facilement ?"
-                a="Oui. Nous n'imposons aucune durée d'engagement minimum. La résiliation se fait par simple lettre avec un préavis de 30 jours. Pendant 90 jours après la résiliation, vous gardez l'accès à toutes vos données pour les exporter au format CSV."
-              />
-              <FAQItem
-                q="Comment fonctionne le contrôle des exposants sur le terrain ?"
-                a="Le placier scanne le QR code présent sur l'autorisation d'occupation (AOT) de chaque exposant avec son téléphone. En 1 seconde, il sait si l'exposant est en règle : son emplacement, son activité, et la validité de son autorisation. Plus de listes papier, plus de conflits, plus d'erreurs."
-              />
-              <FAQItem
-                q="Quel support proposez-vous ?"
-                a="Un référent dédié à votre commune pendant les 30 premiers jours, joignable par téléphone et email. Ensuite, support technique réactif (24h ouvrées max) et point trimestriel avec votre référent. Nous sommes une équipe française, basée en France."
-              />
+              <FAQItem q="Mes données sont-elles hébergées en France ?" a="Oui. PulseMarket héberge l'ensemble des données sur des serveurs situés en Union européenne (France et Irlande). Nous sommes 100% conformes au RGPD et nous fournissons un Accord de Traitement des Données (DPA) en annexe de tous nos contrats." />
+              <FAQItem q="Les AOT générées sont-elles juridiquement valables ?" a="Oui. Chaque AOT générée par PulseMarket respecte les articles L. 2122-1 et suivants du Code Général de la Propriété des Personnes Publiques (CGPPP), ainsi que l'article L. 2212-2 du CGCT relatif aux pouvoirs de police du maire. Le format reproduit fidèlement la structure d'un arrêté municipal." />
+              <FAQItem q="Nous avons déjà un logiciel comptable. PulseMarket peut-il s'y intégrer ?" a="Absolument. PulseMarket ne remplace pas votre logiciel de gestion comptable (Berger-Levrault, Cegid, etc.). Notre solution se concentre exclusivement sur la gestion opérationnelle des marchés. Nous exportons automatiquement les données financières au format CSV/PDF compatibles avec votre logiciel comptable." />
+              <FAQItem q="Combien de temps prend la mise en place ?" a="Entre 7 et 15 jours en moyenne. Nous prenons en charge la configuration de votre compte mairie, le paramétrage de vos marchés, la formation de vos équipes (1h30) et l'accompagnement lors du premier marché digital. Notre objectif est zéro effort pour vos agents." />
+              <FAQItem q="Que devient notre régie municipale ?" a="Elle reste intacte. PulseMarket ne se substitue pas à votre régie : les redevances perçues sont reversées directement sur votre compte municipal via Stripe Connect. Vous gardez la maîtrise complète de votre comptabilité publique. Nous facturons un frais de service plateforme distinctement, sans impacter votre régie." />
+              <FAQItem q="Peut-on résilier facilement ?" a="Oui. Nous n'imposons aucune durée d'engagement minimum. La résiliation se fait par simple lettre avec un préavis de 30 jours. Pendant 90 jours après la résiliation, vous gardez l'accès à toutes vos données pour les exporter au format CSV." />
+              <FAQItem q="Comment fonctionne le contrôle des exposants sur le terrain ?" a="Le placier scanne le QR code présent sur l'autorisation d'occupation (AOT) de chaque exposant avec son téléphone. En 1 seconde, il sait si l'exposant est en règle : son emplacement, son activité, et la validité de son autorisation. Plus de listes papier, plus de conflits, plus d'erreurs." />
+              <FAQItem q="Quel support proposez-vous ?" a="Un référent dédié à votre commune pendant les 30 premiers jours, joignable par téléphone et email. Ensuite, support technique réactif (24h ouvrées max) et point trimestriel avec votre référent. Nous sommes une équipe française, basée en France." />
             </motion.div>
           </AnimatedSection>
         </div>
@@ -520,7 +590,7 @@ export default function Landing() {
             </motion.p>
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <button onClick={() => router.push('/devis')}
-                style={{ background: '#4F46E5', color: 'white', padding: '14px 32px', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 24px rgba(79,70,229,0.28)' }}
+                style={{ background: BRAND, color: 'white', padding: '14px 32px', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 24px rgba(79,70,229,0.28)' }}
                 className="hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-2">
                 <Building2 size={16} /> Demander un devis <ArrowRight size={16} />
               </button>
@@ -529,8 +599,8 @@ export default function Landing() {
                 className="hover:text-slate-900 transition-colors inline-flex items-center gap-1.5">
                 <Store size={14} style={{ color: '#94A3B8' }} />
                 Vous êtes exposant ?&nbsp;
-                <span style={{ color: '#4F46E5', fontWeight: 600 }}>Inscrivez-vous ici</span>
-                <ArrowRight size={13} style={{ color: '#4F46E5' }} />
+                <span style={{ color: BRAND, fontWeight: 600 }}>Inscrivez-vous ici</span>
+                <ArrowRight size={13} style={{ color: BRAND }} />
               </button>
             </motion.div>
           </AnimatedSection>
