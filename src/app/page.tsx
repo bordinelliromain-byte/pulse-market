@@ -190,7 +190,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           {/* ✅ Logo SEUL, sans wordmark, taille augmentée */}
           <div className="flex items-center cursor-pointer" onClick={() => router.push('/')}>
-            <img src="/logo-pulsemarket.svg" alt="PulseMarket" style={{ height: 40, width: 'auto' }} />
+            <img src="/logo-pulsemarket.svg" alt="PulseMarket" style={{ height: 33, width: 'auto' }} />
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: '#64748B' }}>
             <a href="#fonctionnement" className="hover:text-slate-900 transition-colors">Fonctionnement</a>
