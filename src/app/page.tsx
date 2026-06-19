@@ -537,7 +537,7 @@ export default function Landing() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
             {/* ✅ Logo seul dans footer aussi */}
             <div className="flex items-center">
-              <img src="/logo-pulsemarket.svg" alt="PulseMarket" style={{ height: 32, width: 'auto' }} />
+              <img src="/logo-pulsemarket1.svg" alt="PulseMarket" style={{ height: 30, width: 'auto' }} />
             </div>
             <div className="flex flex-wrap gap-6" style={{ fontSize: 13, color: '#64748B' }}>
               <a href="/mentions-legales" className="hover:text-slate-900 transition-colors">Mentions légales</a>
