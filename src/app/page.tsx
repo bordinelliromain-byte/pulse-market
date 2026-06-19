@@ -31,15 +31,6 @@ function AnimatedSection({ children, className = '', style = {} }: { children: R
   )
 }
 
-function LogoWordmark({ size = 15 }: { size?: number }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
-      <span style={{ fontWeight: 700, fontSize: size, letterSpacing: '-0.02em', color: '#0F172A' }}>Pulse</span>
-      <span style={{ fontWeight: 400, fontSize: size, letterSpacing: '-0.02em', color: BRAND }}>Market</span>
-    </div>
-  )
-}
-
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false)
   return (
@@ -63,7 +54,6 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   )
 }
 
-// ✅ MODALE PLEIN ÉCRAN VIOLETTE CENTRÉE
 function DevisSuccessModal() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -92,15 +82,9 @@ function DevisSuccessModal() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 200,
-            background: 'rgba(15, 23, 42, 0.7)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 20,
+            position: 'fixed', inset: 0, zIndex: 200,
+            background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
           }}>
           <motion.div
             initial={{ scale: 0.85, opacity: 0, y: 20 }}
@@ -109,41 +93,26 @@ function DevisSuccessModal() {
             transition={{ type: 'spring', stiffness: 220, damping: 22 }}
             style={{
               background: 'linear-gradient(135deg, #4F46E5, #7C3AED)',
-              borderRadius: 24,
-              padding: '48px 36px',
-              maxWidth: 460,
-              width: '100%',
-              textAlign: 'center',
-              boxShadow: '0 30px 80px rgba(79, 70, 229, 0.4)',
-              position: 'relative',
-              overflow: 'hidden',
+              borderRadius: 24, padding: '48px 36px', maxWidth: 460, width: '100%',
+              textAlign: 'center', boxShadow: '0 30px 80px rgba(79, 70, 229, 0.4)',
+              position: 'relative', overflow: 'hidden',
             }}>
-
-            {/* Sparkles déco */}
             <div style={{ position: 'absolute', top: 20, right: 24, opacity: 0.15 }}>
               <Sparkles size={80} style={{ color: 'white' }} />
             </div>
             <div style={{ position: 'absolute', bottom: 20, left: 24, opacity: 0.1 }}>
               <Sparkles size={60} style={{ color: 'white' }} />
             </div>
-
-            {/* Icône check animée */}
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 18 }}
               style={{
-                width: 88,
-                height: 88,
-                borderRadius: '50%',
+                width: 88, height: 88, borderRadius: '50%',
                 background: 'rgba(255, 255, 255, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 24px',
-                border: '3px solid rgba(255, 255, 255, 0.3)',
-                position: 'relative',
-                zIndex: 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 24px', border: '3px solid rgba(255, 255, 255, 0.3)',
+                position: 'relative', zIndex: 1,
               }}>
               <motion.div
                 initial={{ scale: 0, rotate: -180 }}
@@ -152,7 +121,6 @@ function DevisSuccessModal() {
                 <CheckCircle size={48} style={{ color: 'white' }} strokeWidth={2.5} />
               </motion.div>
             </motion.div>
-
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -164,18 +132,10 @@ function DevisSuccessModal() {
               <p style={{ fontSize: 15, color: 'rgba(255, 255, 255, 0.9)', lineHeight: 1.6, marginBottom: 28 }}>
                 Notre équipe étudie votre demande et vous rappelle <strong style={{ color: 'white' }}>sous 24h ouvrées</strong> avec votre devis officiel.
               </p>
-
-              {/* Info supplémentaire */}
               <div style={{
-                background: 'rgba(255, 255, 255, 0.12)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                borderRadius: 12,
-                padding: '14px 18px',
-                marginBottom: 24,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                textAlign: 'left',
+                background: 'rgba(255, 255, 255, 0.12)', border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: 12, padding: '14px 18px', marginBottom: 24,
+                display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
               }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Clock size={18} style={{ color: 'white' }} />
@@ -187,20 +147,11 @@ function DevisSuccessModal() {
                   </p>
                 </div>
               </div>
-
               <button onClick={handleClose}
                 style={{
-                  background: 'white',
-                  color: BRAND,
-                  border: 'none',
-                  borderRadius: 12,
-                  padding: '14px 28px',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
+                  background: 'white', color: BRAND, border: 'none', borderRadius: 12,
+                  padding: '14px 28px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
                   boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
                   transition: 'transform 0.15s, box-shadow 0.15s',
                 }}
@@ -229,7 +180,6 @@ export default function Landing() {
   return (
     <div style={{ background: '#F8FAFC', color: '#0F172A', fontFamily: 'system-ui, sans-serif' }} className="min-h-screen">
 
-      {/* ✅ Modale plein écran succès */}
       <Suspense fallback={null}>
         <DevisSuccessModal />
       </Suspense>
@@ -238,9 +188,9 @@ export default function Landing() {
       <motion.header initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.4 }}
         style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: scrolled ? 'rgba(255,255,255,0.92)' : 'transparent', backdropFilter: scrolled ? 'blur(12px)' : 'none', borderBottom: scrolled ? '1px solid #E2E8F0' : 'none', transition: 'all 0.2s ease' }}>
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push('/')}>
-            <img src="/logo-pulsemarket.svg" alt="PulseMarket" width={28} height={28} style={{ borderRadius: 8 }} />
-            <LogoWordmark size={15} />
+          {/* ✅ Logo SEUL, sans wordmark, taille augmentée */}
+          <div className="flex items-center cursor-pointer" onClick={() => router.push('/')}>
+            <img src="/logo-pulsemarket.svg" alt="PulseMarket" style={{ height: 40, width: 'auto' }} />
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: '#64748B' }}>
             <a href="#fonctionnement" className="hover:text-slate-900 transition-colors">Fonctionnement</a>
@@ -264,7 +214,7 @@ export default function Landing() {
         </div>
       </motion.header>
 
-      {/* ✅ HERO — badges avec icônes VIOLETTES (plus d'emojis) */}
+      {/* HERO */}
       <section className="pt-36 pb-24 px-6" style={{ borderBottom: '1px solid #E2E8F0', background: 'white' }}>
         <div className="max-w-5xl mx-auto">
           <AnimatedSection>
@@ -309,7 +259,6 @@ export default function Landing() {
             </motion.div>
           </AnimatedSection>
 
-          {/* ✅ Stats — emojis remplacés par icônes violettes */}
           <AnimatedSection className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-10" style={{ borderTop: '1px solid #F1F5F9' }}>
             {[
               { n: '36 000', l: 'communes françaises avec marchés', isNumber: true },
@@ -377,7 +326,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ADMINISTRATION — badge en violet maintenant */}
+      {/* ADMINISTRATION */}
       <section id="administration" className="py-20 px-6" style={{ borderBottom: '1px solid #E2E8F0' }}>
         <div className="max-w-6xl mx-auto">
           <AnimatedSection>
@@ -442,7 +391,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* EXPOSANTS — badge violet aussi */}
+      {/* EXPOSANTS */}
       <section id="exposants" className="py-20 px-6" style={{ borderBottom: '1px solid #E2E8F0', background: 'white' }}>
         <div className="max-w-6xl mx-auto">
           <AnimatedSection>
@@ -489,34 +438,9 @@ export default function Landing() {
           </AnimatedSection>
           <AnimatedSection className="grid md:grid-cols-3 gap-6">
             {[
-              {
-                name: 'Administration',
-                price: 'Sur devis',
-                period: 'adapté à votre commune',
-                features: ['Événements illimités', 'Vérification automatique des dossiers', 'Attribution terrain drag & drop', 'Collecte des redevances AOT', 'Export comptable CSV / PDF', 'Support dédié'],
-                cta: 'Demander un devis',
-                accent: true,
-                path: '/devis',
-                highlight: 'RECOMMANDÉ'
-              },
-              {
-                name: 'Exposant Gratuit',
-                price: '0€',
-                period: 'pour toujours',
-                features: ['Consultation de la carte des événements', 'Création de votre profil exposant', 'Upload Kbis & RC Pro', '1 candidature par mois', 'Vérification SIREN incluse'],
-                cta: 'Créer mon compte',
-                accent: false,
-                path: '/auth'
-              },
-              {
-                name: 'Exposant Pro',
-                price: '20€',
-                period: 'par mois',
-                features: ['Candidatures illimitées', 'Badge Dossier Vérifié', 'Alertes géolocalisées', 'Accès aux marchés exclusifs', 'Visibilité prioritaire sur Whatmarket'],
-                cta: 'Passer en Pro',
-                accent: false,
-                path: '/auth'
-              },
+              { name: 'Administration', price: 'Sur devis', period: 'adapté à votre commune', features: ['Événements illimités', 'Vérification automatique des dossiers', 'Attribution terrain drag & drop', 'Collecte des redevances AOT', 'Export comptable CSV / PDF', 'Support dédié'], cta: 'Demander un devis', accent: true, path: '/devis', highlight: 'RECOMMANDÉ' },
+              { name: 'Exposant Gratuit', price: '0€', period: 'pour toujours', features: ['Consultation de la carte des événements', 'Création de votre profil exposant', 'Upload Kbis & RC Pro', '1 candidature par mois', 'Vérification SIREN incluse'], cta: 'Créer mon compte', accent: false, path: '/auth' },
+              { name: 'Exposant Pro', price: '20€', period: 'par mois', features: ['Candidatures illimitées', 'Badge Dossier Vérifié', 'Alertes géolocalisées', 'Accès aux marchés exclusifs', 'Visibilité prioritaire sur Whatmarket'], cta: 'Passer en Pro', accent: false, path: '/auth' },
             ].map((plan, i) => (
               <motion.div key={i} variants={fadeUp}
                 style={{ background: plan.accent ? '#0F172A' : 'white', border: `1px solid ${plan.accent ? '#0F172A' : '#E2E8F0'}`, borderRadius: 12, padding: 28, position: 'relative' }}>
@@ -611,9 +535,9 @@ export default function Landing() {
       <footer style={{ borderTop: '1px solid #E2E8F0', background: 'white', padding: '32px 24px 24px' }}>
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
-            <div className="flex items-center gap-2">
-              <img src="/logo-pulsemarket.svg" alt="PulseMarket" width={24} height={24} style={{ borderRadius: 6 }} />
-              <LogoWordmark size={14} />
+            {/* ✅ Logo seul dans footer aussi */}
+            <div className="flex items-center">
+              <img src="/logo-pulsemarket.svg" alt="PulseMarket" style={{ height: 32, width: 'auto' }} />
             </div>
             <div className="flex flex-wrap gap-6" style={{ fontSize: 13, color: '#64748B' }}>
               <a href="/mentions-legales" className="hover:text-slate-900 transition-colors">Mentions légales</a>
