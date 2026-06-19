@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
     // Envoi
     const { error } = await resend.emails.send({
       from: 'PulseMarket <contact@pulse-market.fr>',
-      to: 'contact@pulse-market.fr',
+      to: 'villeprat.romain@gmail.com',
       replyTo: data.contact_email,
       subject: `Nouveau devis : ${orgTypeLabels[data.organisation_type] || 'Demande'} — ${data.estimated_monthly}€/mois`,
       html,
