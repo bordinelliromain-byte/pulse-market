@@ -5,7 +5,9 @@ import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight, Eye, EyeOff, ShieldCheck, Loader, CheckCircle, Mail } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, ShieldCheck, Loader, CheckCircle, Mail, Server, Lock, Building2 } from 'lucide-react'
+
+const BRAND = '#4F46E5'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -21,12 +23,12 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
   useEffect(() => {
     const t = setTimeout(onClose, 5000)
     return () => clearTimeout(t)
-  }, [])
+  }, [onClose])
 
   const colors = {
     success: { bg: '#F0FDF4', border: '#BBF7D0', text: '#15803D', icon: <CheckCircle size={16} style={{ color: '#16A34A', flexShrink: 0 }} /> },
     error:   { bg: '#FEF2F2', border: '#FECACA', text: '#DC2626', icon: null },
-    info:    { bg: '#EEF2FF', border: '#C7D2FE', text: '#4338CA', icon: <Mail size={16} style={{ color: '#4F46E5', flexShrink: 0 }} /> },
+    info:    { bg: '#EEF2FF', border: '#C7D2FE', text: '#4338CA', icon: <Mail size={16} style={{ color: BRAND, flexShrink: 0 }} /> },
   }
   const c = colors[type]
 
@@ -49,9 +51,42 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
   )
 }
 
+// ✅ Indicateur de force du mot de passe
+function PasswordStrength({ password }: { password: string }) {
+  if (!password) return null
+
+  const checks = {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    number: /\d/.test(password),
+    special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+  }
+  const score = Object.values(checks).filter(Boolean).length
+
+  const labels = ['Très faible', 'Faible', 'Moyen', 'Fort', 'Très fort']
+  const colors = ['#EF4444', '#F59E0B', '#F59E0B', '#10B981', '#10B981']
+
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div style={{ display: 'flex', gap: 3, marginBottom: 4 }}>
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} style={{
+            flex: 1, height: 3, borderRadius: 100,
+            background: i < score ? colors[score - 1] : '#E2E8F0',
+            transition: 'background 0.2s'
+          }} />
+        ))}
+      </div>
+      <p style={{ fontSize: 11, color: '#94A3B8' }}>
+        Force : <span style={{ color: colors[Math.max(0, score - 1)], fontWeight: 600 }}>{labels[Math.max(0, score - 1)]}</span>
+        {!checks.length && ' · 8 caractères min'}
+      </p>
+    </div>
+  )
+}
+
 function AuthForm() {
   const searchParams = useSearchParams()
-  // ✅ Fix 1 : tab par défaut depuis l'URL (?tab=signup depuis la landing)
   const [tab, setTab] = useState<'signin' | 'signup'>(
     (searchParams.get('tab') as 'signin' | 'signup') || 'signin'
   )
@@ -69,7 +104,7 @@ function AuthForm() {
 
   useEffect(() => {
     const confirmed = searchParams.get('confirmed')
-    const error = searchParams.get('error')
+    const errorParam = searchParams.get('error')
 
     if (confirmed === 'true') {
       setToast({ message: 'Email confirmé ! Redirection vers votre espace...', type: 'success' })
@@ -88,10 +123,10 @@ function AuthForm() {
       }, 2000)
     }
 
-    if (error === 'confirmation_failed') {
+    if (errorParam === 'confirmation_failed') {
       setToast({ message: 'Le lien de confirmation a expiré. Réessayez.', type: 'error' })
     }
-  }, [])
+  }, [searchParams, router, supabase])
 
   const handleSignIn = async () => {
     if (!email || !password) { setError('Veuillez remplir tous les champs'); return }
@@ -118,13 +153,12 @@ function AuthForm() {
 
   const handleSignUp = async () => {
     if (!email || !password || !fullName) { setError('Veuillez remplir tous les champs'); return }
-    if (password.length < 6) { setError('Le mot de passe doit faire au moins 6 caractères'); return }
+    if (password.length < 8) { setError('Le mot de passe doit faire au moins 8 caractères'); return }
     setLoading(true); setError('')
 
     const { error } = await supabase.auth.signUp({
       email, password,
       options: {
-        // ✅ Fix 2 : toujours exposant — pas de choix de rôle
         data: { full_name: fullName, role: 'exposant' },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       }
@@ -143,6 +177,15 @@ function AuthForm() {
     if (e.key === 'Enter' && !loading) {
       tab === 'signin' ? handleSignIn() : handleSignUp()
     }
+  }
+
+  const switchTab = (newTab: 'signin' | 'signup') => {
+    setTab(newTab)
+    setError('')
+    // ✅ Sync URL pour partageable
+    const url = new URL(window.location.href)
+    url.searchParams.set('tab', newTab)
+    window.history.replaceState({}, '', url)
   }
 
   const inputStyle: React.CSSProperties = {
@@ -166,19 +209,12 @@ function AuthForm() {
         <div style={{ position: 'absolute', top: -100, right: -100, width: 400, height: 400, background: 'radial-gradient(circle, rgba(79,70,229,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: -80, left: -80, width: 300, height: 300, background: 'radial-gradient(circle, rgba(79,70,229,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-        {/* ✅ Logo SVG inline */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
-            <rect width="40" height="40" rx="10" fill="#4F46E5"/>
-            <path d="M6 20L12 20L14 11L17 29L20 14L22 20L34 20" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <div style={{ display: 'flex', alignItems: 'baseline' }}>
-            <span style={{ color: 'white', fontWeight: 700, fontSize: 16 }}>Pulse</span>
-            <span style={{ color: '#818CF8', fontWeight: 400, fontSize: 16 }}>Market</span>
-          </div>
+        {/* ✅ Logo SVG fichier (pas inline) */}
+        <div onClick={() => router.push('/')} style={{ cursor: 'pointer', position: 'relative', zIndex: 2 }}>
+          <img src="/logo-pulsemarket.svg" alt="PulseMarket" style={{ height: 40, width: 'auto', filter: 'brightness(0) invert(1)' }} />
         </div>
 
-        <div>
+        <div style={{ position: 'relative', zIndex: 2 }}>
           <h2 style={{ color: 'white', fontSize: 32, fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.02em', marginBottom: 20 }}>
             La numérisation des marchés du terroir français
           </h2>
@@ -186,17 +222,25 @@ function AuthForm() {
             Gérez vos AOT, certifiez vos dossiers exposants et simplifiez vos marchés.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {['Vérification SIREN via API INSEE en 10 secondes', 'Génération automatique des arrêtés municipaux', 'Dossiers certifiés OCR — RC Pro & Kbis'].map((text, i) => (
+            {[
+              { icon: <ShieldCheck size={15} style={{ color: '#818CF8' }} />, text: 'Vérification SIREN via API INSEE en 10 secondes' },
+              { icon: <CheckCircle size={15} style={{ color: '#818CF8' }} />, text: 'Génération automatique des arrêtés municipaux' },
+              { icon: <Lock size={15} style={{ color: '#818CF8' }} />, text: 'Dossiers certifiés OCR — RC Pro & Kbis' },
+            ].map((item, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ background: 'rgba(79,70,229,0.15)', borderRadius: 6, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <ShieldCheck size={15} style={{ color: '#818CF8' }} />
+                  {item.icon}
                 </div>
-                <span style={{ color: '#94A3B8', fontSize: 13 }}>{text}</span>
+                <span style={{ color: '#94A3B8', fontSize: 13 }}>{item.text}</span>
               </div>
             ))}
           </div>
           <div style={{ display: 'flex', gap: 24, marginTop: 40 }}>
-            {[{ val: '36 000', label: 'communes en France' }, { val: '100%', label: 'données hébergées FR' }, { val: '< 10s', label: 'vérification SIREN' }].map((s, i) => (
+            {[
+              { val: '36 000', label: 'communes en France' },
+              { val: '100%', label: 'données hébergées FR' },
+              { val: '< 10s', label: 'vérification SIREN' },
+            ].map((s, i) => (
               <div key={i}>
                 <p style={{ fontSize: 18, fontWeight: 800, color: 'white', marginBottom: 2 }}>{s.val}</p>
                 <p style={{ fontSize: 11, color: '#475569' }}>{s.label}</p>
@@ -204,24 +248,16 @@ function AuthForm() {
             ))}
           </div>
         </div>
-        <p style={{ color: '#334155', fontSize: 12 }}>© 2026 PulseMarket SAS — Données hébergées en France</p>
+        <p style={{ color: '#334155', fontSize: 12, position: 'relative', zIndex: 2 }}>© 2026 PulseMarket SAS — Données hébergées en France</p>
       </motion.div>
 
       {/* Formulaire */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 20px' }}>
         <motion.div variants={stagger} initial="hidden" animate="visible" style={{ width: '100%', maxWidth: 420 }}>
 
-          <motion.div variants={fadeUp} className="lg:hidden" style={{ marginBottom: 32 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
-                <rect width="40" height="40" rx="10" fill="#4F46E5"/>
-                <path d="M6 20L12 20L14 11L17 29L20 14L22 20L34 20" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                <span style={{ fontWeight: 700, fontSize: 16, color: '#0F172A' }}>Pulse</span>
-                <span style={{ fontWeight: 400, fontSize: 16, color: '#4F46E5' }}>Market</span>
-              </div>
-            </div>
+          {/* ✅ Logo mobile (seul, sans wordmark) */}
+          <motion.div variants={fadeUp} className="lg:hidden" style={{ marginBottom: 32, cursor: 'pointer' }} onClick={() => router.push('/')}>
+            <img src="/logo-pulsemarket.svg" alt="PulseMarket" style={{ height: 36, width: 'auto' }} />
           </motion.div>
 
           <AnimatePresence mode="wait">
@@ -231,23 +267,23 @@ function AuthForm() {
                 animate={{ opacity: 1, scale: 1 }}
                 style={{ textAlign: 'center', padding: '20px 0' }}>
                 <div style={{ width: 64, height: 64, background: '#EEF2FF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-                  <Mail size={28} style={{ color: '#4F46E5' }} />
+                  <Mail size={28} style={{ color: BRAND }} />
                 </div>
                 <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0F172A', marginBottom: 10 }}>Vérifiez votre email</h2>
                 <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.7, marginBottom: 8 }}>
                   Un email de confirmation a été envoyé à
                 </p>
-                <p style={{ fontSize: 14, fontWeight: 600, color: '#4F46E5', marginBottom: 24 }}>{email}</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: BRAND, marginBottom: 24 }}>{email}</p>
                 <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px', marginBottom: 24, textAlign: 'left' }}>
                   <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.7 }}>
                     Cliquez sur le lien dans l'email pour confirmer votre compte. Vous serez ensuite redirigé automatiquement vers votre espace.
                   </p>
                 </div>
                 <p style={{ fontSize: 12, color: '#94A3B8', marginBottom: 16 }}>
-                  Vous n'avez pas reçu l'email ? Vérifiez vos spams.
+                  Vous n'avez pas reçu l'email ? Vérifiez vos spams ou attendez quelques minutes.
                 </p>
-                <button onClick={() => { setEmailSent(false); setTab('signin') }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#4F46E5', fontWeight: 500 }}>
+                <button onClick={() => { setEmailSent(false); switchTab('signin') }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: BRAND, fontWeight: 500 }}>
                   ← Retour à la connexion
                 </button>
               </motion.div>
@@ -263,21 +299,33 @@ function AuthForm() {
                       : 'Rejoignez la plateforme des marchés et festivals.'
                     }
                   </p>
-                  {/* ✅ Lien discret vers espace organisateur */}
-                  {tab === 'signup' && (
-                    <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 8 }}>
-                      Vous êtes une mairie ?{' '}
-                      <button onClick={() => router.push('/auth/mairie')}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4F46E5', fontSize: 12, fontWeight: 600 }}>
-                        Espace organisateur →
-                      </button>
-                    </p>
-                  )}
+                </motion.div>
+
+                {/* ✅ Bouton espace organisateur visible */}
+                <motion.div variants={fadeUp} style={{ marginBottom: 20 }}>
+                  <button onClick={() => router.push('/auth/mairie')}
+                    style={{
+                      width: '100%', padding: '11px 14px', background: '#F8FAFC',
+                      border: '1px solid #E2E8F0', borderRadius: 10,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      cursor: 'pointer', transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = BRAND; e.currentTarget.style.background = '#EEF2FF' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.background = '#F8FAFC' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Building2 size={16} style={{ color: BRAND }} />
+                      <div style={{ textAlign: 'left' }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', lineHeight: 1.3 }}>Vous êtes une mairie ou organisateur ?</p>
+                        <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>Connexion espace dédié</p>
+                      </div>
+                    </div>
+                    <ArrowRight size={14} style={{ color: BRAND }} />
+                  </button>
                 </motion.div>
 
                 <motion.div variants={fadeUp} style={{ background: '#F1F5F9', borderRadius: 10, padding: 4, display: 'flex', marginBottom: 24 }}>
                   {[{ val: 'signin', label: 'Connexion' }, { val: 'signup', label: 'Inscription' }].map(t => (
-                    <button key={t.val} onClick={() => { setTab(t.val as any); setError('') }}
+                    <button key={t.val} onClick={() => switchTab(t.val as any)}
                       style={{ flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none', background: tab === t.val ? 'white' : 'transparent', color: tab === t.val ? '#0F172A' : '#94A3B8', boxShadow: tab === t.val ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', transition: 'all 0.2s' }}>
                       {t.label}
                     </button>
@@ -293,7 +341,7 @@ function AuthForm() {
                         <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Nom complet</label>
                         <input type="text" placeholder="Jean Dupont" value={fullName} onChange={e => setFullName(e.target.value)} onKeyDown={handleKeyDown}
                           style={inputStyle} autoFocus
-                          onFocus={e => e.target.style.borderColor = '#4F46E5'} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
+                          onFocus={e => e.target.style.borderColor = BRAND} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
                       </div>
                     )}
 
@@ -301,7 +349,7 @@ function AuthForm() {
                       <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Adresse email</label>
                       <input type="email" placeholder="vous@domaine.fr" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={handleKeyDown}
                         style={inputStyle} autoFocus={tab === 'signin'}
-                        onFocus={e => e.target.style.borderColor = '#4F46E5'} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
+                        onFocus={e => e.target.style.borderColor = BRAND} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
                     </div>
 
                     <div>
@@ -312,7 +360,7 @@ function AuthForm() {
                             if (!email) { setError("Entrez votre email d'abord"); return }
                             await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/auth/callback` })
                             setToast({ message: 'Email de réinitialisation envoyé !', type: 'info' })
-                          }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#4F46E5', fontWeight: 500 }}>
+                          }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: BRAND, fontWeight: 500 }}>
                             Mot de passe oublié ?
                           </button>
                         )}
@@ -320,12 +368,14 @@ function AuthForm() {
                       <div style={{ position: 'relative' }}>
                         <input type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={handleKeyDown}
                           style={{ ...inputStyle, paddingRight: 42 }}
-                          onFocus={e => e.target.style.borderColor = '#4F46E5'} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
+                          onFocus={e => e.target.style.borderColor = BRAND} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
                         <button type="button" onClick={() => setShowPassword(!showPassword)}
                           style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 0 }}>
                           {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                       </div>
+                      {/* ✅ Indicateur force mot de passe (signup only) */}
+                      {tab === 'signup' && <PasswordStrength password={password} />}
                     </div>
 
                     <AnimatePresence>
@@ -338,14 +388,28 @@ function AuthForm() {
                     </AnimatePresence>
 
                     <button onClick={tab === 'signin' ? handleSignIn : handleSignUp} disabled={loading}
-                      style={{ width: '100%', padding: '13px 0', background: loading ? '#818CF8' : '#4F46E5', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 2 }}>
+                      style={{ width: '100%', padding: '13px 0', background: loading ? '#818CF8' : BRAND, color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 2 }}>
                       {loading
                         ? <><Loader size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</>
                         : <>{tab === 'signin' ? 'Accéder à mon espace' : 'Créer mon compte'}<ArrowRight size={15} /></>
                       }
                     </button>
 
-                    <p style={{ textAlign: 'center', fontSize: 13, color: '#94A3B8' }}>
+                    {/* ✅ Trust signals avec icônes violettes */}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
+                      {[
+                        { icon: <Server size={11} />, label: 'Hébergement France' },
+                        { icon: <Lock size={11} />, label: 'Conforme RGPD' },
+                        { icon: <ShieldCheck size={11} />, label: 'Données chiffrées' },
+                      ].map((t, i) => (
+                        <span key={i} style={{ fontSize: 11, color: '#94A3B8', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ color: BRAND }}>{t.icon}</span>
+                          {t.label}
+                        </span>
+                      ))}
+                    </div>
+
+                    <p style={{ textAlign: 'center', fontSize: 13, color: '#94A3B8', marginTop: 4 }}>
                       <button onClick={() => router.push('/')}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontSize: 13 }}>
                         ← Retour à l'accueil
@@ -368,7 +432,7 @@ export default function AuthPage() {
   return (
     <Suspense fallback={
       <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #4F46E5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ width: 32, height: 32, border: `2px solid ${BRAND}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     }>
