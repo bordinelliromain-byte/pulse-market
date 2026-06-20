@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: '*.supabase.co' },
       { protocol: 'https', hostname: 'maps.googleapis.com' },
       { protocol: 'https', hostname: 'maps.gstatic.com' },
+      { protocol: 'https', hostname: 'server.arcgisonline.com' },
+      { protocol: 'https', hostname: '*.arcgisonline.com' },
     ],
   },
 
@@ -47,10 +49,10 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://client.crisp.chat https://js.stripe.com https://maps.googleapis.com",
               "style-src 'self' 'unsafe-inline' https://client.crisp.chat https://fonts.googleapis.com https://unpkg.com",
-              // ✅ Unsplash + Supabase + Google Maps images
-              "img-src 'self' data: blob: https://*.supabase.co https://client.crisp.chat https://*.crisp.chat https://image.crisp.chat https://images.unsplash.com https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://api.qrserver.com https://*.tile.openstreetmap.org https://unpkg.com",
+              // ✅ Ajout Esri pour les tuiles satellite
+              "img-src 'self' data: blob: https://*.supabase.co https://client.crisp.chat https://*.crisp.chat https://image.crisp.chat https://images.unsplash.com https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://api.qrserver.com https://*.tile.openstreetmap.org https://unpkg.com https://server.arcgisonline.com https://*.arcgisonline.com",
               "font-src 'self' https://client.crisp.chat https://fonts.gstatic.com",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://client.crisp.chat wss://client.crisp.chat wss://client.relay.crisp.chat wss://client.relay.rescue.crisp.chat https://maps.googleapis.com https://api-adresse.data.gouv.fr",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://client.crisp.chat wss://client.crisp.chat wss://client.relay.crisp.chat wss://client.relay.rescue.crisp.chat https://maps.googleapis.com https://api-adresse.data.gouv.fr https://server.arcgisonline.com https://*.arcgisonline.com",
               "frame-src https://js.stripe.com https://hooks.stripe.com https://www.google.com https://maps.google.com https://www.openstreetmap.org",
               "worker-src blob:",
             ].join('; ')
