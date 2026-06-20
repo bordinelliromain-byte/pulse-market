@@ -237,7 +237,7 @@ function DashboardContent() {
 
     const { data: eventsData } = await supabase.from('events').select('*').eq('status', 'published').order('start_date', { ascending: true }).limit(5)
     setNearbyEvents(eventsData || [])
-    const { data: apps } = await supabase.from('applications').select(`*, events:event_id(title, start_date, location_name, price_per_spot, organizer_id, organizer:organizer_id(full_name, organisation_name))`).eq('exposant_id', user.id).order('created_at', { ascending: false })
+    const { data: apps } = await supabase.from('applications').select(`*, events:event_id(title, start_date, location_name, price_per_spot, organisateur_id, organisateur:organisateur_id(full_name))`).eq('exposant_id', user.id).order('created_at', { ascending: false })    
     setCandidatures(apps || [])
     const { data: expData } = await supabase.from('exposant_data').select('plan, is_verified, kbis_url, assurance_url').eq('user_id', user.id).single()
     setStats({
@@ -526,7 +526,7 @@ function DashboardContent() {
                               eventDate: c.events?.start_date ? new Date(c.events.start_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '',
                               eventLocation: c.events?.location_name || '',
                               caseNumber: c.case_number,
-                              mairieNom: c.events?.organizer?.organisation_name || c.events?.organizer?.full_name || 'Mairie',
+                              mairieNom: c.events?.organisateur?.full_name || 'Mairie',
                               paidAt: c.paid_at ? new Date(c.paid_at).toLocaleDateString('fr-FR') : '',
                             })}
                                 style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#0F172A', color: 'white', border: 'none', borderRadius: 8, padding: '9px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
