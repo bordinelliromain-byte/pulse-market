@@ -247,7 +247,7 @@ function AuthOrganisateurForm() {
       <div style={{ minHeight: '100vh', background: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', system-ui, sans-serif", padding: 24 }}>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 40 }}>
-            <img src="/logo-pulsemarket.svg" alt="PulseMarket" style={{ height: 32, width: 'auto' }} />
+            <img src="/logo-pulsemarket2.svg" alt="PulseMarket" style={{ height: 32, width: 'auto' }} />
           </div>
 
           <div style={{ width: 64, height: 64, background: 'rgba(79,70,229,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
