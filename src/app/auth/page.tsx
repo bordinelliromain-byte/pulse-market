@@ -211,7 +211,7 @@ function AuthForm() {
 
         {/* ✅ Logo SVG fichier (pas inline) */}
         <div onClick={() => router.push('/')} style={{ cursor: 'pointer', position: 'relative', zIndex: 2 }}>
-          <img src="/logo-pulsemarket.svg" alt="PulseMarket" style={{ height: 40, width: 'auto', filter: 'brightness(0) invert(1)' }} />
+          <img src="/logo-pulsemarket2.svg" alt="PulseMarket" style={{ height: 40, width: 'auto' }} />
         </div>
 
         <div style={{ position: 'relative', zIndex: 2 }}>
