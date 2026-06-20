@@ -1,16 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { Variants } from 'framer-motion'
 import Sidebar from '@/components/Sidebar'
 import {
   ArrowLeft, Upload, CheckCircle, AlertCircle,
   Shield, Building2, Ruler, Zap, Camera, Save, Loader,
-  Star, Trophy, Award, ScanLine, AlertTriangle, Clock
+  Star, Trophy, Award, ScanLine, AlertTriangle, Clock,
+  CloudCheck, RefreshCw, Undo2
 } from 'lucide-react'
+
+const BRAND = '#4F46E5'
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 12 },
@@ -127,10 +130,48 @@ function OcrResult({ result }: { result: any }) {
   )
 }
 
+// ✅ Indicateur sauvegarde
+function SaveIndicator({ status, lastSaved }: { status: 'idle' | 'saving' | 'saved' | 'error'; lastSaved: Date | null }) {
+  const [timeAgo, setTimeAgo] = useState('')
+  
+  useEffect(() => {
+    if (!lastSaved) return
+    const update = () => {
+      const diff = Math.floor((Date.now() - lastSaved.getTime()) / 1000)
+      if (diff < 5) setTimeAgo('à l\'instant')
+      else if (diff < 60) setTimeAgo(`il y a ${diff}s`)
+      else if (diff < 3600) setTimeAgo(`il y a ${Math.floor(diff / 60)}min`)
+      else setTimeAgo(`il y a ${Math.floor(diff / 3600)}h`)
+    }
+    update()
+    const t = setInterval(update, 5000)
+    return () => clearInterval(t)
+  }, [lastSaved])
+
+  if (status === 'saving') return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#64748B' }}>
+      <Loader size={11} style={{ animation: 'spin 1s linear infinite' }} /> Sauvegarde...
+    </div>
+  )
+  if (status === 'saved' || lastSaved) return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#16A34A' }}>
+      <CloudCheck size={12} /> Sauvegardé {timeAgo}
+    </div>
+  )
+  if (status === 'error') return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#DC2626' }}>
+      <AlertCircle size={11} /> Erreur de sauvegarde
+    </div>
+  )
+  return null
+}
+
 export default function ProfilExposant() {
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const [sirenStatus, setSirenStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle')
   const [marchesCount, setMarchesCount] = useState(0)
@@ -152,10 +193,32 @@ export default function ProfilExposant() {
   const [kbisOcrResult, setKbisOcrResult] = useState<any>(null)
   const [assuranceOcrResult, setAssuranceOcrResult] = useState<any>(null)
   const [fileErrors, setFileErrors] = useState<{ kbis?: string; assurance?: string; avatar?: string }>({})
+  const [upgradingPro, setUpgradingPro] = useState(false)
+  const [originalData, setOriginalData] = useState<any>(null)
 
   const router = useRouter()
   const supabase = createClient()
   const isMobile = useIsMobile()
+  const autosaveTimer = useRef<NodeJS.Timeout | null>(null)
+  const hasChanges = useRef(false)
+
+  // ✅ Calcul progression profil
+  const calculateProgress = useCallback(() => {
+    const fields = [
+      !!businessName,
+      !!siren,
+      isVerified || sirenStatus === 'valid',
+      !!description,
+      !!standWidth && !!standLength,
+      !!kbisUrl || !!kbisFile,
+      !!assuranceUrl || !!assuranceFile,
+      !!avatarUrl,
+    ]
+    const completed = fields.filter(Boolean).length
+    return Math.round((completed / fields.length) * 100)
+  }, [businessName, siren, isVerified, sirenStatus, description, standWidth, standLength, kbisUrl, kbisFile, assuranceUrl, assuranceFile, avatarUrl])
+
+  const progress = calculateProgress()
 
   useEffect(() => {
     const getData = async () => {
@@ -176,6 +239,16 @@ export default function ProfilExposant() {
         setKbisUrl(exposantData.kbis_url || '')
         setAssuranceUrl(exposantData.assurance_url || '')
         setIsVerified(exposantData.is_verified || false)
+        // ✅ Sauvegarde données originales pour "annuler"
+        setOriginalData({
+          businessName: exposantData.business_name || '',
+          siren: exposantData.siren || '',
+          standWidth: exposantData.stand_width?.toString() || '',
+          standLength: exposantData.stand_length?.toString() || '',
+          needsElectricity: exposantData.needs_electricity || false,
+          description: exposantData.description || '',
+        })
+        if (exposantData.updated_at) setLastSaved(new Date(exposantData.updated_at))
       }
       const { data: apps } = await supabase.from('applications').select('id').eq('exposant_id', user.id).eq('status', 'paid')
       setMarchesCount(apps?.length || 0)
@@ -184,12 +257,64 @@ export default function ProfilExposant() {
     getData()
   }, [])
 
+  // ✅ AUTOSAVE — Toutes les 30 secondes si modifications
+  const performAutosave = useCallback(async () => {
+    if (!hasChanges.current) return
+    setSaveStatus('saving')
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { error } = await supabase.rpc('save_exposant_data', {
+        p_user_id: user.id,
+        p_business_name: businessName,
+        p_siren: siren,
+        p_stand_width: standWidth ? parseFloat(standWidth) : null,
+        p_stand_length: standLength ? parseFloat(standLength) : null,
+        p_needs_electricity: needsElectricity,
+        p_description: description,
+        p_kbis_url: kbisUrl,
+        p_assurance_url: assuranceUrl,
+        p_kbis_badge: kbisOcrResult?.badge || null,
+        p_assurance_expiry: assuranceOcrResult?.expiryDate || null,
+      })
+      if (error) throw new Error(error.message)
+      setSaveStatus('saved')
+      setLastSaved(new Date())
+      hasChanges.current = false
+    } catch (err) {
+      setSaveStatus('error')
+    }
+  }, [businessName, siren, standWidth, standLength, needsElectricity, description, kbisUrl, assuranceUrl, kbisOcrResult, assuranceOcrResult])
+
+  // ✅ Marque modifications + autosave timer
+  useEffect(() => {
+    if (loading) return
+    hasChanges.current = true
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+    autosaveTimer.current = setTimeout(performAutosave, 3000) // 3s après dernière modif
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+    }
+  }, [businessName, siren, standWidth, standLength, needsElectricity, description, loading])
+
+  // ✅ Sauvegarde avant fermeture page
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasChanges.current) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
+
   const level = getLevel(marchesCount)
   const pct = level.next ? Math.round(((marchesCount - level.min) / (level.next - level.min)) * 100) : 100
   const initials = (businessName || profile?.full_name || '?').split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
 
   const badges = [
-    { label: 'SIREN vérifié', icon: <Shield size={11} />, ok: isVerified || sirenStatus === 'valid', color: '#4F46E5' },
+    { label: 'SIREN vérifié', icon: <Shield size={11} />, ok: isVerified || sirenStatus === 'valid', color: BRAND },
     { label: 'Kbis fourni', icon: <CheckCircle size={11} />, ok: !!kbisUrl, color: '#16A34A' },
     { label: 'RC Pro fourni', icon: <CheckCircle size={11} />, ok: !!assuranceUrl, color: '#16A34A' },
     { label: 'Dossier vérifié IA', icon: <ScanLine size={11} />, ok: kbisOcrResult?.badge === 'verifie' || kbisOcrResult?.badge === 'platinum', color: '#0EA5E9' },
@@ -288,7 +413,6 @@ export default function ProfilExposant() {
     setAvatarUploading(false)
   }
 
-  // ✅ handleSave — via fonction SQL SECURITY DEFINER (bypass RLS)
   const handleSave = async () => {
     setSaving(true)
     setMessage(null)
@@ -318,15 +442,54 @@ export default function ProfilExposant() {
 
       if (error) throw new Error(error.message)
       setMessage({ type: 'success', text: 'Dossier sauvegardé avec succès' })
+      setLastSaved(new Date())
+      setKbisUrl(finalKbisUrl)
+      setAssuranceUrl(finalAssuranceUrl)
+      setKbisFile(null)
+      setAssuranceFile(null)
+      hasChanges.current = false
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message })
     }
     setSaving(false)
   }
 
+  // ✅ Annuler les modifications
+  const handleUndo = () => {
+    if (!originalData) return
+    if (!confirm('Annuler toutes les modifications non sauvegardées ?')) return
+    setBusinessName(originalData.businessName)
+    setSiren(originalData.siren)
+    setStandWidth(originalData.standWidth)
+    setStandLength(originalData.standLength)
+    setNeedsElectricity(originalData.needsElectricity)
+    setDescription(originalData.description)
+    hasChanges.current = false
+  }
+
+  // ✅ Upgrade Pro fonctionnel
+  const handleUpgradePro = async () => {
+    setUpgradingPro(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const res = await fetch('/api/create-pro-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, email: profile?.email || '' })
+      })
+      const { url, error } = await res.json()
+      if (error) throw new Error(error)
+      if (url) window.location.href = url
+    } catch (err: any) {
+      alert('Erreur : ' + err.message)
+    }
+    setUpgradingPro(false)
+  }
+
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 28, height: 28, border: '2px solid #4F46E5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ width: 28, height: 28, border: `2px solid ${BRAND}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
@@ -337,41 +500,75 @@ export default function ProfilExposant() {
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
       <div style={{ marginLeft: isMobile ? 0 : 220, flex: 1, minWidth: 0 }}>
-        <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: isMobile ? '0 14px 0 60px' : '0 28px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <header style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: isMobile ? '0 14px 0 60px' : '0 28px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
             <button onClick={() => router.push('/dashboard')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontSize: 13 }}>
               <ArrowLeft size={14} /> {!isMobile && 'Retour'}
             </button>
             <div style={{ width: 1, height: 16, background: '#E2E8F0' }} />
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Mon profil</p>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Mon profil</p>
+              <SaveIndicator status={saveStatus} lastSaved={lastSaved} />
+            </div>
           </div>
-          <button onClick={handleSave} disabled={saving}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-            {saving ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
-            {saving ? 'Sauvegarde...' : 'Sauvegarder'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {!isMobile && hasChanges.current && (
+              <button onClick={handleUndo}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'transparent', color: '#64748B', border: '1px solid #E2E8F0', borderRadius: 8, padding: '8px 12px', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+                <Undo2 size={13} /> Annuler
+              </button>
+            )}
+            <button onClick={handleSave} disabled={saving}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, background: BRAND, color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+              {saving ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
+              {saving ? 'Sauvegarde...' : isMobile ? '' : 'Sauvegarder'}
+            </button>
+          </div>
         </header>
 
-        <main style={{ padding: isMobile ? '14px' : '28px', maxWidth: 960, margin: '0 auto' }}>
+        {/* ✅ Barre de progression */}
+        <div style={{ background: 'white', borderBottom: '1px solid #E2E8F0', padding: isMobile ? '10px 14px' : '12px 28px' }}>
+          <div style={{ maxWidth: 960, margin: '0 auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Profil complété</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: progress >= 80 ? '#16A34A' : progress >= 50 ? '#F59E0B' : BRAND }}>{progress}%</span>
+            </div>
+            <div style={{ height: 6, background: '#F1F5F9', borderRadius: 100, overflow: 'hidden' }}>
+              <motion.div
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.4 }}
+                style={{ height: '100%', background: progress >= 80 ? '#16A34A' : progress >= 50 ? '#F59E0B' : BRAND, borderRadius: 100 }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <main style={{ padding: isMobile ? '14px 14px 100px' : '28px', maxWidth: 960, margin: '0 auto' }}>
           <motion.div variants={stagger} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-            {message && (
-              <motion.div variants={fadeUp} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 10, background: message.type === 'success' ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${message.type === 'success' ? '#BBF7D0' : '#FECACA'}`, color: message.type === 'success' ? '#15803D' : '#DC2626', fontSize: 13, fontWeight: 500 }}>
-                {message.type === 'success' ? <CheckCircle size={15} /> : <AlertCircle size={15} />} {message.text}
-              </motion.div>
-            )}
+            <AnimatePresence>
+              {message && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 10, background: message.type === 'success' ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${message.type === 'success' ? '#BBF7D0' : '#FECACA'}`, color: message.type === 'success' ? '#15803D' : '#DC2626', fontSize: 13, fontWeight: 500 }}>
+                  {message.type === 'success' ? <CheckCircle size={15} /> : <AlertCircle size={15} />} {message.text}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Hero profil */}
-            <motion.div variants={fadeUp} style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', borderRadius: 16, padding: isMobile ? '18px' : '28px' }}>
-              <div style={{ display: 'flex', gap: isMobile ? 14 : 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <motion.div variants={fadeUp} style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', borderRadius: 16, padding: isMobile ? '16px' : '28px' }}>
+              <div style={{ display: 'flex', gap: isMobile ? 12 : 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <div style={{ width: isMobile ? 60 : 80, height: isMobile ? 60 : 80, borderRadius: '50%', background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid rgba(255,255,255,0.15)', overflow: 'hidden' }}>
+                  <div style={{ width: isMobile ? 56 : 80, height: isMobile ? 56 : 80, borderRadius: '50%', background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid rgba(255,255,255,0.15)', overflow: 'hidden' }}>
                     {avatarUrl
                       ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <span style={{ fontSize: isMobile ? 20 : 28, fontWeight: 800, color: 'white' }}>{initials}</span>
+                      : <span style={{ fontSize: isMobile ? 18 : 28, fontWeight: 800, color: 'white' }}>{initials}</span>
                     }
                   </div>
-                  <label style={{ position: 'absolute', bottom: -2, right: -2, width: 24, height: 24, background: '#4F46E5', borderRadius: '50%', border: '2px solid #0F172A', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <label style={{ position: 'absolute', bottom: -2, right: -2, width: 24, height: 24, background: BRAND, borderRadius: '50%', border: '2px solid #0F172A', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {avatarUploading
                       ? <Loader size={10} style={{ color: 'white', animation: 'spin 0.8s linear infinite' }} />
                       : <Camera size={10} style={{ color: 'white' }} />
@@ -379,11 +576,10 @@ export default function ProfilExposant() {
                     <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style={{ display: 'none' }} onChange={handleAvatarUpload} />
                   </label>
                 </div>
-                {fileErrors.avatar && <p style={{ fontSize: 11, color: '#FCA5A5', marginTop: 4 }}>{fileErrors.avatar}</p>}
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                    <p style={{ fontSize: isMobile ? 16 : 20, fontWeight: 800, color: 'white' }}>{businessName || profile?.full_name}</p>
+                    <p style={{ fontSize: isMobile ? 15 : 20, fontWeight: 800, color: 'white' }}>{businessName || profile?.full_name}</p>
                     <span style={{ fontSize: 10, fontWeight: 700, background: level.bg, color: level.color, padding: '2px 8px', borderRadius: 100, border: `1px solid ${level.border}` }}>{level.label}</span>
                   </div>
                   <p style={{ fontSize: 12, color: '#64748B', marginBottom: 12 }}>{profile?.email}</p>
@@ -396,15 +592,21 @@ export default function ProfilExposant() {
                       <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${level.color}, ${level.color}99)`, borderRadius: 100 }} />
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: isMobile ? 16 : 24 }}>
+                  <div style={{ display: 'flex', gap: isMobile ? 14 : 24 }}>
                     {[
-                      { label: 'Marchés', value: marchesCount },
-                      { label: 'Kbis', value: kbisUrl ? '✓' : '—' },
-                      { label: 'RC Pro', value: assuranceUrl ? '✓' : '—' },
-                      { label: 'SIREN', value: (isVerified || sirenStatus === 'valid') ? '✓' : '—' }
+                      { label: 'Marchés', value: marchesCount, icon: null },
+                      { label: 'Kbis', value: kbisUrl, icon: <CheckCircle size={isMobile ? 13 : 16} style={{ color: '#4ADE80' }} /> },
+                      { label: 'RC Pro', value: assuranceUrl, icon: <CheckCircle size={isMobile ? 13 : 16} style={{ color: '#4ADE80' }} /> },
+                      { label: 'SIREN', value: (isVerified || sirenStatus === 'valid'), icon: <Shield size={isMobile ? 13 : 16} style={{ color: '#4ADE80' }} /> }
                     ].map((s, i) => (
                       <div key={i}>
-                        <p style={{ fontSize: isMobile ? 14 : 18, fontWeight: 800, color: 'white' }}>{s.value}</p>
+                        {s.icon ? (
+                          <div style={{ height: isMobile ? 18 : 22, display: 'flex', alignItems: 'center' }}>
+                            {s.value ? s.icon : <span style={{ color: '#475569', fontSize: isMobile ? 14 : 18 }}>—</span>}
+                          </div>
+                        ) : (
+                          <p style={{ fontSize: isMobile ? 14 : 18, fontWeight: 800, color: 'white' }}>{s.value}</p>
+                        )}
                         <p style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</p>
                       </div>
                     ))}
@@ -436,7 +638,7 @@ export default function ProfilExposant() {
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 30, height: 30, background: '#EEF2FF', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Building2 size={15} style={{ color: '#4F46E5' }} />
+                      <Building2 size={15} style={{ color: BRAND }} />
                     </div>
                     <div>
                       <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Informations entreprise</p>
@@ -448,7 +650,7 @@ export default function ProfilExposant() {
                       <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Nom commercial</label>
                       <input value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="Mon Food Truck SARL"
                         style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, color: '#0F172A', background: '#FAFAFA', outline: 'none', boxSizing: 'border-box' }}
-                        onFocus={e => { e.target.style.borderColor = '#4F46E5'; e.target.style.background = 'white' }}
+                        onFocus={e => { e.target.style.borderColor = BRAND; e.target.style.background = 'white' }}
                         onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.background = '#FAFAFA' }} />
                     </div>
                     <div>
@@ -456,10 +658,10 @@ export default function ProfilExposant() {
                       <div style={{ display: 'flex', gap: 8, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                         <input value={siren} onChange={e => setSiren(e.target.value)} placeholder="123 456 789"
                           style={{ flex: 1, minWidth: 0, padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, color: '#0F172A', background: '#FAFAFA', outline: 'none' }}
-                          onFocus={e => { e.target.style.borderColor = '#4F46E5'; e.target.style.background = 'white' }}
+                          onFocus={e => { e.target.style.borderColor = BRAND; e.target.style.background = 'white' }}
                           onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.background = '#FAFAFA' }} />
                         <button onClick={verifySiren} disabled={sirenStatus === 'loading'}
-                          style={{ background: '#4F46E5', color: 'white', border: 'none', borderRadius: 8, padding: '9px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}>
+                          style={{ background: BRAND, color: 'white', border: 'none', borderRadius: 8, padding: '9px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}>
                           <Shield size={13} /> Vérifier INSEE
                         </button>
                       </div>
@@ -469,7 +671,7 @@ export default function ProfilExposant() {
                       <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Description</label>
                       <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Burgers artisanaux, cuisine du monde..."
                         style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, color: '#0F172A', background: '#FAFAFA', outline: 'none', resize: 'none', height: 70, boxSizing: 'border-box', fontFamily: 'inherit' }}
-                        onFocus={e => { e.target.style.borderColor = '#4F46E5'; e.target.style.background = 'white' }}
+                        onFocus={e => { e.target.style.borderColor = BRAND; e.target.style.background = 'white' }}
                         onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.background = '#FAFAFA' }} />
                     </div>
                   </div>
@@ -479,7 +681,7 @@ export default function ProfilExposant() {
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 30, height: 30, background: '#EEF2FF', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ruler size={15} style={{ color: '#4F46E5' }} />
+                      <Ruler size={15} style={{ color: BRAND }} />
                     </div>
                     <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Caractéristiques du stand</p>
                   </div>
@@ -493,7 +695,7 @@ export default function ProfilExposant() {
                           <label style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>{f.label}</label>
                           <input type="number" value={f.val} onChange={e => f.set(e.target.value)} placeholder="3"
                             style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, color: '#0F172A', background: '#FAFAFA', outline: 'none', boxSizing: 'border-box' }}
-                            onFocus={e => { e.target.style.borderColor = '#4F46E5'; e.target.style.background = 'white' }}
+                            onFocus={e => { e.target.style.borderColor = BRAND; e.target.style.background = 'white' }}
                             onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.background = '#FAFAFA' }} />
                         </div>
                       ))}
@@ -508,7 +710,7 @@ export default function ProfilExposant() {
                       <div style={{ display: 'flex', gap: 8 }}>
                         {[{ val: false, label: 'Aucun' }, { val: true, label: 'Requis' }].map(opt => (
                           <button key={String(opt.val)} onClick={() => setNeedsElectricity(opt.val)}
-                            style={{ flex: 1, padding: '8px 0', border: needsElectricity === opt.val ? '1.5px solid #4F46E5' : '1px solid #E2E8F0', borderRadius: 8, background: needsElectricity === opt.val ? '#EEF2FF' : 'white', color: needsElectricity === opt.val ? '#4F46E5' : '#64748B', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                            style={{ flex: 1, padding: '8px 0', border: needsElectricity === opt.val ? `1.5px solid ${BRAND}` : '1px solid #E2E8F0', borderRadius: 8, background: needsElectricity === opt.val ? '#EEF2FF' : 'white', color: needsElectricity === opt.val ? BRAND : '#64748B', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                             <Zap size={13} /> {opt.label}
                           </button>
                         ))}
@@ -521,7 +723,7 @@ export default function ProfilExposant() {
                 <motion.div variants={fadeUp} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 30, height: 30, background: '#EEF2FF', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <ScanLine size={15} style={{ color: '#4F46E5' }} />
+                      <ScanLine size={15} style={{ color: BRAND }} />
                     </div>
                     <div>
                       <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A' }}>Documents légaux</p>
@@ -549,7 +751,7 @@ export default function ProfilExposant() {
                         )}
 
                         <div style={{ display: 'flex', gap: 8, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-                          <label style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px', border: `1.5px dashed ${doc.file ? '#4F46E5' : '#E2E8F0'}`, borderRadius: 9, cursor: 'pointer', fontSize: 12, color: doc.file ? '#4F46E5' : '#64748B', background: doc.file ? '#EEF2FF' : 'transparent' }}>
+                          <label style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px', border: `1.5px dashed ${doc.file ? BRAND : '#E2E8F0'}`, borderRadius: 9, cursor: 'pointer', fontSize: 12, color: doc.file ? BRAND : '#64748B', background: doc.file ? '#EEF2FF' : 'transparent' }}>
                             <Upload size={13} /> {doc.file ? doc.file.name : 'Déposer un PDF / image'}
                             <input type="file" accept=".pdf,image/jpeg,image/png,image/webp" style={{ display: 'none' }}
                               onChange={e => handleDocumentSelect(e.target.files?.[0] || null, doc.type)} />
@@ -583,14 +785,17 @@ export default function ProfilExposant() {
                   ].map((item, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: i < 5 ? 10 : 0, marginBottom: i < 5 ? 10 : 0, borderBottom: i < 5 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
                       <span style={{ fontSize: 12, color: '#64748B' }}>{item.label}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: item.ok ? '#4ADE80' : '#F59E0B' }}>{item.ok ? '✓ OK' : '⏳'}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: item.ok ? '#4ADE80' : '#F59E0B' }}>
+                        {item.ok ? <><CheckCircle size={11} /> OK</> : <><Clock size={11} /> À faire</>}
+                      </span>
                     </div>
                   ))}
                 </motion.div>
 
+                {/* ✅ Bouton Upgrader FONCTIONNEL */}
                 <motion.div variants={fadeUp} style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', borderRadius: 12, padding: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-                    <Star size={15} style={{ color: '#FBBF24' }} />
+                    <Star size={15} style={{ color: '#FBBF24', fill: '#FBBF24' }} />
                     <p style={{ fontSize: 13, fontWeight: 700, color: 'white' }}>Passez en Pro</p>
                     <span style={{ background: 'rgba(255,255,255,0.15)', color: 'white', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100 }}>20€/mois</span>
                   </div>
@@ -602,14 +807,32 @@ export default function ProfilExposant() {
                       </div>
                     ))}
                   </div>
-                  <button style={{ width: '100%', background: 'white', color: '#4F46E5', border: 'none', borderRadius: 9, padding: '11px 0', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                    Upgrader
+                  <button onClick={handleUpgradePro} disabled={upgradingPro}
+                    style={{ width: '100%', background: 'white', color: BRAND, border: 'none', borderRadius: 9, padding: '11px 0', fontSize: 13, fontWeight: 700, cursor: upgradingPro ? 'not-allowed' : 'pointer', opacity: upgradingPro ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    {upgradingPro ? <><Loader size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> Chargement...</> : 'Upgrader'}
                   </button>
                 </motion.div>
               </div>
             </div>
           </motion.div>
         </main>
+
+        {/* ✅ Bouton sauvegarder flottant sur mobile */}
+        {isMobile && hasChanges.current && (
+          <motion.div
+            initial={{ y: 80 }}
+            animate={{ y: 0 }}
+            style={{ position: 'fixed', bottom: 16, left: 16, right: 16, zIndex: 100, display: 'flex', gap: 8 }}>
+            <button onClick={handleUndo}
+              style={{ flex: 1, background: 'white', color: '#64748B', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+              <Undo2 size={14} /> Annuler
+            </button>
+            <button onClick={handleSave} disabled={saving}
+              style={{ flex: 2, background: BRAND, color: 'white', border: 'none', borderRadius: 12, padding: '14px', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: '0 4px 24px rgba(79,70,229,0.4)' }}>
+              {saving ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Sauvegarde...</> : <><Save size={14} /> Sauvegarder</>}
+            </button>
+          </motion.div>
+        )}
       </div>
     </div>
   )
