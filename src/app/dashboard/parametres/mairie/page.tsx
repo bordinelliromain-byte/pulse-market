@@ -22,8 +22,8 @@ const TABS: { id: Tab; label: string; icon: any; available: boolean; sessionMess
   { id: 'securite',     label: 'Sécurité',     icon: <Shield size={14} />,     available: true },
   { id: 'equipe', label: 'Équipe', icon: <Users size={14} />, available: true },
   { id: 'audit', label: 'Audit & Logs', icon: <Activity size={14} />, available: true },
-  { id: 'rgpd',         label: 'RGPD & Légal', icon: <FileText size={14} />,   available: false, sessionMessage: 'Bientôt disponible' },
-  { id: 'facturation',  label: 'Facturation',  icon: <CreditCard size={14} />, available: false, sessionMessage: 'Bientôt disponible' },
+  { id: 'rgpd',         label: 'RGPD & Légal', icon: <FileText size={14} />,   available: true },
+  { id: 'facturation',  label: 'Facturation',  icon: <CreditCard size={14} />, available: true },
 ]
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) {
@@ -278,13 +278,10 @@ export default function ParametresMairie() {
             {TABS.map(tab => (
                 <button key={tab.id} onClick={() => {
                     if (!tab.available) return
-                    if (tab.id === 'equipe') {
-                        router.push('/dashboard/parametres/mairie/equipe')
-                    } else if (tab.id === 'audit') {
-                        router.push('/dashboard/parametres/mairie/audit')
-                    } else {
-                         setActiveTab(tab.id)
-                     }
+                    if (tab.id === 'equipe') router.push('/dashboard/parametres/mairie/equipe')
+                    else if (tab.id === 'audit') router.push('/dashboard/parametres/mairie/audit')
+                    else if (tab.id === 'rgpd') router.push('/dashboard/parametres/mairie/rgpd')
+                    else if (tab.id === 'facturation') router.push('/dashboard/parametres/mairie/facturation')
                 }}
                 disabled={!tab.available}
                 style={{
