@@ -5,7 +5,13 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { motion } from 'framer-motion'
 import { openFacturePDF } from '@/lib/generateFacture'
-import { CheckCircle, FileText, ArrowLeft, Loader, MapPin } from 'lucide-react'
+import {
+  CheckCircle, FileText, ArrowLeft, Loader, MapPin,
+  Share2, Calendar, Mail, Navigation, Sparkles,
+  QrCode, Clock, ArrowRight
+} from 'lucide-react'
+
+const BRAND = '#4F46E5'
 
 function PaiementSuccessContent() {
   const [loading, setLoading] = useState(true)
@@ -39,7 +45,7 @@ function PaiementSuccessContent() {
 
         const { data: app } = await supabase
           .from('applications')
-          .select(`*, profiles:exposant_id(full_name, email), events:event_id(title, start_date, location_name, price_per_spot)`)
+          .select(`*, profiles:exposant_id(full_name, email), events:event_id(title, start_date, location_name, price_per_spot, latitude, longitude)`)
           .eq('id', candidatureId)
           .single()
 
@@ -93,80 +99,175 @@ function PaiementSuccessContent() {
     })
   }
 
+  const handlePartager = () => {
+    if (!candidature) return
+    router.push(`/dashboard/partage?eventName=${encodeURIComponent(candidature.events?.title || '')}&eventDate=${encodeURIComponent(new Date(candidature.events?.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }))}&eventLocation=${encodeURIComponent(candidature.events?.location_name || '')}`)
+  }
+
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-        <Loader size={28} style={{ color: '#4F46E5', animation: 'spin 0.8s linear infinite' }} />
+        <Loader size={28} style={{ color: BRAND, animation: 'spin 0.8s linear infinite' }} />
         <p style={{ fontSize: 13, color: '#64748B', fontFamily: 'Inter, system-ui, sans-serif' }}>Confirmation du paiement...</p>
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 
+  const eventDate = candidature?.events?.start_date ? new Date(candidature.events.start_date) : null
+  const daysUntil = eventDate ? Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null
+  const hasCoords = candidature?.events?.latitude && candidature?.events?.longitude
+
   return (
-    <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', system-ui, sans-serif", padding: 24 }}>
+    <div style={{ minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Inter', system-ui, sans-serif", padding: '24px 16px' }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.4, type: 'spring' }}
-        style={{ background: 'white', borderRadius: 20, padding: '48px 40px', maxWidth: 480, width: '100%', textAlign: 'center', boxShadow: '0 8px 60px rgba(0,0,0,0.08)' }}>
+      <div style={{ maxWidth: 540, margin: '0 auto' }}>
 
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-          style={{ width: 72, height: 72, background: '#F0FDF4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', border: '2px solid #BBF7D0' }}>
-          <CheckCircle size={36} style={{ color: '#16A34A' }} />
+        {/* Hero confirmation */}
+        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.4, type: 'spring' }}
+          style={{ background: 'white', borderRadius: 20, padding: '40px 32px', textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,0.06)', marginBottom: 16 }}>
+
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+            style={{ width: 72, height: 72, background: '#F0FDF4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', border: '2px solid #BBF7D0' }}>
+            <CheckCircle size={36} style={{ color: '#16A34A' }} />
+          </motion.div>
+
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0F172A', marginBottom: 8, letterSpacing: '-0.02em' }}>
+            Paiement confirmé !
+          </h1>
+          <p style={{ fontSize: 14, color: '#64748B', marginBottom: 24, lineHeight: 1.6 }}>
+            Votre place est réservée pour{' '}
+            <strong style={{ color: '#0F172A' }}>{candidature?.events?.title || 'l\'événement'}</strong>
+          </p>
+
+          {updateError && (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#DC2626' }}>
+              Erreur : {updateError}
+            </div>
+          )}
+
+          {/* Countdown */}
+          {daysUntil !== null && daysUntil > 0 && (
+            <div style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 12, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+              <Clock size={16} style={{ color: BRAND }} />
+              <p style={{ fontSize: 14, color: BRAND, fontWeight: 600 }}>
+                {daysUntil === 1 ? 'Demain' : `Dans ${daysUntil} jours`} — {eventDate?.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </p>
+            </div>
+          )}
+
+          {candidature && (
+            <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px 20px', textAlign: 'left' }}>
+              {[
+                { label: 'Date', value: eventDate?.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) },
+                { label: 'Lieu', value: candidature.events?.location_name },
+                ...(candidature.spot_label ? [{ label: 'Emplacement', value: `Case ${candidature.spot_label}` }] : []),
+                { label: 'Redevance AOT', value: `${candidature.events?.price_per_spot || 0} €` },
+                { label: 'Frais de service', value: '2 €' },
+                { label: 'Total TTC', value: `${(candidature.events?.price_per_spot || 0) + 2} €`, total: true },
+              ].map((item: any, i, arr) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingBottom: i < arr.length - 1 ? 8 : 0, marginBottom: i < arr.length - 1 ? 8 : 0, borderBottom: i < arr.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
+                  <span style={{ color: '#64748B' }}>{item.label}</span>
+                  <span style={{ fontWeight: item.total ? 700 : 500, color: item.total ? BRAND : item.label === 'Emplacement' ? BRAND : '#0F172A', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {item.label === 'Emplacement' && <MapPin size={10} style={{ color: BRAND }} />}
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </motion.div>
 
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 8, letterSpacing: '-0.02em' }}>
-          Paiement confirmé !
-        </h1>
-        <p style={{ fontSize: 14, color: '#64748B', marginBottom: 28, lineHeight: 1.6 }}>
-          Votre place est réservée pour{' '}
-          <strong style={{ color: '#0F172A' }}>{candidature?.events?.title || 'l\'événement'}</strong>.
-          Votre facture est disponible ci-dessous.
-        </p>
+        {/* ✅ Timeline prochaines étapes */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.4 }}
+          style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 16, padding: '20px 22px', marginBottom: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Sparkles size={14} style={{ color: BRAND }} /> Prochaines étapes
+          </p>
 
-        {updateError && (
-          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#DC2626' }}>
-            Erreur : {updateError}
-          </div>
-        )}
-
-        {candidature && (
-          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px 20px', marginBottom: 28, textAlign: 'left' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {[
-              { label: 'Événement', value: candidature.events?.title },
-              { label: 'Date', value: candidature.events?.start_date ? new Date(candidature.events.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—' },
-              { label: 'Lieu', value: candidature.events?.location_name },
-              ...(candidature.spot_label ? [{ label: 'Emplacement', value: `Case ${candidature.spot_label}` }] : []),
-              { label: 'Redevance AOT', value: `${candidature.events?.price_per_spot || 0} €` },
-              { label: 'Frais de service', value: '2 €' },
-              { label: 'Total TTC', value: `${(candidature.events?.price_per_spot || 0) + 2} €` },
-            ].map((item, i, arr) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingBottom: i < arr.length - 1 ? 8 : 0, marginBottom: i < arr.length - 1 ? 8 : 0, borderBottom: i < arr.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
-                <span style={{ color: '#64748B' }}>{item.label}</span>
-                <span style={{ fontWeight: i === arr.length - 1 ? 700 : 500, color: i === arr.length - 1 ? '#4F46E5' : item.label === 'Emplacement' ? '#4F46E5' : '#0F172A', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {item.label === 'Emplacement' && <MapPin size={10} style={{ color: '#4F46E5' }} />}
-                  {item.value}
-                </span>
+              {
+                icon: <Mail size={14} />,
+                title: 'Email de confirmation envoyé',
+                desc: 'Votre facture est dans votre boîte mail',
+                done: true,
+              },
+              {
+                icon: <QrCode size={14} />,
+                title: 'Votre AOT (autorisation officielle)',
+                desc: 'Téléchargeable maintenant — à présenter le jour J',
+                done: true,
+                action: () => router.push('/dashboard/mes-marches'),
+                actionLabel: 'Télécharger',
+              },
+              {
+                icon: <Share2 size={14} />,
+                title: 'Partager votre participation',
+                desc: 'Annoncez-le à vos clients sur Instagram, WhatsApp...',
+                done: false,
+                action: handlePartager,
+                actionLabel: 'Créer le visuel',
+                highlight: true,
+              },
+              {
+                icon: <Navigation size={14} />,
+                title: 'Itinéraire le jour J',
+                desc: hasCoords ? 'Cliquez pour ouvrir Google Maps' : 'À retrouver dans Mes marchés',
+                done: false,
+                ...(hasCoords && {
+                  action: () => window.open(`https://www.google.com/maps/dir/?api=1&destination=${candidature.events.latitude},${candidature.events.longitude}`, '_blank'),
+                  actionLabel: 'GPS'
+                })
+              },
+            ].map((step, i) => (
+              <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: step.done ? '#F0FDF4' : step.highlight ? '#FDF4FF' : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: step.done ? '#16A34A' : step.highlight ? '#9333EA' : '#64748B' }}>
+                  {step.done ? <CheckCircle size={14} /> : step.icon}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', marginBottom: 2 }}>{step.title}</p>
+                  <p style={{ fontSize: 11, color: '#94A3B8', lineHeight: 1.5 }}>{step.desc}</p>
+                </div>
+                {step.action && (
+                  <button onClick={step.action}
+                    style={{ background: step.highlight ? BRAND : '#F1F5F9', color: step.highlight ? 'white' : '#475569', border: 'none', borderRadius: 7, padding: '6px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                    {step.actionLabel}
+                  </button>
+                )}
               </div>
             ))}
           </div>
-        )}
+        </motion.div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button onClick={handleVoirFacture}
-            style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 12, padding: '13px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <FileText size={16} /> Voir ma facture PDF
+        {/* ✅ Bouton Partager hero */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.4 }} style={{ marginBottom: 12 }}>
+          <button onClick={handlePartager}
+            style={{ width: '100%', background: 'linear-gradient(135deg, #E1306C, #833AB4)', color: 'white', border: 'none', borderRadius: 12, padding: '14px 0', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 20px rgba(225,48,108,0.25)' }}>
+            <Share2 size={16} /> Annoncer ma participation
+            <ArrowRight size={14} />
           </button>
-          <button onClick={() => window.location.href = '/dashboard'}
-            style={{ width: '100%', background: '#F8FAFC', color: '#64748B', border: '1px solid #E2E8F0', borderRadius: 12, padding: '12px 0', fontSize: 14, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <ArrowLeft size={15} /> Retour au dashboard
-          </button>
-        </div>
+        </motion.div>
 
-        <p style={{ fontSize: 11, color: '#CBD5E1', marginTop: 20, lineHeight: 1.6 }}>
+        {/* Actions secondaires */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.4 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button onClick={handleVoirFacture}
+              style={{ width: '100%', background: 'white', color: '#0F172A', border: '1px solid #E2E8F0', borderRadius: 10, padding: '11px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+              <FileText size={14} /> Voir ma facture PDF
+            </button>
+            <button onClick={() => router.push('/dashboard')}
+              style={{ width: '100%', background: 'transparent', color: '#64748B', border: 'none', borderRadius: 10, padding: '11px 0', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+              <ArrowLeft size={14} /> Retour au dashboard
+            </button>
+          </div>
+        </motion.div>
+
+        <p style={{ fontSize: 11, color: '#CBD5E1', marginTop: 20, lineHeight: 1.6, textAlign: 'center' }}>
           Un email de confirmation a été envoyé à <strong>{profile?.email}</strong>
         </p>
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -175,7 +276,7 @@ export default function PaiementSuccess() {
   return (
     <Suspense fallback={
       <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 28, height: 28, border: '2px solid #4F46E5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ width: 28, height: 28, border: `2px solid ${BRAND}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     }>

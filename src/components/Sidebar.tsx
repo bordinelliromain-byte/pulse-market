@@ -13,7 +13,6 @@ const NAV_EXPOSANT = [
   { icon: <LayoutDashboard size={15} />, label: 'Dashboard', path: '/dashboard' },
   { icon: <CalendarCheck size={15} />, label: 'Mes marchés', path: '/dashboard/mes-marches' },
   { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/evenements' },
-  { icon: <MapPin size={15} />, label: 'Mon emplacement', path: '/dashboard/mon-emplacement' },
   { icon: <FileText size={15} />, label: 'Documents', path: '/dashboard/profil' },
   { icon: <Star size={15} />, label: 'Booster', path: '/dashboard/boost' },
   { icon: <Share2 size={15} />, label: 'Partager', path: '/dashboard/partage' },
