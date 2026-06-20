@@ -7,7 +7,6 @@ const PROTECTED_ORGANISATEUR = [
   '/dashboard/attribution',
   '/dashboard/tresorerie',
   '/dashboard/creer-evenement',
-  '/dashboard/parametres',
 ]
 
 const PROTECTED_PLACIER = ['/dashboard/placier']
