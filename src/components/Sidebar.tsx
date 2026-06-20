@@ -3,7 +3,9 @@
 import { useRouter, usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import {
-  LayoutDashboard, Map, FileText, Receipt, Settings, LogOut, Grid, CalendarCheck, QrCode, Users, MapPin, Menu, X
+  LayoutDashboard, Map, FileText, Receipt, Settings, LogOut,
+  CalendarCheck, QrCode, Users, MapPin, Menu, X,
+  Share2, Star
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
@@ -13,6 +15,8 @@ const NAV_EXPOSANT = [
   { icon: <Map size={15} />, label: 'Marchés', path: '/dashboard/evenements' },
   { icon: <MapPin size={15} />, label: 'Mon emplacement', path: '/dashboard/mon-emplacement' },
   { icon: <FileText size={15} />, label: 'Documents', path: '/dashboard/profil' },
+  { icon: <Star size={15} />, label: 'Booster', path: '/dashboard/boost' },
+  { icon: <Share2 size={15} />, label: 'Partager', path: '/dashboard/partage' },
   { icon: <Receipt size={15} />, label: 'Factures', path: '/dashboard/factures' },
   { icon: <Settings size={15} />, label: 'Paramètres', path: '/dashboard/parametres' },
 ]
@@ -63,26 +67,15 @@ export default function Sidebar({ profile }: SidebarProps) {
   return (
     <>
       {isMobile && !open && (
-        <button
-          onClick={() => setOpen(true)}
-          style={{
-            position: 'fixed', top: 14, left: 16, zIndex: 50,
-            background: '#020617', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 8, padding: '7px 8px', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+        <button onClick={() => setOpen(true)}
+          style={{ position: 'fixed', top: 14, left: 16, zIndex: 50, background: '#020617', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Menu size={18} color="white" />
         </button>
       )}
 
       {isMobile && open && (
-        <div
-          onClick={() => setOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-            zIndex: 35, backdropFilter: 'blur(2px)',
-          }}
-        />
+        <div onClick={() => setOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 35, backdropFilter: 'blur(2px)' }} />
       )}
 
       <aside style={{
@@ -90,15 +83,11 @@ export default function Sidebar({ profile }: SidebarProps) {
         position: 'fixed', top: 0, left: isMobile ? (open ? 0 : -240) : 0, bottom: 0,
         zIndex: 40, transition: 'left 0.3s ease',
       }}>
-
-        {/* ✅ Logo SVG inline */}
+        {/* ✅ Logo seul - sans texte */}
         <div style={{ padding: '18px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => router.push('/dashboard')}>
-            <img src="/logo-pulsemarket.svg" width={32} height={32} alt="PulseMarket" style={{ borderRadius: 10 }} />
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-              <span style={{ color: 'white', fontWeight: 700, fontSize: 15, letterSpacing: '-0.03em', fontFamily: "'Inter', system-ui, sans-serif" }}>Pulse</span>
-              <span style={{ color: '#818CF8', fontWeight: 400, fontSize: 15, letterSpacing: '-0.03em', fontFamily: "'Inter', system-ui, sans-serif" }}>Market</span>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => router.push('/dashboard')}>
+            <img src="/logo-pulsemarket.svg" alt="PulseMarket"
+              style={{ height: 32, width: 'auto', objectFit: 'contain' }} />
           </div>
           {isMobile && (
             <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: 4 }}>
@@ -118,7 +107,9 @@ export default function Sidebar({ profile }: SidebarProps) {
                 color: isActive(item.path) ? '#818CF8' : '#64748B',
                 fontSize: 13, fontWeight: isActive(item.path) ? 600 : 400,
                 marginBottom: 2, textAlign: 'left', transition: 'all 0.15s',
-              }}>
+              }}
+              onMouseEnter={e => { if (!isActive(item.path)) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+              onMouseLeave={e => { if (!isActive(item.path)) e.currentTarget.style.background = 'transparent' }}>
               {item.icon}{item.label}
             </button>
           ))}
@@ -126,13 +117,15 @@ export default function Sidebar({ profile }: SidebarProps) {
 
         <div style={{ padding: '12px 10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ padding: '8px 10px', marginBottom: 4 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, flexWrap: 'wrap' }}>
               <p style={{ fontSize: 12, fontWeight: 600, color: '#CBD5E1' }}>{profile?.full_name}</p>
               {profile?.role === 'organisateur' && (
                 <span style={{ fontSize: 9, fontWeight: 700, background: '#4F46E5', color: 'white', padding: '1px 6px', borderRadius: 100 }}>VÉRIFIÉ</span>
               )}
               {profile?.plan === 'pro' && profile?.role !== 'organisateur' && (
-                <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(251,191,36,0.15)', color: '#FBBF24', padding: '1px 6px', borderRadius: 100, border: '1px solid rgba(251,191,36,0.3)' }}>⭐ PRO</span>
+                <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(251,191,36,0.15)', color: '#FBBF24', padding: '1px 6px', borderRadius: 100, border: '1px solid rgba(251,191,36,0.3)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <Star size={8} style={{ fill: '#FBBF24' }} /> PRO
+                </span>
               )}
             </div>
             <p style={{ fontSize: 11, color: '#475569' }}>
@@ -140,7 +133,9 @@ export default function Sidebar({ profile }: SidebarProps) {
             </p>
           </div>
           <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent', color: '#64748B', fontSize: 12 }}>
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent', color: '#64748B', fontSize: 12 }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
             <LogOut size={13} /> Déconnexion
           </button>
         </div>
