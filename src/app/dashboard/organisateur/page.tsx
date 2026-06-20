@@ -1,17 +1,20 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { Variants } from 'framer-motion'
 import Sidebar from '@/components/Sidebar'
 import {
-  Bell, AlertTriangle, CheckCircle, Clock, Euro,
+  AlertTriangle, CheckCircle, Clock, Euro,
   Users, Map, TrendingUp, ArrowUpRight, ChevronRight,
   FileText, XCircle, RefreshCw, Zap,
-  MapPin, Calendar, Shield, Activity, Lock
+  MapPin, Calendar, Shield, Activity, Lock,
+  ThumbsUp, ThumbsDown, Sparkles
 } from 'lucide-react'
+
+const BRAND = '#4F46E5'
+const REFRESH_INTERVAL = 2 * 60 * 1000
 
 interface Toast {
   id: string; type: 'success' | 'error' | 'warning' | 'info'; title: string; message?: string
@@ -36,12 +39,12 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
           <motion.div key={toast.id}
             initial={{ opacity: 0, x: 60, scale: 0.95 }} animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 60, scale: 0.95 }} transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-            style={{ background: 'white', borderRadius: 12, padding: '14px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'flex-start', gap: 12, borderLeft: `3px solid ${toast.type === 'success' ? '#16A34A' : toast.type === 'error' ? '#DC2626' : toast.type === 'warning' ? '#F59E0B' : '#4F46E5'}` }}>
+            style={{ background: 'white', borderRadius: 12, padding: '14px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'flex-start', gap: 12, borderLeft: `3px solid ${toast.type === 'success' ? '#16A34A' : toast.type === 'error' ? '#DC2626' : toast.type === 'warning' ? '#F59E0B' : BRAND}` }}>
             <div style={{ flexShrink: 0, marginTop: 1 }}>
               {toast.type === 'success' && <CheckCircle size={16} style={{ color: '#16A34A' }} />}
               {toast.type === 'error' && <XCircle size={16} style={{ color: '#DC2626' }} />}
               {toast.type === 'warning' && <AlertTriangle size={16} style={{ color: '#F59E0B' }} />}
-              {toast.type === 'info' && <Zap size={16} style={{ color: '#4F46E5' }} />}
+              {toast.type === 'info' && <Sparkles size={16} style={{ color: BRAND }} />}
             </div>
             <div style={{ flex: 1 }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', marginBottom: toast.message ? 3 : 0 }}>{toast.title}</p>
@@ -57,7 +60,8 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
   )
 }
 
-function Sparkline({ values, color = '#4F46E5' }: { values: number[]; color?: string }) {
+function Sparkline({ values, color = BRAND }: { values: number[]; color?: string }) {
+  if (values.length < 2) return null
   const max = Math.max(...values, 1)
   const w = 80, h = 28
   const points = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - (v / max) * h}`).join(' ')
@@ -69,6 +73,22 @@ function Sparkline({ values, color = '#4F46E5' }: { values: number[]; color?: st
   )
 }
 
+function getDailyCounts(items: any[], dateField: string = 'created_at', days: number = 7): number[] {
+  const counts: number[] = new Array(days).fill(0)
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  items.forEach(item => {
+    const date = new Date(item[dateField])
+    date.setHours(0, 0, 0, 0)
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / (24 * 60 * 60 * 1000))
+    if (diffDays >= 0 && diffDays < days) {
+      counts[days - 1 - diffDays]++
+    }
+  })
+  for (let i = 1; i < counts.length; i++) counts[i] += counts[i - 1]
+  return counts
+}
+
 export default function DashboardOrganisateur() {
   const [profile, setProfile] = useState<any>(null)
   const [events, setEvents] = useState<any[]>([])
@@ -77,10 +97,13 @@ export default function DashboardOrganisateur() {
   const [toasts, setToasts] = useState<Toast[]>([])
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [boostingId, setBoostingId] = useState<string | null>(null)
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
   const router = useRouter()
   const supabase = createClient()
   const isMobile = useIsMobile()
+  const previousCountRef = useRef<number>(0)
 
   const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
     const id = Math.random().toString(36).slice(2)
@@ -90,34 +113,53 @@ export default function DashboardOrganisateur() {
 
   const removeToast = useCallback((id: string) => setToasts(prev => prev.filter(t => t.id !== id)), [])
 
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setRefreshing(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    if (profileData?.role !== 'organisateur') return
+    setProfile(profileData)
+
+    if (profileData?.organisateur_status === 'pending') {
+      setLoading(false); setRefreshing(false); return
+    }
+
+    const { data: eventsData } = await supabase.from('events').select('*').eq('organisateur_id', user.id).order('start_date', { ascending: true })
+    setEvents(eventsData || [])
+    const eventIds = eventsData?.map((e: any) => e.id) || []
+
+    if (eventIds.length > 0) {
+      const { data: apps } = await supabase.from('applications')
+        .select(`*, profiles:exposant_id(full_name, email), events:event_id(title, price_per_spot, start_date, location_name)`)
+        .in('event_id', eventIds).order('created_at', { ascending: false })
+      const appsWithData = await Promise.all((apps || []).map(async (app: any) => {
+        const { data: expData } = await supabase.from('exposant_data').select('*').eq('user_id', app.exposant_id).single()
+        return { ...app, exposant_data: expData }
+      }))
+
+      if (silent && previousCountRef.current > 0 && appsWithData.length > previousCountRef.current) {
+        const newCount = appsWithData.length - previousCountRef.current
+        addToast({
+          type: 'info',
+          title: `${newCount} nouvelle${newCount > 1 ? 's' : ''} candidature${newCount > 1 ? 's' : ''}`,
+          message: 'Mise à jour automatique',
+        })
+      }
+      previousCountRef.current = appsWithData.length
+      setCandidatures(appsWithData)
+    }
+
+    setLastRefresh(new Date())
+    setLoading(false); setRefreshing(false)
+  }, [supabase, addToast])
+
   useEffect(() => {
-    const getData = async () => {
+    const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth'); return }
-      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (profileData?.role !== 'organisateur') { router.push('/dashboard'); return }
-      setProfile(profileData)
-
-      // ✅ Si pending → on charge quand même le profil mais pas les données
-      if (profileData?.organisateur_status === 'pending') {
-        setLoading(false)
-        return
-      }
-
-      const { data: eventsData } = await supabase.from('events').select('*').eq('organisateur_id', user.id).order('start_date', { ascending: true })
-      setEvents(eventsData || [])
-      const eventIds = eventsData?.map((e: any) => e.id) || []
-      if (eventIds.length > 0) {
-        const { data: apps } = await supabase.from('applications')
-          .select(`*, profiles:exposant_id(full_name, email), events:event_id(title, price_per_spot, start_date, location_name)`)
-          .in('event_id', eventIds).order('created_at', { ascending: false })
-        const appsWithData = await Promise.all((apps || []).map(async (app: any) => {
-          const { data: expData } = await supabase.from('exposant_data').select('*').eq('user_id', app.exposant_id).single()
-          return { ...app, exposant_data: expData }
-        }))
-        setCandidatures(appsWithData)
-      }
-      setLoading(false)
+      await fetchData()
       const params = new URLSearchParams(window.location.search)
       if (params.get('boost') === 'success') {
         const eventName = params.get('event') || 'votre marché'
@@ -125,21 +167,57 @@ export default function DashboardOrganisateur() {
         window.history.replaceState({}, '', '/dashboard/organisateur')
       }
     }
-    getData()
+    init()
   }, [])
 
-  const handleValidate = async (id: string, name: string) => {
+  useEffect(() => {
+    if (loading || profile?.organisateur_status === 'pending') return
+    const interval = setInterval(() => fetchData(true), REFRESH_INTERVAL)
+    return () => clearInterval(interval)
+  }, [loading, profile, fetchData])
+
+  const handleValidate = async (id: string, name: string, candidature: any) => {
     setUpdatingId(id)
     await supabase.from('applications').update({ status: 'validated' }).eq('id', id)
     setCandidatures(prev => prev.map(c => c.id === id ? { ...c, status: 'validated' } : c))
+
+    if (candidature?.profiles?.email) {
+      try {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'candidature_validee',
+            to: candidature.profiles.email,
+            data: { exposantNom: candidature.profiles?.full_name || '', eventTitle: candidature.events?.title || '' }
+          })
+        })
+      } catch (e) { console.error('Email error:', e) }
+    }
+
     addToast({ type: 'success', title: 'Dossier approuvé', message: `${name} a été notifié par email.` })
     setUpdatingId(null)
   }
 
-  const handleReject = async (id: string, name: string) => {
+  const handleReject = async (id: string, name: string, candidature: any) => {
     setUpdatingId(id)
     await supabase.from('applications').update({ status: 'rejected' }).eq('id', id)
     setCandidatures(prev => prev.map(c => c.id === id ? { ...c, status: 'rejected' } : c))
+
+    if (candidature?.profiles?.email) {
+      try {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'candidature_refusee',
+            to: candidature.profiles.email,
+            data: { exposantNom: candidature.profiles?.full_name || '', eventTitle: candidature.events?.title || '' }
+          })
+        })
+      } catch (e) { console.error('Email error:', e) }
+    }
+
     addToast({ type: 'warning', title: 'Dossier refusé', message: `${name} a été informé du refus.` })
     setUpdatingId(null)
   }
@@ -170,10 +248,15 @@ export default function DashboardOrganisateur() {
   const nextEventFree = nextEvent ? (nextEvent.total_spots - nextEventApps.length) : 0
   const formatDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 
+  const sparkEvents = getDailyCounts(events, 'created_at', 7)
+  const sparkCandidatures = getDailyCounts(candidatures, 'created_at', 7)
+  const sparkValidated = getDailyCounts(validated, 'created_at', 7)
+  const sparkPending = getDailyCounts(pending, 'created_at', 7)
+
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #4F46E5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ width: 32, height: 32, border: `2px solid ${BRAND}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <p style={{ fontSize: 13, color: '#64748B' }}>Chargement...</p>
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -193,6 +276,14 @@ export default function DashboardOrganisateur() {
             {!isMobile && <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 1 }}>Administration municipale · {profile?.full_name}</p>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {!isPending && !isRejected && (
+              <button onClick={() => fetchData()} disabled={refreshing}
+                title={lastRefresh ? `Dernière MAJ : ${lastRefresh.toLocaleTimeString('fr-FR')}` : 'Actualiser'}
+                style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: '#64748B', fontSize: 11 }}>
+                <RefreshCw size={12} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
+                {!isMobile && (refreshing ? 'MAJ...' : 'Actualiser')}
+              </button>
+            )}
             {!isMobile && !isPending && !isRejected && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 100, padding: '4px 10px' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
@@ -202,25 +293,22 @@ export default function DashboardOrganisateur() {
             {isPending && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 100, padding: '4px 10px' }}>
                 <Clock size={11} style={{ color: '#F59E0B' }} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B' }}>En attente de validation</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B' }}>En attente</span>
               </div>
             )}
             {isRejected && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 100, padding: '4px 10px' }}>
                 <XCircle size={11} style={{ color: '#DC2626' }} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#DC2626' }}>Compte refusé</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#DC2626' }}>Refusé</span>
               </div>
             )}
           </div>
         </header>
 
-        <style>{`
-          @keyframes spin { to { transform: rotate(360deg); } }
-        `}</style>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
         <main style={{ padding: isMobile ? '14px' : '28px 32px', display: 'flex', flexDirection: 'column', gap: isMobile ? 16 : 24 }}>
 
-          {/* ✅ BANNIÈRE PENDING */}
           {isPending && (
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
               style={{ background: 'linear-gradient(135deg, #FFFBEB, #FEF3C7)', border: '1px solid #FDE68A', borderRadius: 14, padding: '20px 24px', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
@@ -228,13 +316,11 @@ export default function DashboardOrganisateur() {
                 <Clock size={20} style={{ color: '#F59E0B' }} />
               </div>
               <div style={{ flex: 1 }}>
-                <p style={{ fontSize: 14, fontWeight: 700, color: '#92400E', marginBottom: 6 }}>
-                  Votre compte est en cours de validation
-                </p>
+                <p style={{ fontSize: 14, fontWeight: 700, color: '#92400E', marginBottom: 6 }}>Votre compte est en cours de validation</p>
                 <p style={{ fontSize: 13, color: '#B45309', lineHeight: 1.6 }}>
                   Notre équipe vérifie votre dossier. Ce processus prend généralement <strong>24 à 48h ouvrées</strong>. Vous recevrez un email dès que votre compte sera activé.
                 </p>
-                <div style={{ display: 'flex', gap: 16, marginTop: 14 }}>
+                <div style={{ display: 'flex', gap: 16, marginTop: 14, flexWrap: 'wrap' }}>
                   {[
                     { label: 'Organisation', value: profile?.full_name || '—' },
                     { label: 'SIRET', value: profile?.organisation_siret || '—' },
@@ -250,7 +336,6 @@ export default function DashboardOrganisateur() {
             </motion.div>
           )}
 
-          {/* ✅ BANNIÈRE REFUSÉ */}
           {isRejected && (
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
               style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 14, padding: '20px 24px', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
@@ -266,7 +351,6 @@ export default function DashboardOrganisateur() {
             </motion.div>
           )}
 
-          {/* ✅ CONTENU BLOQUÉ SI PENDING */}
           {(isPending || isRejected) ? (
             <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 14, padding: '60px 32px', textAlign: 'center' }}>
               <div style={{ width: 56, height: 56, background: '#F1F5F9', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
@@ -284,11 +368,10 @@ export default function DashboardOrganisateur() {
             </div>
           ) : (
             <>
-              {/* Command Center */}
               <section>
                 {!isMobile && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                    <Activity size={14} style={{ color: '#4F46E5' }} />
+                    <Activity size={14} style={{ color: BRAND }} />
                     <p style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Centre de commandement</p>
                   </div>
                 )}
@@ -316,18 +399,18 @@ export default function DashboardOrganisateur() {
 
                   <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}
                     style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 14, padding: isMobile ? '14px' : '20px 22px', position: 'relative', overflow: 'hidden' }}>
-                    {!isMobile && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: nextEvent ? '#4F46E5' : '#E2E8F0' }} />}
+                    {!isMobile && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: nextEvent ? BRAND : '#E2E8F0' }} />}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: isMobile ? 10 : 14 }}>
                       <div style={{ width: 34, height: 34, background: '#EEF2FF', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <MapPin size={15} style={{ color: '#4F46E5' }} />
+                        <MapPin size={15} style={{ color: BRAND }} />
                       </div>
-                      <div>
-                        <p style={{ fontSize: 12, fontWeight: 700, color: '#4F46E5' }}>{nextEvent ? nextEvent.title : 'Aucun événement'}</p>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: BRAND, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nextEvent ? nextEvent.title : 'Aucun événement'}</p>
                         {!isMobile && <p style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>{nextEvent ? `${formatDate(nextEvent.start_date)} — ${nextEventFree} place(s)` : 'Créez un événement'}</p>}
                       </div>
                     </div>
                     <button onClick={() => nextEvent ? router.push('/dashboard/candidatures') : router.push('/dashboard/creer-evenement')}
-                      style={{ width: '100%', background: '#4F46E5', color: 'white', border: 'none', borderRadius: 9, padding: '8px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      style={{ width: '100%', background: BRAND, color: 'white', border: 'none', borderRadius: 9, padding: '8px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       <Map size={11} /> {nextEvent ? 'Voir candidatures' : 'Créer un événement'}
                     </button>
                   </motion.div>
@@ -351,19 +434,17 @@ export default function DashboardOrganisateur() {
                       <TrendingUp size={11} /> Voir la trésorerie
                     </button>
                   </motion.div>
-
                 </div>
               </section>
 
-              {/* KPIs */}
               <section>
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
                   style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 10 : 14 }}>
                   {[
-                    { label: 'Événements actifs', value: events.filter(e => e.status === 'published').length, spark: [0,1,1,2,2,3,events.length], color: '#4F46E5', icon: <Map size={13} style={{ color: '#4F46E5' }} /> },
-                    { label: 'Dossiers reçus', value: candidatures.length, spark: [0,2,4,6,8,10,candidatures.length], color: '#0EA5E9', icon: <FileText size={13} style={{ color: '#0EA5E9' }} /> },
-                    { label: 'Validés', value: validated.length, spark: [0,1,2,3,4,5,validated.length], color: '#16A34A', icon: <CheckCircle size={13} style={{ color: '#16A34A' }} /> },
-                    { label: 'En attente', value: pending.length, spark: [0,1,2,1,3,2,pending.length], color: '#F59E0B', icon: <Clock size={13} style={{ color: '#F59E0B' }} /> },
+                    { label: 'Événements actifs', value: events.filter(e => e.status === 'published').length, spark: sparkEvents, color: BRAND, icon: <Map size={13} style={{ color: BRAND }} /> },
+                    { label: 'Dossiers reçus', value: candidatures.length, spark: sparkCandidatures, color: '#0EA5E9', icon: <FileText size={13} style={{ color: '#0EA5E9' }} /> },
+                    { label: 'Validés', value: validated.length, spark: sparkValidated, color: '#16A34A', icon: <CheckCircle size={13} style={{ color: '#16A34A' }} /> },
+                    { label: 'En attente', value: pending.length, spark: sparkPending, color: '#F59E0B', icon: <Clock size={13} style={{ color: '#F59E0B' }} /> },
                   ].map((s, i) => (
                     <div key={i} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -371,13 +452,17 @@ export default function DashboardOrganisateur() {
                         {s.icon}
                       </div>
                       <p style={{ fontSize: 28, fontWeight: 700, color: '#0F172A', marginBottom: 6, letterSpacing: '-0.02em' }}>{s.value}</p>
-                      {!isMobile && <Sparkline values={s.spark} color={s.color} />}
+                      {!isMobile && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Sparkline values={s.spark} color={s.color} />
+                          <span style={{ fontSize: 9, color: '#94A3B8' }}>7j</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </motion.div>
               </section>
 
-              {/* Flux */}
               <section>
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}
                   style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 340px', gap: isMobile ? 14 : 20 }}>
@@ -389,7 +474,7 @@ export default function DashboardOrganisateur() {
                         <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>{pending.length} à traiter</p>
                       </div>
                       <button onClick={() => router.push('/dashboard/candidatures')}
-                        style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#4F46E5', background: '#EEF2FF', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontWeight: 600 }}>
+                        style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: BRAND, background: '#EEF2FF', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontWeight: 600 }}>
                         Tout voir <ArrowUpRight size={12} />
                       </button>
                     </div>
@@ -408,7 +493,7 @@ export default function DashboardOrganisateur() {
                             <div key={c.id}
                               style={{ padding: isMobile ? '12px 14px' : '14px 22px', borderBottom: i < Math.min(pending.length, 5) - 1 ? '1px solid #F8FAFC' : 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
                               <div style={{ width: 34, height: 34, borderRadius: '50%', background: ['#EEF2FF','#F0FDF4','#FEF3C7','#FEF2F2','#F0F9FF'][i%5], display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1.5px solid ${['#C7D2FE','#BBF7D0','#FDE68A','#FECACA','#BAE6FD'][i%5]}` }}>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: ['#4F46E5','#16A34A','#F59E0B','#DC2626','#0EA5E9'][i%5] }}>{name.charAt(0).toUpperCase()}</span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: [BRAND,'#16A34A','#F59E0B','#DC2626','#0EA5E9'][i%5] }}>{name.charAt(0).toUpperCase()}</span>
                               </div>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
@@ -420,13 +505,13 @@ export default function DashboardOrganisateur() {
                                 <p style={{ fontSize: 11, color: '#94A3B8' }}>{c.events?.title}</p>
                               </div>
                               <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-                                <button onClick={() => handleValidate(c.id, name)} disabled={updatingId === c.id}
-                                  style={{ background: '#16A34A', color: 'white', border: 'none', borderRadius: 7, padding: isMobile ? '5px 8px' : '6px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', opacity: updatingId === c.id ? 0.6 : 1 }}>
-                                  ✓
+                                <button onClick={() => handleValidate(c.id, name, c)} disabled={updatingId === c.id} title="Valider"
+                                  style={{ background: '#16A34A', color: 'white', border: 'none', borderRadius: 7, padding: isMobile ? '5px 8px' : '6px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', opacity: updatingId === c.id ? 0.6 : 1, display: 'flex', alignItems: 'center' }}>
+                                  <ThumbsUp size={12} />
                                 </button>
-                                <button onClick={() => handleReject(c.id, name)} disabled={updatingId === c.id}
-                                  style={{ background: '#F8FAFC', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 7, padding: isMobile ? '5px 8px' : '6px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', opacity: updatingId === c.id ? 0.6 : 1 }}>
-                                  ✕
+                                <button onClick={() => handleReject(c.id, name, c)} disabled={updatingId === c.id} title="Refuser"
+                                  style={{ background: '#F8FAFC', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 7, padding: isMobile ? '5px 8px' : '6px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', opacity: updatingId === c.id ? 0.6 : 1, display: 'flex', alignItems: 'center' }}>
+                                  <ThumbsDown size={12} />
                                 </button>
                               </div>
                             </div>
@@ -435,7 +520,7 @@ export default function DashboardOrganisateur() {
                         {pending.length > 5 && (
                           <div style={{ padding: '12px 18px', borderTop: '1px solid #F1F5F9' }}>
                             <button onClick={() => router.push('/dashboard/candidatures')}
-                              style={{ fontSize: 12, color: '#4F46E5', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              style={{ fontSize: 12, color: BRAND, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
                               Voir {pending.length - 5} de plus <ChevronRight size={12} />
                             </button>
                           </div>
@@ -449,7 +534,7 @@ export default function DashboardOrganisateur() {
                       <div style={{ padding: '12px 16px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>Mes marchés</p>
                         <button onClick={() => router.push('/dashboard/creer-evenement')}
-                          style={{ fontSize: 11, color: '#4F46E5', background: '#EEF2FF', border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
+                          style={{ fontSize: 11, color: BRAND, background: '#EEF2FF', border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}>
                           + Nouveau
                         </button>
                       </div>
@@ -473,13 +558,13 @@ export default function DashboardOrganisateur() {
                                 <span style={{ fontSize: 11, fontWeight: 700, color: pct >= 80 ? '#DC2626' : pct >= 50 ? '#F59E0B' : '#16A34A', flexShrink: 0, marginLeft: 8 }}>{pct}%</span>
                               </div>
                               <div style={{ height: 3, background: '#F1F5F9', borderRadius: 100, overflow: 'hidden', marginBottom: 6 }}>
-                                <div style={{ height: '100%', width: `${pct}%`, background: pct >= 80 ? '#DC2626' : pct >= 50 ? '#F59E0B' : '#4F46E5', borderRadius: 100, transition: 'width 0.5s' }} />
+                                <div style={{ height: '100%', width: `${pct}%`, background: pct >= 80 ? '#DC2626' : pct >= 50 ? '#F59E0B' : BRAND, borderRadius: 100, transition: 'width 0.5s' }} />
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <p style={{ fontSize: 10, color: '#94A3B8' }}>{eventValidated.length}/{event.total_spots}</p>
                                 <button onClick={e => { e.stopPropagation(); handleBoost(event) }} disabled={boostingId === event.id}
-                                  style={{ display: 'flex', alignItems: 'center', gap: 4, background: boostingId === event.id ? '#F3F4F6' : 'linear-gradient(135deg,#F59E0B,#EF4444)', color: boostingId === event.id ? '#9CA3AF' : 'white', border: 'none', borderRadius: 6, padding: '4px 9px', fontSize: 10, fontWeight: 700, cursor: boostingId === event.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
-                                  {boostingId === event.id ? '...' : '200€'}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 4, background: boostingId === event.id ? '#F1F5F9' : BRAND, color: boostingId === event.id ? '#94A3B8' : 'white', border: 'none', borderRadius: 6, padding: '4px 9px', fontSize: 10, fontWeight: 700, cursor: boostingId === event.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                                  {boostingId === event.id ? '...' : <><Zap size={9} /> Boost 200€</>}
                                 </button>
                               </div>
                             </div>
