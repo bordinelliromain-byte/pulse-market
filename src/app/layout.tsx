@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import CrispChat from '@/components/CrispChat'
 import SessionGuard from '@/components/SessionGuard'
+import 'leaflet/dist/leaflet.css'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
