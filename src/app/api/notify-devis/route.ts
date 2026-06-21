@@ -11,11 +11,19 @@ import {
   validateBody,
   checkRateLimit,
   emailSchema,
-  phoneSchema,
 } from '@/lib/validation'
-import { sanitize, sanitizeAll } from '@/lib/sanitize'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
+
+// ─── Helper escape HTML léger (anti-XSS) ───
+function escapeHtml(str: string): string {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
 
 // ─── Schéma Zod strict ───
 const devisSchema = z.object({
@@ -76,8 +84,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Configuration serveur invalide' }, { status: 500 })
     }
 
-    // ─── 4. Sanitize TOUS les inputs (XSS protection) ───
-    const safeData: any = sanitizeAll(data)
+    // ─── 4. Escape HTML sur tous les inputs string (anti-XSS dans email) ───
+    const safe = {
+      ...data,
+      contact_name: escapeHtml(data.contact_name),
+      contact_role: data.contact_role ? escapeHtml(data.contact_role) : '',
+      contact_email: escapeHtml(data.contact_email),
+      contact_phone: escapeHtml(data.contact_phone),
+      organisation_name: data.organisation_name ? escapeHtml(data.organisation_name) : '',
+      message: data.message ? escapeHtml(data.message) : '',
+    }
 
     // ─── 5. Mappings labels ───
     const orgTypeLabels: Record<string, string> = {
@@ -113,13 +129,13 @@ export async function POST(req: NextRequest) {
 
     // ─── 6. Construire la liste des options ───
     const options: string[] = []
-    if (safeData.extra_placiers > 0) options.push(`${safeData.extra_placiers} compte(s) placier supplémentaire(s)`)
-    if (safeData.module_festival) options.push('Module festival/brocante')
-    if (safeData.formation_presentiel) options.push('Formation présentiel')
-    if (safeData.sla_premium) options.push('SLA Premium')
+    if (safe.extra_placiers > 0) options.push(`${safe.extra_placiers} compte(s) placier supplémentaire(s)`)
+    if (safe.module_festival) options.push('Module festival/brocante')
+    if (safe.formation_presentiel) options.push('Formation présentiel')
+    if (safe.sla_premium) options.push('SLA Premium')
 
     // ─── 7. Calculer priorité ───
-    const totalEstimated = safeData.estimated_monthly + (safeData.estimated_one_shot || 0)
+    const totalEstimated = safe.estimated_monthly + (safe.estimated_one_shot || 0)
     const priority = totalEstimated >= 800
       ? 'PRIORITÉ HAUTE'
       : totalEstimated >= 400
@@ -159,7 +175,7 @@ export async function POST(req: NextRequest) {
   <div class="container">
     <div class="header">
       <h1>Nouvelle demande de devis</h1>
-      <p>${orgTypeLabels[safeData.organisation_type] || safeData.organisation_type}</p>
+      <p>${orgTypeLabels[safe.organisation_type] || safe.organisation_type}</p>
       <span class="priority">${priority}</span>
     </div>
 
@@ -168,27 +184,27 @@ export async function POST(req: NextRequest) {
       <!-- Estimation -->
       <div class="estimation">
         <div class="sub">Estimation calculée</div>
-        <div class="total">${safeData.estimated_monthly} €<span style="font-size: 16px; font-weight: 500; opacity: 0.7;"> / mois</span></div>
-        ${safeData.estimated_one_shot > 0 ? `<div class="sub">+ ${safeData.estimated_one_shot} € frais uniques (formation)</div>` : ''}
+        <div class="total">${safe.estimated_monthly} €<span style="font-size: 16px; font-weight: 500; opacity: 0.7;"> / mois</span></div>
+        ${safe.estimated_one_shot > 0 ? `<div class="sub">+ ${safe.estimated_one_shot} € frais uniques (formation)</div>` : ''}
       </div>
 
       <!-- Contact -->
       <div class="section">
         <div class="section-title">Contact</div>
-        <div class="row"><span class="label">Nom</span><span class="value">${safeData.contact_name}</span></div>
-        ${safeData.contact_role ? `<div class="row"><span class="label">Fonction</span><span class="value">${safeData.contact_role}</span></div>` : ''}
-        <div class="row"><span class="label">Email</span><span class="value"><a href="mailto:${safeData.contact_email}" style="color: #4F46E5; text-decoration: none;">${safeData.contact_email}</a></span></div>
-        <div class="row"><span class="label">Téléphone</span><span class="value"><a href="tel:${safeData.contact_phone}" style="color: #4F46E5; text-decoration: none;">${safeData.contact_phone}</a></span></div>
+        <div class="row"><span class="label">Nom</span><span class="value">${safe.contact_name}</span></div>
+        ${safe.contact_role ? `<div class="row"><span class="label">Fonction</span><span class="value">${safe.contact_role}</span></div>` : ''}
+        <div class="row"><span class="label">Email</span><span class="value"><a href="mailto:${safe.contact_email}" style="color: #4F46E5; text-decoration: none;">${safe.contact_email}</a></span></div>
+        <div class="row"><span class="label">Téléphone</span><span class="value"><a href="tel:${safe.contact_phone}" style="color: #4F46E5; text-decoration: none;">${safe.contact_phone}</a></span></div>
       </div>
 
       <!-- Organisation -->
       <div class="section">
         <div class="section-title">Organisation</div>
-        <div class="row"><span class="label">Type</span><span class="value">${orgTypeLabels[safeData.organisation_type] || safeData.organisation_type}</span></div>
-        ${safeData.organisation_name ? `<div class="row"><span class="label">Nom</span><span class="value">${safeData.organisation_name}</span></div>` : ''}
-        ${safeData.population ? `<div class="row"><span class="label">Population</span><span class="value">${populationLabels[safeData.population] || safeData.population}</span></div>` : ''}
-        ${safeData.markets_per_month ? `<div class="row"><span class="label">Marchés/mois</span><span class="value">${marketsLabels[safeData.markets_per_month] || safeData.markets_per_month}</span></div>` : ''}
-        ${safeData.avg_exhibitors ? `<div class="row"><span class="label">Exposants moyens</span><span class="value">${exhibitorsLabels[safeData.avg_exhibitors] || safeData.avg_exhibitors}</span></div>` : ''}
+        <div class="row"><span class="label">Type</span><span class="value">${orgTypeLabels[safe.organisation_type] || safe.organisation_type}</span></div>
+        ${safe.organisation_name ? `<div class="row"><span class="label">Nom</span><span class="value">${safe.organisation_name}</span></div>` : ''}
+        ${safe.population ? `<div class="row"><span class="label">Population</span><span class="value">${populationLabels[safe.population] || safe.population}</span></div>` : ''}
+        ${safe.markets_per_month ? `<div class="row"><span class="label">Marchés/mois</span><span class="value">${marketsLabels[safe.markets_per_month] || safe.markets_per_month}</span></div>` : ''}
+        ${safe.avg_exhibitors ? `<div class="row"><span class="label">Exposants moyens</span><span class="value">${exhibitorsLabels[safe.avg_exhibitors] || safe.avg_exhibitors}</span></div>` : ''}
       </div>
 
       <!-- Options -->
@@ -200,16 +216,16 @@ export async function POST(req: NextRequest) {
       ` : ''}
 
       <!-- Message -->
-      ${safeData.message ? `
+      ${safe.message ? `
       <div class="section">
         <div class="section-title">Message du prospect</div>
-        <div class="message-box">${safeData.message.replace(/\n/g, '<br>')}</div>
+        <div class="message-box">${safe.message.replace(/\n/g, '<br>')}</div>
       </div>
       ` : ''}
 
       <!-- CTAs -->
-      <a href="tel:${safeData.contact_phone}" class="cta">Rappeler maintenant</a>
-      <a href="mailto:${safeData.contact_email}?subject=Votre%20devis%20PulseMarket" class="cta-secondary">Répondre par email</a>
+      <a href="tel:${safe.contact_phone}" class="cta">Rappeler maintenant</a>
+      <a href="mailto:${safe.contact_email}?subject=Votre%20devis%20PulseMarket" class="cta-secondary">Répondre par email</a>
 
     </div>
 
@@ -226,8 +242,8 @@ export async function POST(req: NextRequest) {
     const { error } = await resend.emails.send({
       from: 'PulseMarket <contact@pulse-market.fr>',
       to: 'villeprat.romain@gmail.com',
-      replyTo: safeData.contact_email,
-      subject: `Nouveau devis : ${orgTypeLabels[safeData.organisation_type] || 'Demande'} — ${safeData.estimated_monthly}€/mois`,
+      replyTo: data.contact_email, // ✅ Email original pour reply
+      subject: `Nouveau devis : ${orgTypeLabels[safe.organisation_type] || 'Demande'} — ${safe.estimated_monthly}€/mois`,
       html,
     })
 
