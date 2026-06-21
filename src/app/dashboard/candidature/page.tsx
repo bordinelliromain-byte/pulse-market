@@ -139,6 +139,61 @@ function CandidatureForm() {
         event_id: eventId, exposant_id: user.id, status: 'pending', message,
       })
       if (error) throw error
+
+      // ✅ Récupérer les infos de l'événement + mairie pour les emails
+      const { data: eventData } = await supabase
+        .from('events')
+        .select(`
+          title, start_date, location_name, organisateur_id,
+          organisateur:organisateur_id (email, organisation_name, full_name, logo_url)
+        `)
+        .eq('id', eventId)
+        .single()
+
+      const mairie = (eventData?.organisateur as any) || null
+      const formattedDate = eventData?.start_date
+        ? new Date(eventData.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+        : eventDate
+
+      // ✅ Email à l'exposant — Confirmation candidature envoyée
+      if (profile?.email) {
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'candidature_envoyee',
+            to: profile.email,
+            data: {
+              exposantNom: profile.full_name || '',
+              eventTitle: eventData?.title || eventName,
+              eventDate: formattedDate,
+              eventLocation: eventData?.location_name || eventLocation,
+              mairieNom: mairie?.organisation_name || mairie?.full_name,
+              mairieLogoUrl: mairie?.logo_url,
+            }
+          })
+        }).catch(err => console.error('Email candidature_envoyee error:', err))
+      }
+
+      // ✅ Email à la mairie — Notification nouvelle candidature
+      if (mairie?.email) {
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'nouvelle_candidature',
+            to: mairie.email,
+            data: {
+              exposantNom: profile?.full_name || '',
+              exposantEmail: profile?.email || '',
+              exposantActivite: exposantData?.category || exposantData?.activity || '—',
+              eventTitle: eventData?.title || eventName,
+              eventDate: formattedDate,
+            }
+          })
+        }).catch(err => console.error('Email nouvelle_candidature error:', err))
+      }
+
       await new Promise(r => setTimeout(r, 1000))
       setToast({ message: 'Candidature envoyée avec succès !', type: 'success' })
       setTimeout(() => setSuccess(true), 1500)

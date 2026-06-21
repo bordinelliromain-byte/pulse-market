@@ -43,13 +43,27 @@ function PaiementSuccessContent() {
           setUpdateError(updateErr.message)
         }
 
+        // ✅ Récupère candidature + event + mairie en 1 seule requête
         const { data: app } = await supabase
           .from('applications')
-          .select(`*, profiles:exposant_id(full_name, email), events:event_id(title, start_date, location_name, price_per_spot, latitude, longitude)`)
+          .select(`
+            *,
+            profiles:exposant_id(full_name, email),
+            events:event_id(
+              title, start_date, location_name, price_per_spot, latitude, longitude, organisateur_id,
+              organisateur:organisateur_id (email, organisation_name, full_name, logo_url)
+            )
+          `)
           .eq('id', candidatureId)
           .single()
 
         if (app) {
+          const mairie = (app.events?.organisateur as any) || null
+          const formattedDate = app.events?.start_date
+            ? new Date(app.events.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+            : ''
+
+          // ✅ Email à l'EXPOSANT (paiement confirmé)
           await fetch('/api/send-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -59,15 +73,35 @@ function PaiementSuccessContent() {
               data: {
                 exposantNom: profileData?.full_name || '',
                 eventTitle: app.events?.title || '',
-                eventDate: app.events?.start_date
-                  ? new Date(app.events.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-                  : '',
+                eventDate: formattedDate,
                 eventLocation: app.events?.location_name || '',
                 redevanceAOT: app.events?.price_per_spot || 0,
                 fraisPlateforme: 2,
+                // ✅ AJOUT : bandeau mairie en haut de l'email
+                mairieNom: mairie?.organisation_name || mairie?.full_name,
+                mairieLogoUrl: mairie?.logo_url,
               }
             })
-          })
+          }).catch(err => console.error('Email paiement_confirme error:', err))
+
+          // ✅ Email à la MAIRIE (notification paiement reçu)
+          if (mairie?.email) {
+            fetch('/api/send-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'paiement_recu_mairie',
+                to: mairie.email,
+                data: {
+                  exposantNom: profileData?.full_name || '',
+                  exposantEmail: profileData?.email || '',
+                  eventTitle: app.events?.title || '',
+                  eventDate: formattedDate,
+                  montant: app.events?.price_per_spot || 0,
+                }
+              })
+            }).catch(err => console.error('Email paiement_recu_mairie error:', err))
+          }
 
           const { data: expData } = await supabase
             .from('exposant_data').select('*').eq('user_id', user.id).single()

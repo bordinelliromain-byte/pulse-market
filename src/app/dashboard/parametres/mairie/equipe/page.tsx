@@ -330,9 +330,29 @@ export default function EquipePage() {
   const handleChangeRole = async (member: any, newRole: Role) => {
     setChangingRoleId(member.id)
     try {
+      const oldRole = member.role as Role
       await supabase.from('team_members').update({ role: newRole }).eq('id', member.id)
       const { data: { user } } = await supabase.auth.getUser()
       if (user) await loadTeam(user.id)
+
+      // ✅ Envoyer email de changement de rôle
+      if (member.profile?.email) {
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'team_role_change',
+            to: member.profile.email,
+            data: {
+              nom: member.profile?.full_name || '',
+              mairieNom: profile?.organisation_name || profile?.full_name || 'votre organisation',
+              oldRole: ROLE_BY_ID[oldRole].label,
+              newRole: ROLE_BY_ID[newRole].label,
+            }
+          })
+        }).catch(err => console.error('Email team_role_change error:', err))
+      }
+
       setToast({ message: `${member.profile?.full_name} est maintenant ${ROLE_BY_ID[newRole].label}`, type: 'success' })
     } catch (err: any) {
       setToast({ message: 'Erreur : ' + err.message, type: 'error' })
@@ -417,9 +437,30 @@ export default function EquipePage() {
       confirmColor: '#DC2626',
       onConfirm: async () => {
         try {
+          // ✅ Sauvegarder les infos avant suppression pour l'email
+          const memberEmail = member.profile?.email
+          const memberNom = member.profile?.full_name || ''
+
           await supabase.from('team_members').delete().eq('id', member.id)
           const { data: { user } } = await supabase.auth.getUser()
           if (user) await loadTeam(user.id)
+
+          // ✅ Envoyer email de retrait d'équipe
+          if (memberEmail) {
+            fetch('/api/send-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'team_removed',
+                to: memberEmail,
+                data: {
+                  nom: memberNom,
+                  mairieNom: profile?.organisation_name || profile?.full_name || 'votre organisation',
+                }
+              })
+            }).catch(err => console.error('Email team_removed error:', err))
+          }
+
           setToast({ message: 'Membre retiré de l\'équipe', type: 'success' })
         } catch (err: any) {
           setToast({ message: 'Erreur : ' + err.message, type: 'error' })

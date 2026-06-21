@@ -81,7 +81,7 @@ export async function exportToPDF({ eventTitle, spots, exposants, mapElement }: 
   pdf.text('Généré par PulseMarket · pulse-market.fr', pageW - 70, pageH - 8)
 
   // === PAGE 2 : Liste des attributions ===
-  pdf.addPage('landscape', 'a4')
+  pdf.addPage('a4', 'landscape')
 
   pdf.setFillColor(15, 23, 42)
   pdf.rect(0, 0, pageW, 18, 'F')
@@ -115,7 +115,7 @@ export async function exportToPDF({ eventTitle, spots, exposants, mapElement }: 
   const assigned = spots.filter(s => s.application_id).sort((a, b) => a.label.localeCompare(b.label))
   assigned.forEach((spot, i) => {
     if (rowY > pageH - 15) {
-      pdf.addPage('landscape', 'a4')
+      pdf.addPage('a4', 'landscape')
       rowY = 20
     }
     if (i % 2 === 0) {

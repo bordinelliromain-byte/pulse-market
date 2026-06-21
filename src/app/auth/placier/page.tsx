@@ -92,6 +92,33 @@ function PlacierAuthContent() {
           .update({ used: true })
           .eq('token', token)
 
+        // ✅ Récupérer le nom de la mairie pour l'email de bienvenue
+        let mairieNom = 'votre mairie'
+        try {
+          const { data: mairieData } = await supabase
+            .from('profiles')
+            .select('organisation_name, full_name')
+            .eq('id', invitation.mairie_id)
+            .single()
+          mairieNom = mairieData?.organisation_name || mairieData?.full_name || 'votre mairie'
+        } catch (e) {
+          console.error('Mairie fetch error:', e)
+        }
+
+        // ✅ Envoyer email de bienvenue placier (fire and forget, ne bloque pas le flow)
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'bienvenue_placier',
+            to: emailFromUrl,
+            data: {
+              nom: fullName,
+              mairieNom: mairieNom,
+            }
+          })
+        }).catch(err => console.error('Email bienvenue_placier error:', err))
+
         setSignupSuccess(true)
         setTimeout(() => router.push('/dashboard/placier'), 2000)
       }

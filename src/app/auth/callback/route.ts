@@ -1,3 +1,4 @@
+// src/app/auth/callback/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
@@ -18,8 +19,88 @@ export async function GET(req: NextRequest) {
         },
       }
     )
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
+
+    const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (!error && sessionData?.user) {
+      const user = sessionData.user
+
+      // ─── Récupérer le profil pour avoir le rôle + nom ───
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, full_name, organisation_name, mairie_id, email')
+        .eq('id', user.id)
+        .single()
+
+      // ─── Envoyer email de bienvenue selon le rôle ───
+      // Seulement à la PREMIÈRE confirmation (on check si email_confirmed_at vient juste d'être set)
+      const justConfirmed = user.email_confirmed_at
+        ? Date.now() - new Date(user.email_confirmed_at).getTime() < 60_000  // dans la dernière minute
+        : false
+
+      if (justConfirmed && profile) {
+        try {
+          const fullName = profile.full_name || user.user_metadata?.full_name || 'Cher utilisateur'
+          const userEmail = profile.email || user.email || ''
+
+          if (profile.role === 'exposant') {
+            // ─── BIENVENUE EXPOSANT ───
+            await fetch(`${origin}/api/send-email`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'bienvenue',
+                to: userEmail,
+                data: { nom: fullName }
+              })
+            }).catch(err => console.error('Email bienvenue error:', err))
+
+          } else if (profile.role === 'organisateur') {
+            // ─── BIENVENUE MAIRIE ───
+            await fetch(`${origin}/api/send-email`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'bienvenue_mairie',
+                to: userEmail,
+                data: {
+                  nom: fullName,
+                  organisationNom: profile.organisation_name || fullName
+                }
+              })
+            }).catch(err => console.error('Email bienvenue_mairie error:', err))
+
+          } else if (profile.role === 'placier') {
+            // ─── BIENVENUE PLACIER (avec nom de la mairie) ───
+            let mairieNom = 'votre mairie'
+            if (profile.mairie_id) {
+              const { data: mairie } = await supabase
+                .from('profiles')
+                .select('organisation_name, full_name')
+                .eq('id', profile.mairie_id)
+                .single()
+              mairieNom = mairie?.organisation_name || mairie?.full_name || 'votre mairie'
+            }
+
+            await fetch(`${origin}/api/send-email`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'bienvenue_placier',
+                to: userEmail,
+                data: {
+                  nom: fullName,
+                  mairieNom: mairieNom
+                }
+              })
+            }).catch(err => console.error('Email bienvenue_placier error:', err))
+          }
+        } catch (emailErr) {
+          console.error('[callback] Email send failed:', emailErr)
+          // Ne JAMAIS bloquer la redirection à cause d'un email
+        }
+      }
+
       // ✅ Redirige vers /auth?confirmed=true pour afficher le message
       return NextResponse.redirect(`${origin}/auth?confirmed=true`)
     }

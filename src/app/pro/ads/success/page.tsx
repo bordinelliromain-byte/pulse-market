@@ -3,13 +3,18 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { createClient } from '@/lib/supabase'
 
 function BoostSuccessContent() {
   const searchParams = useSearchParams()
   const nom = searchParams.get('nom') || 'votre commerce'
   const event = searchParams.get('event') || 'le marché'
+  const eventId = searchParams.get('eventId') || ''
+  const offre = searchParams.get('offre') || 'Boost Whatmarket'
+  const amount = parseInt(searchParams.get('amount') || '20', 10)
   const sessionId = searchParams.get('session_id')
   const [emailSent, setEmailSent] = useState(false)
+  const supabase = createClient()
 
   useEffect(() => {
     if (!sessionId || emailSent) return
@@ -17,20 +22,42 @@ function BoostSuccessContent() {
     // Envoyer l'email de confirmation via notre API
     const sendEmail = async () => {
       try {
+        // ✅ Récupérer l'email de l'utilisateur connecté
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user?.email) {
+          console.error('[boost-success] Pas d\'email utilisateur trouvé')
+          return
+        }
+
         const res = await fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'boost_confirmation',
-            to: '', // sera récupéré depuis la session Stripe via webhook
-            data: { nom, offre: '', eventTitle: event, eventId: '' }
+            to: user.email,
+            data: {
+              nom: nom || user.user_metadata?.full_name || 'Forain',
+              offre,
+              eventTitle: event,
+              eventId,
+              amount,
+              stripeSessionId: sessionId,
+            }
           })
         })
-        setEmailSent(true)
-      } catch (err) { console.error(err) }
+
+        if (res.ok) {
+          setEmailSent(true)
+        } else {
+          console.error('[boost-success] Erreur envoi email:', await res.text())
+        }
+      } catch (err) {
+        console.error('[boost-success] Email error:', err)
+      }
     }
     sendEmail()
-  }, [sessionId])
+  }, [sessionId, emailSent, nom, event, eventId, offre, amount, supabase])
 
   return (
     <div style={{ minHeight: '100vh', background: '#F9F8F6', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: '"DM Sans", system-ui, sans-serif' }}>
@@ -62,7 +89,7 @@ function BoostSuccessContent() {
             ['Commerce', nom],
             ['Marché', event],
             ['Type', 'Publication sponsorisée'],
-            ['Montant payé', '20,00 €'],
+            ['Montant payé', `${amount.toFixed(2)} €`],
             ['Statut', '✅ Confirmé'],
           ].map(([label, value], i, arr) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, paddingBottom: i < arr.length - 1 ? 10 : 0, marginBottom: i < arr.length - 1 ? 10 : 0, borderBottom: i < arr.length - 1 ? '1px solid #F3F4F6' : 'none' }}>

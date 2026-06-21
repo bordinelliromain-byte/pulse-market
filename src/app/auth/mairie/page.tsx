@@ -207,9 +207,11 @@ function AuthOrganisateurForm() {
     } catch (e) { console.error('Upload justificatif error:', e) }
 
     // 4. Mettre à jour le profil
+    // ✅ FIX : on ajoute organisation_name pour que le callback puisse l'utiliser dans l'email
     await supabase.from('profiles').update({
       organisateur_status: 'pending',
       organisation_siret: siretClean,
+      organisation_name: orgName,
       justificatif_url: justificatifUrl,
     }).eq('id', authData.user.id)
 
