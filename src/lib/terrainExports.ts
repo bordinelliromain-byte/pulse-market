@@ -1,4 +1,9 @@
 // src/lib/terrainExports.ts
+// ═════════════════════════════════════════════════════════════
+// PULSEMARKET — Exports PDF / PNG / Excel des plans d'attribution
+// ✅ Migré de xlsx → exceljs (sans vulnérabilités)
+// ═════════════════════════════════════════════════════════════
+
 import type { Spot, Exposant } from '@/components/TerrainEditor'
 import { getCategoryColor, CATEGORY_COLORS } from '@/components/TerrainEditor'
 
@@ -9,7 +14,9 @@ interface ExportOptions {
   mapElement: HTMLElement
 }
 
-// ========== EXPORT PDF ==========
+// ═════════════════════════════════════════════════════════════
+// EXPORT PDF (inchangé — utilise jspdf + html2canvas)
+// ═════════════════════════════════════════════════════════════
 export async function exportToPDF({ eventTitle, spots, exposants, mapElement }: ExportOptions) {
   const html2canvas = (await import('html2canvas')).default
   const { jsPDF } = await import('jspdf')
@@ -142,7 +149,9 @@ export async function exportToPDF({ eventTitle, spots, exposants, mapElement }: 
   pdf.save(filename)
 }
 
-// ========== EXPORT PNG ==========
+// ═════════════════════════════════════════════════════════════
+// EXPORT PNG (inchangé — utilise html2canvas)
+// ═════════════════════════════════════════════════════════════
 export async function exportToPNG({ eventTitle, mapElement }: { eventTitle: string; mapElement: HTMLElement }) {
   const html2canvas = (await import('html2canvas')).default
   const canvas = await html2canvas(mapElement, {
@@ -157,50 +166,144 @@ export async function exportToPNG({ eventTitle, mapElement }: { eventTitle: stri
   link.click()
 }
 
-// ========== EXPORT EXCEL ==========
+// ═════════════════════════════════════════════════════════════
+// EXPORT EXCEL — Migré vers exceljs (sans vulnérabilités)
+// ═════════════════════════════════════════════════════════════
 export async function exportToExcel({ eventTitle, spots }: { eventTitle: string; spots: Spot[] }) {
-  const XLSX = await import('xlsx')
+  // ✅ Import dynamique d'exceljs
+  const ExcelJS = (await import('exceljs')).default
 
+  // Créer le workbook
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'PulseMarket'
+  workbook.created = new Date()
+  workbook.modified = new Date()
+
+  // Créer la worksheet
+  const worksheet = workbook.addWorksheet('Attributions', {
+    properties: { tabColor: { argb: 'FF4F46E5' } },
+  })
+
+  // ─── Définir les colonnes avec headers + largeurs ───
+  worksheet.columns = [
+    { header: 'Case', key: 'case', width: 8 },
+    { header: 'Statut', key: 'statut', width: 12 },
+    { header: 'Exposant', key: 'exposant', width: 30 },
+    { header: 'Activité', key: 'activite', width: 22 },
+    { header: 'Stand (m)', key: 'stand', width: 12 },
+    { header: 'Email', key: 'email', width: 30 },
+    { header: 'Téléphone', key: 'telephone', width: 16 },
+    { header: 'SIREN', key: 'siren', width: 14 },
+    { header: 'Latitude', key: 'latitude', width: 12 },
+    { header: 'Longitude', key: 'longitude', width: 12 },
+  ]
+
+  // ─── Style header ───
+  const headerRow = worksheet.getRow(1)
+  headerRow.font = {
+    name: 'Calibri',
+    size: 11,
+    bold: true,
+    color: { argb: 'FFFFFFFF' },
+  }
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF4F46E5' }, // BRAND PulseMarket
+  }
+  headerRow.alignment = { vertical: 'middle', horizontal: 'left' }
+  headerRow.height = 22
+
+  // Bordure header
+  headerRow.eachCell((cell) => {
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+    }
+  })
+
+  // ─── Préparer les données ───
   const data = spots
     .filter(s => s.type === 'emplacement')
     .sort((a, b) => a.label.localeCompare(b.label))
     .map(spot => ({
-      'Case': spot.label,
-      'Statut': spot.application_id ? 'Attribué' : 'Libre',
-      'Exposant': spot.application?.exposant_data?.business_name || spot.application?.profiles?.full_name || '',
-      'Activité': spot.application?.exposant_data?.category || '',
-      'Stand (m)': `${spot.width_m} × ${spot.length_m}`,
-      'Email': spot.application?.profiles?.email || '',
-      'Téléphone': spot.application?.profiles?.phone || '',
-      'SIREN': spot.application?.exposant_data?.siren || '',
-      'Latitude': spot.lat.toFixed(6),
-      'Longitude': spot.lng.toFixed(6),
+      case: spot.label,
+      statut: spot.application_id ? 'Attribué' : 'Libre',
+      exposant: spot.application?.exposant_data?.business_name
+        || spot.application?.profiles?.full_name
+        || '',
+      activite: spot.application?.exposant_data?.category || '',
+      stand: `${spot.width_m} × ${spot.length_m}`,
+      email: spot.application?.profiles?.email || '',
+      telephone: spot.application?.profiles?.phone || '',
+      siren: spot.application?.exposant_data?.siren || '',
+      latitude: spot.lat.toFixed(6),
+      longitude: spot.lng.toFixed(6),
     }))
 
-  const ws = XLSX.utils.json_to_sheet(data)
+  // ─── Ajouter les lignes ───
+  worksheet.addRows(data)
 
-  // Largeurs colonnes
-  ws['!cols'] = [
-    { wch: 8 },  // Case
-    { wch: 10 }, // Statut
-    { wch: 30 }, // Exposant
-    { wch: 20 }, // Activité
-    { wch: 12 }, // Stand
-    { wch: 30 }, // Email
-    { wch: 16 }, // Tél
-    { wch: 12 }, // SIREN
-    { wch: 12 }, // Lat
-    { wch: 12 }, // Lng
-  ]
+  // ─── Styliser les lignes de données ───
+  worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber === 1) return // Skip header
 
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Attributions')
+    // Alternance couleurs (zébré)
+    if (rowNumber % 2 === 0) {
+      row.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF8FAFC' }, // Gris très clair
+      }
+    }
 
-  const filename = `${eventTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-attributions.xlsx`
-  XLSX.writeFile(wb, filename)
+    // Style général des cellules
+    row.eachCell((cell, colNumber) => {
+      cell.font = { name: 'Calibri', size: 10 }
+      cell.alignment = { vertical: 'middle', horizontal: 'left' }
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFF1F5F9' } },
+        left: { style: 'thin', color: { argb: 'FFF1F5F9' } },
+        bottom: { style: 'thin', color: { argb: 'FFF1F5F9' } },
+        right: { style: 'thin', color: { argb: 'FFF1F5F9' } },
+      }
+
+      // ✅ Colorer la colonne "Statut" selon valeur
+      if (colNumber === 2) {
+        const isAttribue = cell.value === 'Attribué'
+        cell.font = {
+          name: 'Calibri',
+          size: 10,
+          bold: true,
+          color: { argb: isAttribue ? 'FF16A34A' : 'FFF59E0B' },
+        }
+      }
+    })
+  })
+
+  // ─── Freeze header (header reste visible au scroll) ───
+  worksheet.views = [{ state: 'frozen', ySplit: 1 }]
+
+  // ─── Générer le fichier et déclencher le download ───
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  })
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${eventTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-attributions.xlsx`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
 }
 
-// Helper
+// ═════════════════════════════════════════════════════════════
+// HELPER
+// ═════════════════════════════════════════════════════════════
 function hexToRgb(hex: string) {
   const r = parseInt(hex.slice(1, 3), 16)
   const g = parseInt(hex.slice(3, 5), 16)
